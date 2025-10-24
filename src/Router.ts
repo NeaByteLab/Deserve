@@ -1,3 +1,4 @@
+import type { ServeDirOptions } from '@std/http/file-server'
 import type { ErrorMiddleware, RouterHandler, RouterMiddleware, RouterOptions } from '@app/Types.ts'
 import { handleRequest } from '@app/Handler.ts'
 import { middlewares } from '@middlewares/index.ts'
@@ -11,6 +12,8 @@ export class Router {
   private errorMiddleware: ErrorMiddleware | null = null
   /** Middleware pipeline for request processing */
   private middlewarePipeline: Array<RouterMiddleware> = []
+  /** Static file routes configuration */
+  private staticRoutes = new Map<string, ServeDirOptions>()
   /** Cache of loaded route modules */
   private routeCache = new Map<string, Record<string, RouterHandler>>()
   /** URLPattern to route path mapping */
@@ -25,7 +28,7 @@ export class Router {
    * @param options - Router configuration options
    * @throws {Error} When prefix or extension options are missing or invalid
    */
-  constructor(options: RouterOptions) {
+  constructor(options?: RouterOptions) {
     if (!options) {
       this.routesDir = `${Deno.cwd()}/routes`
       this.routesExt = '.ts'
@@ -84,6 +87,15 @@ export class Router {
   }
 
   /**
+   * Serve static files from a directory.
+   * @param urlPath - URL path to serve files from
+   * @param options - Static file serving options
+   */
+  static(urlPath: string, options?: ServeDirOptions): void {
+    this.staticRoutes.set(urlPath, options || {})
+  }
+
+  /**
    * Add global middleware to the pipeline.
    * @param middleware - Middleware function to execute before route handlers.
    */
@@ -101,7 +113,8 @@ export class Router {
       this.routeCache,
       this.routePattern,
       this.routesExt,
-      this.errorMiddleware
+      this.errorMiddleware,
+      this.staticRoutes
     )
   }
 

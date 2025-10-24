@@ -15,6 +15,11 @@ HTTP server with file-based routing library for Deno that supports middleware an
 - [Middleware](#middleware)
 - [Built-in Middleware](#built-in-middleware)
   - [CORS Middleware](#cors-middleware)
+- [Static File Serving](#static-file-serving)
+  - [Basic Static Serving](#basic-static-serving)
+  - [Advanced Static Configuration](#advanced-static-configuration)
+  - [Multiple Static Directories](#multiple-static-directories)
+  - [Static File Options](#static-file-options)
 - [Error Handling](#error-handling)
   - [Error Object Details](#error-object-details)
   - [Catching Route Handler Errors](#catching-route-handler-errors)
@@ -187,6 +192,110 @@ router.apply([['cors', {
 router.serve(8000)
 ```
 
+## Static File Serving
+
+Serve static files (HTML, CSS, JS, images, etc.) from directories using the `static()` method:
+
+### Basic Static Serving
+
+```typescript
+import { Router } from '@neabyte/deserve'
+
+// Create a new router
+const router = new Router()
+
+// Serve static files from public directory
+router.static('/', {
+  fsRoot: 'public',
+  showDirListing: true,
+  enableCors: true
+})
+
+// Start the server
+router.serve(8000)
+```
+
+This serves files from the `public/` directory at the root URL:
+- `GET /index.html` → serves `public/index.html`
+- `GET /css/style.css` → serves `public/css/style.css`
+- `GET /js/app.js` → serves `public/js/app.js`
+
+### Advanced Static Configuration
+
+```typescript
+import { Router } from '@neabyte/deserve'
+
+// Create a new router
+const router = new Router()
+
+// Serve static files with custom URL path
+router.static('/static', {
+  fsRoot: 'public',
+  urlRoot: 'static',  // Strip '/static' from URL path
+  showDirListing: false,
+  enableCors: true,
+  headers: ['Cache-Control: public, max-age=31536000']
+})
+
+// Serve assets with different configuration
+router.static('/assets', {
+  fsRoot: 'public/assets',
+  showDirListing: false,
+  enableCors: true,
+  etagAlgorithm: 'SHA-256'
+})
+
+// Start the server
+router.serve(8000)
+```
+
+### Multiple Static Directories
+
+```typescript
+import { Router } from '@neabyte/deserve'
+
+// Create a new router
+const router = new Router()
+
+// Admin panel static files
+router.static('/admin', {
+  fsRoot: 'admin/dist',
+  showDirListing: false,
+  showIndex: true
+})
+
+// User uploads
+router.static('/uploads', {
+  fsRoot: 'uploads',
+  showDirListing: true,
+  enableCors: false
+})
+
+// API documentation
+router.static('/docs', {
+  fsRoot: 'docs/build',
+  showDirListing: false,
+  showIndex: true
+})
+
+// Start the server
+router.serve(8000)
+```
+
+### Static File Options
+
+The `static()` method accepts all [ServeDirOptions](https://jsr.io/@std/http@1.0.21/doc/~/ServeDirOptions) from `@std/http`:
+
+- `fsRoot` - File system root directory (default: ".")
+- `urlRoot` - Strip this from URL path before serving
+- `showDirListing` - Enable directory listing (default: false)
+- `showDotfiles` - Serve dotfiles (default: false)
+- `showIndex` - Serve index.html as index (default: true)
+- `enableCors` - Enable CORS headers (default: false)
+- `quiet` - Disable request logs (default: false)
+- `etagAlgorithm` - ETag algorithm (default: "SHA-256")
+- `headers` - Additional headers to add
+
 ## Error Handling
 
 Customize 404, 500, 501 error responses with error middleware:
@@ -314,6 +423,24 @@ Add middleware to the request pipeline.
 ##### `onError(middleware: ErrorMiddleware): void`
 
 Set error middleware for custom 404 and 501 responses.
+
+##### `static(urlPath: string, options?: ServeDirOptions): void`
+
+Serve static files from a directory. Accepts all [ServeDirOptions](https://jsr.io/@std/http@1.0.21/doc/~/ServeDirOptions) from `@std/http`.
+
+**Parameters:**
+- `urlPath` - URL path to serve files from
+- `options` - Static file serving options (optional)
+
+**Example:**
+```typescript
+router.static('/static', {
+  fsRoot: 'public',
+  urlRoot: 'static',
+  showDirListing: true,
+  enableCors: true
+})
+```
 
 ### Types
 

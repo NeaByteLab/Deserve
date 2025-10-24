@@ -87,8 +87,8 @@
   },
   "imports": {
     "@app/": "./src/",
-    "@middlewares/": "./src/middlewares/"
-
+    "@middlewares/": "./src/middlewares/",
+    "@std/http": "jsr:@std/http@^1.0.21"
   },
   "publish": {
     "exclude": [

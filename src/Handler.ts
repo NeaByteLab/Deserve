@@ -1,4 +1,5 @@
 import type { ErrorMiddleware, RouterHandler, RouterMiddleware } from '@app/Types.ts'
+import { serveDir, type ServeDirOptions } from '@std/http/file-server'
 
 /**
  * Executes the appropriate handler method for the request.
@@ -100,9 +101,18 @@ export function handleRequest(
   routeCache: Map<string, Record<string, RouterHandler>>,
   routePattern: Map<URLPattern, string>,
   routesExt: string,
-  errorMiddleware?: ErrorMiddleware | null
+  errorMiddleware?: ErrorMiddleware | null,
+  staticRoutes?: Map<string, ServeDirOptions>
 ): (req: Request) => Promise<Response> {
   return async (req: Request): Promise<Response> => {
+    if (staticRoutes) {
+      const url = new URL(req.url)
+      for (const [urlPath, options] of staticRoutes) {
+        if (url.pathname.startsWith(urlPath)) {
+          return serveDir(req, options)
+        }
+      }
+    }
     const middlewareResponse = processMiddleware(middleware, req)
     if (middlewareResponse) {
       return middlewareResponse
