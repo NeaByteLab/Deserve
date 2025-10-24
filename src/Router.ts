@@ -1,6 +1,7 @@
 import type { ServeDirOptions } from '@std/http/file-server'
 import type { ErrorMiddleware, RouterHandler, RouterMiddleware, RouterOptions } from '@app/Types.ts'
 import { pathToFileURL } from 'node:url'
+import { httpMethods } from '@app/Constant.ts'
 import { handleRequest } from '@app/Handler.ts'
 import { middlewares } from '@middlewares/index.ts'
 
@@ -223,9 +224,14 @@ export class Router {
    * @throws {Error} When route exports are invalid
    */
   private validateRouteModule(module: Record<string, unknown>, routePath: string): void {
-    const validMethods = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']
+    const exportedMethods = Object.keys(module).filter((key) => httpMethods.includes(key))
+    if (exportedMethods.length === 0) {
+      throw new Error(
+        `Route ${routePath}: Must export at least one HTTP method (${httpMethods.join(', ')})`
+      )
+    }
     for (const [key, value] of Object.entries(module)) {
-      if (validMethods.includes(key)) {
+      if (httpMethods.includes(key)) {
         if (typeof value !== 'function') {
           throw new Error(`Route ${routePath}: ${key} must be a function, got ${typeof value}`)
         }

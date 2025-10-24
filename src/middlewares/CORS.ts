@@ -1,4 +1,5 @@
 import type { RouterMiddleware } from '@app/Types.ts'
+import { httpMethods } from '@app/Constant.ts'
 
 /**
  * CORS middleware configuration options.
@@ -24,7 +25,7 @@ export interface CorsOptions {
 export default function cors(options?: CorsOptions): RouterMiddleware {
   return (req: Request, res?: Response) => {
     const origin = options?.origin ?? '*'
-    const methods = options?.methods ?? ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS']
+    const methods = options?.methods ?? httpMethods
     const headers = options?.headers ?? ['Content-Type', 'Authorization']
     const maxAge = options?.maxAge ?? 86400
     const credentials = options?.credentials ?? false
