@@ -7,6 +7,7 @@ HTTP server with file-based routing for Deno that supports middleware and dynami
 - **Getting Started**
   - [Installation](https://docs-deserve.neabyte.com/getting-started/installation) - Set up Deserve in your project
   - [Quick Start](https://docs-deserve.neabyte.com/getting-started/quick-start) - Create your first API in minutes
+  - [Server Configuration](https://docs-deserve.neabyte.com/getting-started/server-configuration) - Server setup and shutdown
   - [Custom Configuration](https://docs-deserve.neabyte.com/getting-started/custom-configuration) - Configure router options
 
 - **Core Concepts**
