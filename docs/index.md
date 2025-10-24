@@ -1,6 +1,6 @@
 # What is Deserve?
 
-Deserve is a HTTP server library for Deno that makes building APIs incredibly simple through **file-based routing**. Just drop files in folders and get instant endpoints!
+Deserve is an HTTP server library for Deno that makes building APIs incredibly simple through **file-based routing**. Just drop files in folders and get instant endpoints!
 
 ## Install Package
 
