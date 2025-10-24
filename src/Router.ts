@@ -153,7 +153,7 @@ export class Router {
    */
   private parseImport(str: string): string {
     if (str.startsWith('https://')) {
-      return str.replace(/^https:\/\/[^\/]+/, '')
+      return str.replace(/^https:\/\/[^\/]+/, 'file://')
     }
     return str
   }
@@ -168,11 +168,10 @@ export class Router {
     try {
       for await (const entry of Deno.readDir(dir)) {
         const fullPath = `${dir}/${entry.name}`
+        const routePath = basePath ? `${basePath}/${entry.name}` : entry.name
         if (entry.isDirectory) {
-          const newBasePath = basePath ? `${basePath}/${entry.name}` : entry.name
-          await this.scanRoutes(fullPath, newBasePath)
+          await this.scanRoutes(fullPath, routePath)
         } else if (entry.name.endsWith(this.routesExt)) {
-          const routePath = basePath ? `${basePath}/${entry.name}` : entry.name
           const resolvedPath = import.meta.resolve(fullPath)
           const cleanPath = this.parseImport(resolvedPath)
           const module = await import(cleanPath)
