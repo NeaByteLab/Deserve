@@ -89,20 +89,23 @@ function findMatchingRoute(
 
 /**
  * Request handler factory function.
+ * @param errorMiddleware - Optional error middleware for custom error responses
  * @param middleware - Array of middleware functions
  * @param routeCache - Map of route paths to handler modules
  * @param routePattern - Map of URLPattern instances to route paths
+ * @param routeSpecific - Map of route paths to route-specific middleware arrays
  * @param routesExt - File extension for route files
- * @param errorMiddleware - Optional error middleware for custom error responses
+ * @param staticRoutes - Map of static file routes configuration
  * @returns Request handler function
  */
 export function handleRequest(
+  errorMiddleware: ErrorMiddleware | null | undefined,
   middleware: Array<RouterMiddleware>,
   routeCache: Map<string, Record<string, RouterHandler>>,
   routePattern: Map<URLPattern, string>,
+  routeSpecific: Map<string, Array<RouterMiddleware>> | undefined,
   routesExt: string,
-  errorMiddleware?: ErrorMiddleware | null,
-  staticRoutes?: Map<string, ServeDirOptions>
+  staticRoutes: Map<string, ServeDirOptions> | undefined
 ): (req: Request) => Promise<Response> {
   return async (req: Request): Promise<Response> => {
     if (staticRoutes) {
@@ -117,11 +120,24 @@ export function handleRequest(
         }
       }
     }
+    const url = new URL(req.url)
+    if (routeSpecific) {
+      const pathname = url.pathname
+      for (const [routePath, middlewares] of routeSpecific) {
+        if (pathname.startsWith(routePath)) {
+          for (const middleware of middlewares) {
+            const result = middleware(req)
+            if (result) {
+              return result
+            }
+          }
+        }
+      }
+    }
     const middlewareResponse = processMiddleware(middleware, req)
     if (middlewareResponse) {
       return middlewareResponse
     }
-    const url = new URL(req.url)
     const method = req.method
     const normalizedPath = normalizePath(url.pathname)
     const exactPath = getExactPath(normalizedPath, routesExt)

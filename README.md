@@ -13,6 +13,8 @@ HTTP server with file-based routing library for Deno that supports middleware an
   - [Dynamic Routes](#dynamic-routes)
   - [Supported HTTP Methods](#supported-http-methods)
 - [Middleware](#middleware)
+  - [Global Middleware](#global-middleware)
+  - [Route-Specific Middleware](#route-specific-middleware)
 - [Built-in Middleware](#built-in-middleware)
   - [CORS Middleware](#cors-middleware)
 - [Static File Serving](#static-file-serving)
@@ -128,6 +130,14 @@ Export any of these HTTP methods from your route files:
 
 ## Middleware
 
+Deserve supports both global and route-specific middleware. Middleware executes in the following order:
+
+1. **Route-specific middleware** - Applied to matching route patterns
+2. **Global middleware** - Applied to all routes
+3. **Route handlers** - Execute the actual route logic
+
+### Global Middleware
+
 Add global middleware to process requests before they reach route handlers:
 
 ```typescript
@@ -162,6 +172,85 @@ router.use((req: Request) => {
 
 // Start the server
 router.serve(8000)
+```
+
+### Route-Specific Middleware
+
+Apply middleware to specific route patterns using the same `use()` method with a route path:
+
+```typescript
+import { Router } from '@neabyte/deserve'
+
+const router = new Router()
+
+// Global middleware (applies to ALL routes)
+router.use((req: Request) => {
+  console.log(`🌐 [GLOBAL] ${req.method} ${req.url}`)
+  return null
+})
+
+// Route-specific middleware
+router.use('/api', (req: Request) => {
+  const token = req.headers.get('Authorization')
+  if (!token) {
+    return new Response('Unauthorized', { status: 401 })
+  }
+  console.log('✅ API route authenticated')
+  return null
+})
+
+router.use('/api/admin', (req: Request) => {
+  const role = req.headers.get('X-User-Role')
+  if (role !== 'admin') {
+    return new Response('Forbidden', { status: 403 })
+  }
+  console.log('✅ Admin route authorized')
+  return null
+})
+
+router.use('/public', (req: Request) => {
+  console.log('🌍 Public route accessed')
+  return null
+})
+
+// Start the server
+router.serve(8000)
+```
+
+**Route Pattern Matching:**
+- `router.use('/api', middleware)` - Applies to `/api/*` routes
+- `router.use('/api/admin', middleware)` - Applies to `/api/admin/*` routes
+- `router.use('/public', middleware)` - Applies to `/public/*` routes
+
+**Multiple Middleware per Route:**
+```typescript
+// Apply multiple middleware to the same route
+router.use('/api', authMiddleware)
+router.use('/api', rateLimitMiddleware)
+router.use('/api', corsMiddleware)
+```
+
+**Middleware Composition:**
+```typescript
+// Compose middleware for cleaner code
+const apiMiddleware = (req: Request) => {
+  // Run auth check
+  const authResult = authMiddleware(req)
+  if (authResult) {
+    return authResult
+  }
+
+  // Run rate limiting
+  const rateLimitResult = rateLimitMiddleware(req)
+  if (rateLimitResult) {
+    return rateLimitResult
+  }
+
+  // ... more middleware ...
+}
+
+// Apply middleware to the API route
+router.use('/api', apiMiddleware)
 ```
 
 ## Built-in Middleware
@@ -215,10 +304,10 @@ router.static('/', {
 router.serve(8000)
 ```
 
-This serves files from the `public/` directory at the `/static` URL path:
-- `GET /static/index.html` → serves `public/index.html`
-- `GET /static/css/style.css` → serves `public/css/style.css`
-- `GET /static/js/app.js` → serves `public/js/app.js`
+This serves files from the `public/` directory at the root URL path:
+- `GET /index.html` → serves `public/index.html`
+- `GET /css/style.css` → serves `public/css/style.css`
+- `GET /js/app.js` → serves `public/js/app.js`
 
 **Note:** The `urlRoot` parameter is automatically set to strip the leading `/` from the URL path, so you don't need to specify it manually.
 
@@ -419,7 +508,30 @@ Start the HTTP server on the specified port (default: 8000).
 
 ##### `use(middleware: RouterMiddleware): void`
 
-Add middleware to the request pipeline.
+Add global middleware to the request pipeline.
+
+##### `use(routePath: string, middleware: RouterMiddleware): void`
+
+Add route-specific middleware to the request pipeline.
+
+**Parameters:**
+- `routePath` - Route path pattern to apply middleware to (e.g., `/api`, `/admin`)
+- `middleware` - Middleware function to execute for matching routes
+
+**Examples:**
+```typescript
+// Global middleware
+router.use((req: Request) => {
+  console.log('Global middleware')
+  return null
+})
+
+// Route-specific middleware
+router.use('/api', (req: Request) => {
+  console.log('API middleware')
+  return null
+})
+```
 
 ##### `onError(middleware: ErrorMiddleware): void`
 

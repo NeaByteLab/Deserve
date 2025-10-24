@@ -1,5 +1,6 @@
 import type { ServeDirOptions } from '@std/http/file-server'
 import type { ErrorMiddleware, RouterHandler, RouterMiddleware, RouterOptions } from '@app/Types.ts'
+import { pathToFileURL } from 'node:url'
 import { handleRequest } from '@app/Handler.ts'
 import { middlewares } from '@middlewares/index.ts'
 
@@ -14,6 +15,8 @@ export class Router {
   private middlewarePipeline: Array<RouterMiddleware> = []
   /** Static file routes configuration */
   private staticRoutes = new Map<string, ServeDirOptions>()
+  /** Route-specific middleware configuration */
+  private routeSpecific = new Map<string, Array<RouterMiddleware>>()
   /** Cache of loaded route modules */
   private routeCache = new Map<string, Record<string, RouterHandler>>()
   /** URLPattern to route path mapping */
@@ -101,8 +104,21 @@ export class Router {
    * Add global middleware to the pipeline.
    * @param middleware - Middleware function to execute before route handlers.
    */
-  use(middleware: RouterMiddleware): void {
-    this.middlewarePipeline.push(middleware)
+  use(middleware: RouterMiddleware): void
+  /**
+   * Add route-specific middleware to the pipeline.
+   * @param routePath - Route path pattern to apply middleware to
+   * @param middleware - Middleware function to execute for matching routes
+   */
+  use(routePath: string, middleware: RouterMiddleware): void
+  use(routePathOrMiddleware: string | RouterMiddleware, middleware?: RouterMiddleware): void {
+    if (typeof routePathOrMiddleware === 'string' && middleware) {
+      const existing = this.routeSpecific.get(routePathOrMiddleware) || []
+      existing.push(middleware)
+      this.routeSpecific.set(routePathOrMiddleware, existing)
+    } else if (typeof routePathOrMiddleware === 'function') {
+      this.middlewarePipeline.push(routePathOrMiddleware)
+    }
   }
 
   /**
@@ -111,11 +127,12 @@ export class Router {
    */
   private createHandler(): (req: Request) => Promise<Response> {
     return handleRequest(
+      this.errorMiddleware,
       this.middlewarePipeline,
       this.routeCache,
       this.routePattern,
+      this.routeSpecific,
       this.routesExt,
-      this.errorMiddleware,
       this.staticRoutes
     )
   }
@@ -147,18 +164,6 @@ export class Router {
   }
 
   /**
-   * Parse import path by removing HTTPS URLs.
-   * @param str - Import path string
-   * @returns Cleaned import path
-   */
-  private parseImport(str: string): string {
-    if (str.startsWith('https://')) {
-      return str.replace(/^https:\/\/[^\/]+/, 'file://')
-    }
-    return str
-  }
-
-  /**
    * Recursively scan directory for route files.
    * @param dir - Directory to scan
    * @param basePath - Base path for route resolution
@@ -172,9 +177,8 @@ export class Router {
         if (entry.isDirectory) {
           await this.scanRoutes(fullPath, routePath)
         } else if (entry.name.endsWith(this.routesExt)) {
-          const resolvedPath = import.meta.resolve(fullPath)
-          const cleanPath = this.parseImport(resolvedPath)
-          const module = await import(cleanPath)
+          const fileURL = pathToFileURL(fullPath).href
+          const module = await import(fileURL)
           this.routeCache.set(routePath, module)
           const urlPattern = this.createURLPattern(routePath)
           if (urlPattern) {
