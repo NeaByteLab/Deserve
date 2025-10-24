@@ -13,6 +13,8 @@ HTTP server with file-based routing library for Deno that supports middleware an
   - [Dynamic Routes](#dynamic-routes)
   - [Supported HTTP Methods](#supported-http-methods)
 - [Middleware](#middleware)
+- [Built-in Middleware](#built-in-middleware)
+  - [CORS Middleware](#cors-middleware)
 - [Error Handling](#error-handling)
   - [Error Object Details](#error-object-details)
   - [Catching Route Handler Errors](#catching-route-handler-errors)
@@ -157,9 +159,37 @@ router.use((req: Request) => {
 router.serve(8000)
 ```
 
+## Built-in Middleware
+
+Deserve includes built-in middleware that can be applied using the `apply()` method:
+
+#### CORS Middleware
+
+```typescript
+import { Router } from '@neabyte/deserve'
+
+// Create a new router
+const router = new Router()
+
+// Apply CORS with default settings
+router.apply(['cors'])
+
+// Apply CORS with custom configuration
+router.apply([['cors', {
+  origin: ['https://example.com', 'https://app.example.com'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  headers: ['Content-Type', 'Authorization', 'X-Custom-Header'],
+  credentials: true,
+  maxAge: 3600
+}]])
+
+// Start the server
+router.serve(8000)
+```
+
 ## Error Handling
 
-Customize 404 and 501 error responses with error middleware:
+Customize 404, 500, 501 error responses with error middleware:
 
 ```typescript
 import { Router } from '@neabyte/deserve'

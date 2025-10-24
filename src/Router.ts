@@ -1,5 +1,6 @@
 import type { ErrorMiddleware, RouterHandler, RouterMiddleware, RouterOptions } from '@app/Types.ts'
 import { handleRequest } from '@app/Handler.ts'
+import { middlewares } from '@middlewares/index.ts'
 
 /**
  * Native Deno.serve file-based router.
@@ -43,6 +44,37 @@ export class Router {
   }
 
   /**
+   * Apply built-in middleware by name.
+   * @param mwareConfig - Array of middleware names or [name, options] tuples
+   */
+  apply(mwareConfig: Array<string | [string, unknown]>): void {
+    for (const config of mwareConfig) {
+      if (typeof config === 'string') {
+        const middleware = middlewares[config as keyof typeof middlewares]
+        if (middleware) {
+          this.middlewarePipeline.push(middleware())
+        }
+      } else if (Array.isArray(config)) {
+        const [name, options] = config
+        const middleware = middlewares[name as keyof typeof middlewares]
+        if (middleware) {
+          this.middlewarePipeline.push(
+            middleware(options as unknown as Parameters<typeof middleware>[0])
+          )
+        }
+      }
+    }
+  }
+
+  /**
+   * Set error middleware for custom 404 and 501 responses.
+   * @param middleware - Error middleware function
+   */
+  onError(middleware: ErrorMiddleware): void {
+    this.errorMiddleware = middleware
+  }
+
+  /**
    * Start server with file-based routing.
    * @param port - Port number to serve on
    */
@@ -57,14 +89,6 @@ export class Router {
    */
   use(middleware: RouterMiddleware): void {
     this.middlewarePipeline.push(middleware)
-  }
-
-  /**
-   * Set error middleware for custom 404 and 501 responses.
-   * @param middleware - Error middleware function
-   */
-  onError(middleware: ErrorMiddleware): void {
-    this.errorMiddleware = middleware
   }
 
   /**

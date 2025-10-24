@@ -73,7 +73,7 @@ function findMatchingRoute(
     if (match) {
       const groups = (match.pathname.groups || {}) as Record<string, string | undefined>
       const isValidMatch = Object.values(groups).every(
-        (value) => typeof value === 'string' && !value.includes('/')
+        value => typeof value === 'string' && !value.includes('/')
       )
       if (isValidMatch) {
         const params = Object.fromEntries(
@@ -134,12 +134,15 @@ export function handleRequest(
           error: new Error('Route Not Found')
         })
         if (customResponse) {
-          return customResponse
+          return processMiddleware(middleware, req, customResponse) ?? customResponse
         }
       }
-      return new Response(null, { status: 404 })
+      const errorResponse = new Response(null, { status: 404 })
+      const middlewareResponse = processMiddleware(middleware, req, errorResponse)
+      return middlewareResponse ?? errorResponse
     }
-    return await executeHandler(module, method, req, params, errorMiddleware)
+    const response = await executeHandler(module, method, req, params, errorMiddleware)
+    return processMiddleware(middleware, req, response) ?? response
   }
 }
 
@@ -163,14 +166,19 @@ function normalizePath(pathname: string): string {
 }
 
 /**
- * Processes middleware functions and returns early response if any middleware handles the request.
+ * Processes middleware functions and returns early response if any handles request.
  * @param middleware - Array of middleware functions
  * @param req - HTTP request object
+ * @param res - HTTP response object (optional)
  * @returns Response if middleware handled request, null otherwise
  */
-function processMiddleware(middleware: Array<RouterMiddleware>, req: Request): Response | null {
+function processMiddleware(
+  middleware: Array<RouterMiddleware>,
+  req: Request,
+  res?: Response
+): Response | null {
   for (const middlewareFn of middleware) {
-    const result = middlewareFn(req)
+    const result = middlewareFn(req, res)
     if (result) {
       return result
     }

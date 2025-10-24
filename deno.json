@@ -86,7 +86,8 @@
     "check": "deno fmt src/ && deno lint src/ && deno check src/"
   },
   "imports": {
-    "@app/": "./src/"
+    "@app/": "./src/",
+    "@middlewares/": "./src/middlewares/"
 
   },
   "publish": {
