@@ -2,6 +2,18 @@
 
 HTTP server with file-based routing for Deno that supports middleware and dynamic routing.
 
+## Installation
+
+Install [Deno](https://github.com/denoland/deno_install) 2.5.4+ and run `deno init` for new projects.
+
+Add Deserve using the `deno add` command:
+
+```bash
+deno add jsr:@neabyte/deserve
+```
+
+Follow our [installing guide](https://docs-deserve.neabyte.com/getting-started/installation) for more information.
+
 ## Table of Contents
 
 - **Getting Started**
