@@ -94,7 +94,7 @@ export function GET(req: DeserveRequest): Response {
 
 ## Method Reference
 
-### `req.query()`
+#### `req.query()`
 Returns all query parameters as an object.
 
 ```typescript
@@ -103,7 +103,7 @@ const query = req.query()
 // Expected: { q: 'deno', limit: '10' }
 ```
 
-### `req.queries(key)`
+#### `req.queries(key)`
 Returns all values for a specific query parameter key.
 
 ```typescript
@@ -112,7 +112,7 @@ const tags = req.queries('tags')
 // Expected: ['deno', 'typescript']
 ```
 
-### `req.param(key)`
+#### `req.param(key)`
 Returns a single route parameter value.
 
 ```typescript
@@ -122,7 +122,7 @@ const id = req.param('id')
 // Expected: '123'
 ```
 
-### `req.params()`
+#### `req.params()`
 Returns all route parameters as an object.
 
 ```typescript
@@ -130,6 +130,52 @@ Returns all route parameters as an object.
 // URL: /users/123/posts/456
 const params = req.params()
 // Expected: { id: '123', postId: '456' }
+```
+
+#### `req.json()`
+Parse request body as JSON.
+
+```typescript
+// POST /api/users with JSON body
+const body = await req.json()
+// Expected: { name: 'John', age: 30 }
+```
+
+#### `req.formData()`
+Parse request body as form data.
+
+```typescript
+// POST /api/users with form data
+const formData = await req.formData()
+const name = formData.get('name')
+// Expected: name = 'John'
+```
+
+#### `req.text()`
+Get request body as raw text.
+
+```typescript
+// POST /api/text with plain text
+const text = await req.text()
+// Expected: 'Hello World'
+```
+
+#### `req.blob()`
+Get request body as binary data.
+
+```typescript
+// POST /api/upload with file
+const blob = await req.blob()
+// Expected: Blob object
+```
+
+#### `req.arrayBuffer()`
+Get request body as ArrayBuffer.
+
+```typescript
+// POST /api/binary with binary data
+const buffer = await req.arrayBuffer()
+// Expected: ArrayBuffer object
 ```
 
 ## Best Practices
