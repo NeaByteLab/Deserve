@@ -1,6 +1,4 @@
-import type { RouterHandler, RouterMiddleware } from '@app/Types.ts'
-
-// Non-private functions (a-z)
+import type { ErrorMiddleware, RouterHandler, RouterMiddleware } from '@app/Types.ts'
 
 /**
  * Executes the appropriate handler method for the request.
@@ -8,16 +6,44 @@ import type { RouterHandler, RouterMiddleware } from '@app/Types.ts'
  * @param method - HTTP method
  * @param req - HTTP request object
  * @param params - Route parameters
+ * @param errorMiddleware - Optional error middleware for custom error responses
  * @returns HTTP response
  */
 async function executeHandler(
   module: Record<string, RouterHandler>,
   method: string,
   req: Request,
-  params: Record<string, string>
+  params: Record<string, string>,
+  errorMiddleware?: ErrorMiddleware | null
 ): Promise<Response> {
   if (module[method]) {
-    return await module[method](req, params)
+    try {
+      return await module[method](req, params)
+    } catch (error) {
+      if (errorMiddleware) {
+        const customResponse = errorMiddleware(req, {
+          path: req.url,
+          method,
+          statusCode: 500,
+          error: error as Error
+        })
+        if (customResponse) {
+          return customResponse
+        }
+      }
+      return new Response(null, { status: 500 })
+    }
+  }
+  if (errorMiddleware) {
+    const customResponse = errorMiddleware(req, {
+      path: req.url,
+      method,
+      statusCode: 501,
+      error: new Error('Method Not Allowed')
+    })
+    if (customResponse) {
+      return customResponse
+    }
   }
   return new Response(null, { status: 501 })
 }
@@ -66,13 +92,15 @@ function findMatchingRoute(
  * @param routeCache - Map of route paths to handler modules
  * @param routePattern - Map of URLPattern instances to route paths
  * @param routesExt - File extension for route files
+ * @param errorMiddleware - Optional error middleware for custom error responses
  * @returns Request handler function
  */
 export function handleRequest(
   middleware: Array<RouterMiddleware>,
   routeCache: Map<string, Record<string, RouterHandler>>,
   routePattern: Map<URLPattern, string>,
-  routesExt: string
+  routesExt: string,
+  errorMiddleware?: ErrorMiddleware | null
 ): (req: Request) => Promise<Response> {
   return async (req: Request): Promise<Response> => {
     const middlewareResponse = processMiddleware(middleware, req)
@@ -98,13 +126,22 @@ export function handleRequest(
       }
     }
     if (!module) {
+      if (errorMiddleware) {
+        const customResponse = errorMiddleware(req, {
+          path: req.url,
+          method,
+          statusCode: 404,
+          error: new Error('Route Not Found')
+        })
+        if (customResponse) {
+          return customResponse
+        }
+      }
       return new Response(null, { status: 404 })
     }
-    return await executeHandler(module, method, req, params)
+    return await executeHandler(module, method, req, params, errorMiddleware)
   }
 }
-
-// Private functions (a-z)
 
 /**
  * Converts normalized path to exact file path for route lookup.

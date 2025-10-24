@@ -13,11 +13,15 @@ HTTP server with file-based routing library for Deno that supports middleware an
   - [Dynamic Routes](#dynamic-routes)
   - [Supported HTTP Methods](#supported-http-methods)
 - [Middleware](#middleware)
+- [Error Handling](#error-handling)
+  - [Error Object Details](#error-object-details)
+  - [Catching Route Handler Errors](#catching-route-handler-errors)
 - [API Reference](#api-reference)
   - [Router Class](#router-class)
     - [Constructor](#constructor)
     - [Methods](#methods)
   - [Types](#types)
+    - [ErrorMiddleware](#errormiddleware)
     - [RouterHandler](#routerhandler)
     - [RouterMiddleware](#routermiddleware)
     - [RouterOptions](#routeroptions)
@@ -37,8 +41,10 @@ deno add jsr:@neabyte/deserve
 ```typescript
 import { Router } from '@neabyte/deserve'
 
+// Create a new router
 const router = new Router()
 
+// Start the server
 router.serve(8000)
 ```
 
@@ -47,11 +53,13 @@ router.serve(8000)
 ```typescript
 import { Router } from '@neabyte/deserve'
 
+// Create a new router with custom configuration
 const router = new Router({
   prefix: 'routes',   // Route files directory
   extension: '.ts'    // File extension for routes
 })
 
+// Start the server
 router.serve(8000)
 ```
 
@@ -118,6 +126,7 @@ Add global middleware to process requests before they reach route handlers:
 ```typescript
 import { Router } from '@neabyte/deserve'
 
+// Create a new router
 const router = new Router()
 
 // CORS middleware
@@ -144,7 +153,107 @@ router.use((req: Request) => {
   return null // Continue if authorized
 })
 
+// Start the server
 router.serve(8000)
+```
+
+## Error Handling
+
+Customize 404 and 501 error responses with error middleware:
+
+```typescript
+import { Router } from '@neabyte/deserve'
+
+// Create a new router
+const router = new Router()
+
+// Custom error handling
+router.onError((req, error) => {
+  // Handle different error types
+  switch (error.statusCode) {
+    case 404:
+      return new Response(JSON.stringify({
+        error: 'Not Found',
+        path: error.path,
+        timestamp: new Date().toISOString()
+      }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' }
+      })
+    case 501:
+      return new Response(JSON.stringify({
+        error: 'Method Not Allowed',
+        method: error.method,
+        path: error.path
+      }), {
+        status: 501,
+        headers: { 'Content-Type': 'application/json' }
+      })
+    case 500:
+      return new Response(JSON.stringify({
+        error: 'Internal Server Error',
+        message: error.error?.message || 'Something went wrong',
+        path: error.path,
+        timestamp: new Date().toISOString()
+      }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      })
+    default:
+      return null // Use default behavior for other errors
+  }
+})
+
+// Start the server
+router.serve(8000)
+```
+
+### Error Object Details
+
+The error middleware provides complete error information:
+
+- `error.statusCode` - HTTP status code (404, 500, 501, etc.)
+- `error.path` - Full request URL
+- `error.method` - HTTP method (GET, POST, etc.)
+- `error.error` - Full Error object with:
+  - `error.error.message` - Error message
+  - `error.error.name` - Error type (Error, TypeError, etc.)
+  - `error.error.stack` - Complete stack trace
+
+### Catching Route Handler Errors
+
+The error middleware also catches uncaught exceptions from your route handlers:
+
+```typescript
+// routes/users/[id].ts
+export const GET = async (req: Request, params: Record<string, string>) => {
+  const { id } = params
+  // This will be caught by error middleware if it throws
+  if (id === 'invalid') {
+    throw new Error('Invalid user ID')
+  }
+  return new Response(JSON.stringify({ userId: id }))
+}
+```
+
+```typescript
+// main.ts
+router.onError((req, error) => {
+  if (error.statusCode === 500) {
+    console.log('Error details:', error.error?.message)
+    console.log('Stack trace:', error.error?.stack)
+    return new Response(JSON.stringify({
+      error: 'Something went wrong',
+      message: error.error?.message || 'Unknown error',
+      path: error.path,
+      timestamp: new Date().toISOString()
+    }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    })
+  }
+  return null
+})
 ```
 
 ## API Reference
@@ -172,7 +281,25 @@ Start the HTTP server on the specified port (default: 8000).
 
 Add middleware to the request pipeline.
 
+##### `onError(middleware: ErrorMiddleware): void`
+
+Set error middleware for custom 404 and 501 responses.
+
 ### Types
+
+#### `ErrorMiddleware`
+
+```typescript
+type ErrorMiddleware = (
+  req: Request,
+  error: {
+    path: string
+    method: string
+    statusCode: number
+    error?: Error
+  }
+) => Response | null
+```
 
 #### `RouterHandler`
 

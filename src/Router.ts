@@ -1,4 +1,4 @@
-import type { RouterHandler, RouterMiddleware, RouterOptions } from '@app/Types.ts'
+import type { ErrorMiddleware, RouterHandler, RouterMiddleware, RouterOptions } from '@app/Types.ts'
 import { handleRequest } from '@app/Handler.ts'
 
 /**
@@ -6,6 +6,8 @@ import { handleRequest } from '@app/Handler.ts'
  * @description File-based routing with URLPattern matching and middleware support.
  */
 export class Router {
+  /** Error middleware for custom error responses */
+  private errorMiddleware: ErrorMiddleware | null = null
   /** Middleware pipeline for request processing */
   private middlewarePipeline: Array<RouterMiddleware> = []
   /** Cache of loaded route modules */
@@ -58,6 +60,14 @@ export class Router {
   }
 
   /**
+   * Set error middleware for custom 404 and 501 responses.
+   * @param middleware - Error middleware function
+   */
+  onError(middleware: ErrorMiddleware): void {
+    this.errorMiddleware = middleware
+  }
+
+  /**
    * Create native Deno.serve handler with URLPattern-based routing.
    * @returns Request handler function
    */
@@ -66,7 +76,8 @@ export class Router {
       this.middlewarePipeline,
       this.routeCache,
       this.routePattern,
-      this.routesExt
+      this.routesExt,
+      this.errorMiddleware
     )
   }
 

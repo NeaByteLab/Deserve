@@ -1,12 +1,23 @@
 /**
- * Router configuration options.
+ * Error type union for supported HTTP error codes.
  */
-export interface RouterOptions {
-  /** Directory prefix for route files */
-  prefix: string
-  /** File extension for route files */
-  extension: string
-}
+export type ErrorType = '404' | '405' | '500' | '501' | '502' | '503' | '504' | '505'
+
+/**
+ * Error middleware function type.
+ * @param req - HTTP request object
+ * @param error - Error information
+ * @returns HTTP response or null (null uses default error response)
+ */
+export type ErrorMiddleware = (
+  req: Request,
+  error: {
+    path: string
+    method: string
+    statusCode: number
+    error?: Error
+  }
+) => Response | null
 
 /**
  * Route handler function type.
@@ -25,3 +36,13 @@ export type RouterHandler = (
  * @returns HTTP response or null
  */
 export type RouterMiddleware = (req: Request) => Response | null
+
+/**
+ * Router configuration options.
+ */
+export interface RouterOptions {
+  /** Directory prefix for route files */
+  prefix: string
+  /** File extension for route files */
+  extension: string
+}
