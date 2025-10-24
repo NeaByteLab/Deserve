@@ -1,9 +1,4 @@
 /**
- * Error type union for supported HTTP error codes.
- */
-export type ErrorType = '404' | '405' | '500' | '501' | '502' | '503' | '504' | '505'
-
-/**
  * Error middleware function type.
  * @param req - HTTP request object
  * @param error - Error information

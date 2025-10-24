@@ -179,6 +179,7 @@ export class Router {
         } else if (entry.name.endsWith(this.routesExt)) {
           const fileURL = pathToFileURL(fullPath).href
           const module = await import(fileURL)
+          this.validateRouteModule(module, routePath)
           this.routeCache.set(routePath, module)
           const urlPattern = this.createURLPattern(routePath)
           if (urlPattern) {
@@ -191,6 +192,29 @@ export class Router {
         throw new Error(`Routes directory not found: ${dir}`)
       } else {
         throw error
+      }
+    }
+  }
+
+  /**
+   * Validates route module exports to ensure they are valid handler functions.
+   * @param module - Route module to validate
+   * @param routePath - Path of the route file for error reporting
+   * @throws {Error} When route exports are invalid
+   */
+  private validateRouteModule(module: Record<string, unknown>, routePath: string): void {
+    const validMethods = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']
+    for (const [key, value] of Object.entries(module)) {
+      if (validMethods.includes(key)) {
+        if (typeof value !== 'function') {
+          throw new Error(`Route ${routePath}: ${key} must be a function, got ${typeof value}`)
+        }
+        const paramCount = value.length
+        if (paramCount < 1 || paramCount > 2) {
+          throw new Error(
+            `Route ${routePath}: ${key} function must accept 1 or 2 parameters (Request, params)`
+          )
+        }
       }
     }
   }
