@@ -15,6 +15,7 @@ export default defineConfig({
         items: [
           { text: 'Installation', link: '/getting-started/installation' },
           { text: 'Quick Start', link: '/getting-started/quick-start' },
+          { text: 'Server Configuration', link: '/getting-started/server-configuration' },
           { text: 'Custom Configuration', link: '/getting-started/custom-configuration' }
         ]
       },

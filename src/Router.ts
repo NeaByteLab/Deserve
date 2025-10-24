@@ -84,11 +84,31 @@ export class Router {
 
   /**
    * Start server with file-based routing.
-   * @param port - Port number to serve on
+   * @param port - Port number to serve on (default: 8000)
+   * @param hostname - Hostname to bind to (default: "0.0.0.0")
+   * @param signal - Abort signal for server control
    */
-  async serve(port = 8000): Promise<void> {
+  async serve(port?: number): Promise<void>
+  async serve(port?: number, hostname?: string): Promise<void>
+  async serve(port?: number, hostname?: string, signal?: AbortSignal): Promise<void>
+  async serve(port?: number, hostname?: string, signal?: AbortSignal): Promise<void> {
     await this.initializeRoutes()
-    Deno.serve({ port }, this.createHandler())
+    const actualPort = port ?? 8000
+    const actualHostname = hostname ?? '0.0.0.0'
+    if (signal) {
+      Deno.serve({
+        port: actualPort,
+        hostname: actualHostname,
+        signal,
+        handler: this.createHandler()
+      })
+    } else {
+      Deno.serve({
+        port: actualPort,
+        hostname: actualHostname,
+        handler: this.createHandler()
+      })
+    }
   }
 
   /**
