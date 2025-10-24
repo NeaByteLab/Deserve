@@ -40,7 +40,7 @@ export class Router {
         if (!allowedExtensions.includes(options.extension)) {
           throw new Error(`Invalid extension: ${options.extension}`)
         }
-        this.routesDir = `./${options.prefix}`
+        this.routesDir = options.prefix
         this.routesExt = options.extension
       }
     }
