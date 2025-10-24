@@ -2,34 +2,35 @@
 
 HTTP server with file-based routing for Deno that supports middleware and dynamic routing.
 
-## Installation
+## Table of Contents
 
-```bash
-deno add jsr:@neabyte/deserve
-```
+- **Getting Started**
+  - [Installation](https://docs-deserve.neabyte.com/getting-started/installation) - Set up Deserve in your project
+  - [Quick Start](https://docs-deserve.neabyte.com/getting-started/quick-start) - Create your first API in minutes
+  - [Custom Configuration](https://docs-deserve.neabyte.com/getting-started/custom-configuration) - Configure router options
 
-## Example
+- **Core Concepts**
+  - [File-based Routing](https://docs-deserve.neabyte.com/core-concepts/file-based-routing) - How file structure becomes API endpoints
+  - [Route Patterns](https://docs-deserve.neabyte.com/core-concepts/route-patterns) - Dynamic routes and parameter matching
+  - [HTTP Methods](https://docs-deserve.neabyte.com/core-concepts/http-methods) - Supported HTTP methods
 
-```typescript
-import { Router } from '@neabyte/deserve'
+- **Middleware**
+  - [Global Middleware](https://docs-deserve.neabyte.com/middleware/global) - Cross-cutting functionality
+  - [Route-Specific Middleware](https://docs-deserve.neabyte.com/middleware/route-specific) - Targeted middleware for specific routes
+  - [CORS Middleware](https://docs-deserve.neabyte.com/middleware/cors) - Cross-origin request handling
 
-// Create a new router
-const router = new Router()
+- **Response Utilities**
+  - [JSON Format](https://docs-deserve.neabyte.com/response/json) - Create JSON responses easily
+  - [Text Format](https://docs-deserve.neabyte.com/response/text) - Plain text responses
+  - [HTML Format](https://docs-deserve.neabyte.com/response/html) - HTML content responses
+  - [Redirect](https://docs-deserve.neabyte.com/response/redirect) - Redirect responses
 
-// Start the server
-router.serve(8000)
-```
+- **Static Files**
+  - [Basic Static Serving](https://docs-deserve.neabyte.com/static-file/basic) - Serve static files from directories
+  - [Multiple Directories](https://docs-deserve.neabyte.com/static-file/multiple) - Serve from multiple locations
 
-Create route files in your `routes` directory. For example, create a `routes/index.ts` file:
-
-```typescript
-import { Send } from '@neabyte/deserve'
-
-// GET request to / -> returns a JSON response with a message
-export function GET(req: Request): Response {
-  return Send.json({ message: 'Hello World' })
-}
-```
+- **Error Handling**
+  - [Object Details](https://docs-deserve.neabyte.com/error-handling/object-details) - Comprehensive error information
 
 ## Contributing
 
