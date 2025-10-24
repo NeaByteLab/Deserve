@@ -30,7 +30,7 @@ export class Router {
    */
   constructor(options?: RouterOptions) {
     if (!options) {
-      this.routesDir = `${Deno.cwd()}/routes`
+      this.routesDir = './routes'
       this.routesExt = '.ts'
     } else {
       if (!options.prefix || !options.extension) {
@@ -40,7 +40,7 @@ export class Router {
         if (!allowedExtensions.includes(options.extension)) {
           throw new Error(`Invalid extension: ${options.extension}`)
         }
-        this.routesDir = `${Deno.cwd()}/${options.prefix}`
+        this.routesDir = `./${options.prefix}`
         this.routesExt = options.extension
       }
     }

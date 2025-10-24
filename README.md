@@ -467,7 +467,7 @@ type RouterHandler = (req: Request, params: Record<string, string>) => Response 
 #### `RouterMiddleware`
 
 ```typescript
-type RouterMiddleware = (req: Request) => Response | null
+type RouterMiddleware = (req: Request, res?: Response) => Response | null
 ```
 
 #### `RouterOptions`
