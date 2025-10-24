@@ -44,6 +44,7 @@ jobs:
         run: |
           cd docs
           npm run docs:build
+          touch .vitepress/dist/.nojekyll
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
