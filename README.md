@@ -17,6 +17,11 @@ HTTP server with file-based routing library for Deno that supports middleware an
   - [Route-Specific Middleware](#route-specific-middleware)
 - [Built-in Middleware](#built-in-middleware)
   - [CORS Middleware](#cors-middleware)
+- [Send Utility](#send-utility)
+  - [JSON Responses](#json-responses)
+  - [Text Responses](#text-responses)
+  - [HTML Responses](#html-responses)
+  - [Redirects](#redirects)
 - [Static File Serving](#static-file-serving)
   - [Basic Static Serving](#basic-static-serving)
   - [Advanced Static Configuration](#advanced-static-configuration)
@@ -81,12 +86,16 @@ Create route files in your `routes` directory (or custom prefix) to define endpo
 **`routes/index.ts`**
 
 ```typescript
+import { Send } from '@neabyte/deserve'
+
+// GET /
 export function GET(req: Request): Response {
-  return new Response(JSON.stringify({ message: 'Hello World' }))
+  return Send.json({ message: 'Hello World' })
 }
 
+// POST /
 export function POST(req: Request): Response {
-  return new Response(JSON.stringify({ message: 'Created' }))
+  return Send.json({ message: 'Created' })
 }
 ```
 
@@ -97,22 +106,24 @@ Use `[param]` syntax for dynamic parameters:
 **`routes/users/[id].ts`**
 
 ```typescript
+import { Send } from '@neabyte/deserve'
+
+// GET /users/:id
 export const GET = (req: Request, params: Record<string, string>) => {
   const { id } = params
-  return new Response(JSON.stringify({ userId: id }), {
-    headers: { 'Content-Type': 'application/json' }
-  })
+  return Send.json({ userId: id })
 }
 ```
 
 **`routes/users/[id]/posts/[postId].ts`**
 
 ```typescript
+import { Send } from '@neabyte/deserve'
+
+// GET /users/:id/posts/:postId
 export const GET = (req: Request, params: Record<string, string>) => {
   const { id, postId } = params
-  return new Response(JSON.stringify({ userId: id, postId }), {
-    headers: { 'Content-Type': 'application/json' }
-  })
+  return Send.json({ userId: id, postId })
 }
 ```
 
@@ -181,6 +192,7 @@ Apply middleware to specific route patterns using the same `use()` method with a
 ```typescript
 import { Router } from '@neabyte/deserve'
 
+// Create a new router
 const router = new Router()
 
 // Global middleware (applies to ALL routes)
@@ -189,7 +201,7 @@ router.use((req: Request) => {
   return null
 })
 
-// Route-specific middleware
+// Route-specific middleware (applies to /api/* routes)
 router.use('/api', (req: Request) => {
   const token = req.headers.get('Authorization')
   if (!token) {
@@ -199,6 +211,7 @@ router.use('/api', (req: Request) => {
   return null
 })
 
+// Route-specific middleware (applies to /api/admin/* routes)
 router.use('/api/admin', (req: Request) => {
   const role = req.headers.get('X-User-Role')
   if (role !== 'admin') {
@@ -208,6 +221,7 @@ router.use('/api/admin', (req: Request) => {
   return null
 })
 
+// Route-specific middleware (applies to /public/* routes)
 router.use('/public', (req: Request) => {
   console.log('🌍 Public route accessed')
   return null
@@ -279,6 +293,57 @@ router.apply([['cors', {
 
 // Start the server
 router.serve(8000)
+```
+
+## Send Utility
+
+Deserve includes a `Send` utility class that provides convenient methods for creating HTTP responses with proper headers automatically. This eliminates the need for verbose `new Response()` constructors.
+
+### JSON Responses
+
+```typescript
+import { Send } from '@neabyte/deserve'
+
+// GET / - Returns JSON response with Content-Type: application/json
+export function GET(req: Request): Response {
+  return Send.json({
+    message: 'Hello World',
+    timestamp: new Date().toISOString()
+  })
+}
+```
+
+### Text Responses
+
+```typescript
+import { Send } from '@neabyte/deserve'
+
+// GET / - Returns text response with Content-Type: text/plain
+export function GET(req: Request): Response {
+  return Send.text('Hello World')
+}
+```
+
+### HTML Responses
+
+```typescript
+import { Send } from '@neabyte/deserve'
+
+// GET / - Returns HTML response with Content-Type: text/html
+export function GET(req: Request): Response {
+  return Send.html('<h1>Welcome</h1><p>Hello World!</p>')
+}
+```
+
+### Redirects
+
+```typescript
+import { Send } from '@neabyte/deserve'
+
+// POST / - Returns redirect response with Location: /success
+export function POST(req: Request): Response {
+  return Send.redirect('/success', 301)
+}
 ```
 
 ## Static File Serving
@@ -466,7 +531,6 @@ export const GET = async (req: Request, params: Record<string, string>) => {
 ```
 
 ```typescript
-// main.ts
 router.onError((req, error) => {
   if (error.statusCode === 500) {
     console.log('Error details:', error.error?.message)

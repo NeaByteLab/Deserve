@@ -1,4 +1,10 @@
 /**
+ * Response utility for HTTP responses.
+ * @description Provides static methods for responses.
+ */
+export * from '@app/Send.ts'
+
+/**
  * Router class for file-based routing.
  * @description File-based routing with Deno serve API.
  */
