@@ -105,6 +105,6 @@ export function GET(req: Request): Response {
 
 ## Next Steps
 
-- [Redirects](/response/redirect) - Redirect responses
-- [Text Responses](/response/text) - Plain text
-- [JSON Responses](/response/json) - Structured data
+- [Data Downloads](/response/data) - Download generated content
+- [File Downloads](/response/file) - Download files from filesystem
+- [Error Handling](/error-handling/object-details) - Handle errors properly

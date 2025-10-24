@@ -87,6 +87,6 @@ export function GET(req: Request): Response {
 
 ## Next Steps
 
-- [JSON Responses](/response/json) - Structured data
-- [Text Responses](/response/text) - Plain text
-- [HTML Responses](/response/html) - Rich content
+- [Data Downloads](/response/data) - Download generated content
+- [File Downloads](/response/file) - Download files from filesystem
+- [Middleware](/middleware/global) - Global middleware

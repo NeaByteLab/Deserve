@@ -77,6 +77,6 @@ For more information, visit our documentation.
 
 ## Next Steps
 
+- [JSON Responses](/response/json) - Structured data responses
 - [HTML Responses](/response/html) - Rich HTML content
 - [Redirects](/response/redirect) - Redirect responses
-- [JSON Responses](/response/json) - Structured data

@@ -20,6 +20,8 @@ HTTP server with file-based routing for Deno that supports middleware and dynami
   - [CORS Middleware](https://docs-deserve.neabyte.com/middleware/cors) - Cross-origin request handling
 
 - **Response Utilities**
+  - [Data Downloads](https://docs-deserve.neabyte.com/response/data) - Download in-memory content
+  - [File Downloads](https://docs-deserve.neabyte.com/response/file) - Download files from filesystem
   - [JSON Format](https://docs-deserve.neabyte.com/response/json) - Create JSON responses easily
   - [Text Format](https://docs-deserve.neabyte.com/response/text) - Plain text responses
   - [HTML Format](https://docs-deserve.neabyte.com/response/html) - HTML content responses

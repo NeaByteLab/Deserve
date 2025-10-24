@@ -74,5 +74,5 @@ export function GET(req: Request): Response {
 ## Next Steps
 
 - [Text Responses](/response/text) - Plain text responses
-- [HTML Responses](/response/html) - HTML content
+- [HTML Responses](/response/html) - Rich HTML content
 - [Redirects](/response/redirect) - Redirect responses
