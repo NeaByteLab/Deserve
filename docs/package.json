@@ -1,0 +1,23 @@
+{
+  "name": "deserve-docs",
+  "version": "1.0.0",
+  "description": "Documentation for Deserve - HTTP server with file-based routing for Deno",
+  "type": "module",
+  "scripts": {
+    "dev": "vitepress dev",
+    "build": "vitepress build",
+    "preview": "vitepress preview"
+  },
+  "keywords": [
+    "deno",
+    "http",
+    "server",
+    "routing",
+    "documentation"
+  ],
+  "author": "NeaByteLab",
+  "license": "MIT",
+  "devDependencies": {
+    "vitepress": "^1.6.4"
+  }
+}
