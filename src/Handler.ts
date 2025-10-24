@@ -74,7 +74,7 @@ function findMatchingRoute(
     if (match) {
       const groups = (match.pathname.groups || {}) as Record<string, string | undefined>
       const isValidMatch = Object.values(groups).every(
-        value => typeof value === 'string' && !value.includes('/')
+        (value) => typeof value === 'string' && !value.includes('/')
       )
       if (isValidMatch) {
         const params = Object.fromEntries(

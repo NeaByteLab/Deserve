@@ -147,6 +147,18 @@ export class Router {
   }
 
   /**
+   * Parse import path by removing HTTPS URLs.
+   * @param str - Import path string
+   * @returns Cleaned import path
+   */
+  private parseImport(str: string): string {
+    if (str.startsWith('https://')) {
+      return str.replace(/^https:\/\/[^\/]+/, '')
+    }
+    return str
+  }
+
+  /**
    * Recursively scan directory for route files.
    * @param dir - Directory to scan
    * @param basePath - Base path for route resolution
@@ -161,7 +173,9 @@ export class Router {
           await this.scanRoutes(fullPath, newBasePath)
         } else if (entry.name.endsWith(this.routesExt)) {
           const routePath = basePath ? `${basePath}/${entry.name}` : entry.name
-          const module = await import(import.meta.resolve(fullPath))
+          const resolvedPath = import.meta.resolve(fullPath)
+          const cleanPath = this.parseImport(resolvedPath)
+          const module = await import(cleanPath)
           this.routeCache.set(routePath, module)
           const urlPattern = this.createURLPattern(routePath)
           if (urlPattern) {

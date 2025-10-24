@@ -1,4 +1,4 @@
-# Deserve [![Deno](https://img.shields.io/badge/Deno-2.5.4-blue)](https://deno.land) [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+# Deserve [![Deno](https://img.shields.io/badge/Deno-2.5.4-blue)](https://deno.land) [![JSR](https://jsr.io/badges/@neabyte/deserve)](https://jsr.io/@neabyte/deserve) [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 HTTP server with file-based routing library for Deno that supports middleware and all dynamic routing.
 
