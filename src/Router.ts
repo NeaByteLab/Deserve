@@ -159,7 +159,8 @@ export class Router {
           await this.scanRoutes(fullPath, newBasePath)
         } else if (entry.name.endsWith(this.routesExt)) {
           const routePath = basePath ? `${basePath}/${entry.name}` : entry.name
-          const module = await import(`file://${fullPath}`)
+          const absolutePath = `${Deno.cwd()}/${fullPath}`
+          const module = await import(`file://${absolutePath}`)
           this.routeCache.set(routePath, module)
           const urlPattern = this.createURLPattern(routePath)
           if (urlPattern) {
