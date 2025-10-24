@@ -215,10 +215,12 @@ router.static('/', {
 router.serve(8000)
 ```
 
-This serves files from the `public/` directory at the root URL:
-- `GET /index.html` → serves `public/index.html`
-- `GET /css/style.css` → serves `public/css/style.css`
-- `GET /js/app.js` → serves `public/js/app.js`
+This serves files from the `public/` directory at the `/static` URL path:
+- `GET /static/index.html` → serves `public/index.html`
+- `GET /static/css/style.css` → serves `public/css/style.css`
+- `GET /static/js/app.js` → serves `public/js/app.js`
+
+**Note:** The `urlRoot` parameter is automatically set to strip the leading `/` from the URL path, so you don't need to specify it manually.
 
 ### Advanced Static Configuration
 
@@ -231,7 +233,6 @@ const router = new Router()
 // Serve static files with custom URL path
 router.static('/static', {
   fsRoot: 'public',
-  urlRoot: 'static',  // Strip '/static' from URL path
   showDirListing: false,
   enableCors: true,
   headers: ['Cache-Control: public, max-age=31536000']
