@@ -4,7 +4,7 @@ export default defineConfig({
   title: 'Deserve',
   description:
     'HTTP server with file-based routing library for Deno. Drop files in folders and get instant API endpoints with zero configuration. Supports middleware, dynamic routes, and more.',
-  base: '/deserve/',
+  base: '/',
   head: [['link', { rel: 'icon', href: '/favicon.ico' }]],
   themeConfig: {
     logo: '/logo.svg',

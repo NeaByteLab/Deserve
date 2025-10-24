@@ -4,9 +4,9 @@
   "description": "Documentation for Deserve - HTTP server with file-based routing for Deno",
   "type": "module",
   "scripts": {
-    "dev": "vitepress dev",
-    "build": "vitepress build",
-    "preview": "vitepress preview"
+    "docs:build": "vitepress build",
+    "docs:preview": "vitepress preview",
+    "docs:dev": "vitepress dev"
   },
   "keywords": [
     "deno",
