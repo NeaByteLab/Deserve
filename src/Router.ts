@@ -40,7 +40,9 @@ export class Router {
         if (!allowedExtensions.includes(options.extension)) {
           throw new Error(`Invalid extension: ${options.extension}`)
         }
-        this.routesDir = options.prefix
+        this.routesDir = options.prefix.startsWith('/')
+          ? options.prefix
+          : `${Deno.cwd()}/${options.prefix}`
         this.routesExt = options.extension
       }
     }
@@ -159,8 +161,7 @@ export class Router {
           await this.scanRoutes(fullPath, newBasePath)
         } else if (entry.name.endsWith(this.routesExt)) {
           const routePath = basePath ? `${basePath}/${entry.name}` : entry.name
-          const absolutePath = `${Deno.cwd()}/${fullPath}`
-          const module = await import(`file://${absolutePath}`)
+          const module = await import(import.meta.resolve(fullPath))
           this.routeCache.set(routePath, module)
           const urlPattern = this.createURLPattern(routePath)
           if (urlPattern) {
