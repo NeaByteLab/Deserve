@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- [Deno](https://deno.land) 2.5.4+ installed
+- [Deno](https://github.com/denoland/deno_install) 2.5.4+ installed
 - Knowledge of TypeScript/JavaScript
 
 ## Install Deserve
