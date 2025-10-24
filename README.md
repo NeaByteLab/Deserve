@@ -25,7 +25,8 @@ Follow our [installing guide](https://docs-deserve.neabyte.com/getting-started/i
 - **Core Concepts**
   - [File-based Routing](https://docs-deserve.neabyte.com/core-concepts/file-based-routing) - How file structure becomes API endpoints
   - [Route Patterns](https://docs-deserve.neabyte.com/core-concepts/route-patterns) - Dynamic routes and parameter matching
-  - [HTTP Methods](https://docs-deserve.neabyte.com/core-concepts/http-methods) - Supported HTTP methods
+  - [HTTP Methods](https://docs-deserve.neabyte.com/core-concepts/http-methods) - All supported HTTP methods
+  - [Request Handling](https://docs-deserve.neabyte.com/core-concepts/request-handling) - Enhanced request object with automatic parsing
 
 - **Middleware**
   - [Global Middleware](https://docs-deserve.neabyte.com/middleware/global) - Cross-cutting functionality
@@ -45,7 +46,7 @@ Follow our [installing guide](https://docs-deserve.neabyte.com/getting-started/i
   - [Multiple Directories](https://docs-deserve.neabyte.com/static-file/multiple) - Serve from multiple locations
 
 - **Error Handling**
-  - [Object Details](https://docs-deserve.neabyte.com/error-handling/object-details) - Comprehensive error information
+  - [Object Details](https://docs-deserve.neabyte.com/error-handling/object-details) - Detailed error information
 
 ## Contributing
 

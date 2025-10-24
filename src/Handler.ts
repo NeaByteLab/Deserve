@@ -1,5 +1,6 @@
 import { serveDir, type ServeDirOptions } from '@std/http/file-server'
 import type { ErrorMiddleware, RouterHandler, RouterMiddleware } from '@app/Types.ts'
+import { DeserveRequest } from '@app/Request.ts'
 
 /**
  * Executes the appropriate handler method for the request.
@@ -19,7 +20,8 @@ async function executeHandler(
 ): Promise<Response> {
   if (module[method]) {
     try {
-      return await module[method](req, params)
+      const deserveReq = new DeserveRequest(req, params)
+      return await module[method](deserveReq, params)
     } catch (error) {
       if (errorMiddleware) {
         const customResponse = errorMiddleware(req, {

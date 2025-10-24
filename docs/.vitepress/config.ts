@@ -24,7 +24,8 @@ export default defineConfig({
         items: [
           { text: 'File-based Routing', link: '/core-concepts/file-based-routing' },
           { text: 'Route Patterns', link: '/core-concepts/route-patterns' },
-          { text: 'HTTP Methods', link: '/core-concepts/http-methods' }
+          { text: 'HTTP Methods', link: '/core-concepts/http-methods' },
+          { text: 'Request Handling', link: '/core-concepts/request-handling' }
         ]
       },
       {

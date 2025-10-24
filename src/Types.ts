@@ -1,3 +1,5 @@
+import type { DeserveRequest } from '@app/Request.ts'
+
 /**
  * Error middleware function type.
  * @param req - HTTP request object
@@ -16,12 +18,12 @@ export type ErrorMiddleware = (
 
 /**
  * Route handler function type.
- * @param req - HTTP request object
+ * @param req - Enhanced request object with query parsing
  * @param params - Route parameters from URL
  * @returns HTTP response or promise
  */
 export type RouterHandler = (
-  req: Request,
+  req: DeserveRequest,
   params: Record<string, string>
 ) => Response | Promise<Response>
 
