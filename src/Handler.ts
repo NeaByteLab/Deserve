@@ -144,7 +144,7 @@ export class Handler {
           const routePattern = this.createRoutePattern(routePath)
           if (routePattern) {
             this.validateRouteModule(fileModule, routePath)
-            Object.keys(fileModule).forEach(method => {
+            Object.keys(fileModule).forEach((method) => {
               this.router.add(routePattern, fileModule[method], method)
             })
           }
@@ -206,7 +206,7 @@ export class Handler {
    * @throws {Error} When route exports are invalid
    */
   validateRouteModule(module: Record<string, unknown>, routePath: string): void {
-    const exportedMethods = Object.keys(module).filter(key => httpMethods.includes(key))
+    const exportedMethods = Object.keys(module).filter((key) => httpMethods.includes(key))
     if (exportedMethods.length === 0) {
       throw new Error(
         `Route ${routePath}: Must export at least one HTTP method (${httpMethods.join(', ')})`
