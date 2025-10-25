@@ -1,219 +1,223 @@
 import { serveDir, type ServeDirOptions } from '@std/http/file-server'
-import type { ErrorMiddleware, RouterHandler, RouterMiddleware } from '@app/Types.ts'
+import type { ErrorMiddleware, RouterMiddleware } from '@app/Types.ts'
+import { pathToFileURL } from 'node:url'
+import { httpMethods } from '@app/Constant.ts'
 import { DeserveRequest } from '@app/Request.ts'
+import { FastRouter } from '@utils/index.ts'
 
 /**
- * Executes the appropriate handler method for the request.
- * @param module - Route handler module
- * @param method - HTTP method
- * @param req - HTTP request object
- * @param params - Route parameters
- * @param errorMiddleware - Optional error middleware for custom error responses
- * @returns HTTP response
+ * Handler class for managing request processing, route scanning, and error handling.
+ * @description Contains core functionality for request handling and route management.
  */
-async function executeHandler(
-  module: Record<string, RouterHandler>,
-  method: string,
-  req: Request,
-  params: Record<string, string>,
-  errorMiddleware?: ErrorMiddleware | null
-): Promise<Response> {
-  if (module[method]) {
-    try {
-      const deserveReq = new DeserveRequest(req, params)
-      return await module[method](deserveReq, params)
-    } catch (error) {
-      if (errorMiddleware) {
-        const customResponse = errorMiddleware(req, {
-          path: req.url,
-          method,
-          statusCode: 500,
-          error: error as Error
-        })
-        if (customResponse) {
-          return customResponse
-        }
-      }
-      return new Response(null, { status: 500 })
-    }
-  }
-  if (errorMiddleware) {
-    const customResponse = errorMiddleware(req, {
-      path: req.url,
-      method,
-      statusCode: 501,
-      error: new Error('Method Not Allowed')
-    })
-    if (customResponse) {
-      return customResponse
-    }
-  }
-  return new Response(null, { status: 501 })
-}
+export class Handler {
+  /** Error middleware handler */
+  private errorMiddleware: ErrorMiddleware | null = null
+  /** Middleware pipeline for request processing */
+  private middlewarePipeline: Array<RouterMiddleware> = []
+  /** Static file routes configuration */
+  private staticRoutes = new Map<string, ServeDirOptions>()
+  /** Route-specific middleware configuration */
+  private routeSpecific = new Map<string, Array<RouterMiddleware>>()
+  /** FastRouter instance */
+  private router = new FastRouter()
+  /** File extension for route files */
+  private routesExt: string
 
-/**
- * Finds matching route pattern and extracts parameters.
- * @param normalizedPath - Normalized pathname
- * @param url - URL object for origin
- * @param routePattern - Map of URLPattern instances to route paths
- * @param routesExt - File extension for route files
- * @returns Object containing matched module path and extracted parameters
- */
-function findMatchingRoute(
-  normalizedPath: string,
-  url: URL,
-  routePattern: Map<URLPattern, string>,
-  routesExt: string
-): { routePath: string | null; params: Record<string, string> } {
-  const sortedPatterns = Array.from(routePattern.entries()).sort((a, b) => {
-    const aPath = a[1].replace(routesExt, '')
-    const bPath = b[1].replace(routesExt, '')
-    return bPath.length - aPath.length
-  })
-  for (const [pattern, routePath] of sortedPatterns) {
-    const normalizedUrl = new URL(normalizedPath, url.origin)
-    const match = pattern.exec(normalizedUrl)
-    if (match) {
-      const groups = (match.pathname.groups || {}) as Record<string, string | undefined>
-      const isValidMatch = Object.values(groups).every(
-        (value) => typeof value === 'string' && !value.includes('/')
-      )
-      if (isValidMatch) {
-        const params = Object.fromEntries(
-          Object.entries(groups).filter(([_, value]) => typeof value === 'string')
-        ) as Record<string, string>
-        return { routePath, params }
-      }
-    }
+  /**
+   * Initialize Handler with file extension for route files.
+   * @param routesExt - File extension for route files
+   */
+  constructor(routesExt: string) {
+    this.routesExt = routesExt
   }
-  return { routePath: null, params: {} }
-}
 
-/**
- * Request handler factory function.
- * @param errorMiddleware - Optional error middleware for custom error responses
- * @param middleware - Array of middleware functions
- * @param routeCache - Map of route paths to handler modules
- * @param routePattern - Map of URLPattern instances to route paths
- * @param routeSpecific - Map of route paths to route-specific middleware arrays
- * @param routesExt - File extension for route files
- * @param staticRoutes - Map of static file routes configuration
- * @returns Request handler function
- */
-export function handleRequest(
-  errorMiddleware: ErrorMiddleware | null | undefined,
-  middleware: Array<RouterMiddleware>,
-  routeCache: Map<string, Record<string, RouterHandler>>,
-  routePattern: Map<URLPattern, string>,
-  routeSpecific: Map<string, Array<RouterMiddleware>> | undefined,
-  routesExt: string,
-  staticRoutes: Map<string, ServeDirOptions> | undefined
-): (req: Request) => Promise<Response> {
-  return async (req: Request): Promise<Response> => {
-    if (staticRoutes) {
-      const url = new URL(req.url)
-      for (const [urlPath, options] of staticRoutes) {
-        if (url.pathname.startsWith(urlPath)) {
-          const serveOptions = {
-            urlRoot: urlPath.startsWith('/') ? urlPath.slice(1) : urlPath,
-            ...options
+  /**
+   * Create native Deno.serve handler with integrated middleware and static file serving.
+   * @returns Request handler function
+   */
+  createHandler(): (req: Request) => Promise<Response> {
+    return async (req: Request) => {
+      try {
+        const url = new URL(req.url)
+        for (const [urlPath, options] of this.staticRoutes) {
+          if (url.pathname.startsWith(urlPath)) {
+            const serveOptions = {
+              urlRoot: urlPath.startsWith('/') ? urlPath.slice(1) : urlPath,
+              ...options
+            }
+            return serveDir(req, serveOptions)
           }
-          return serveDir(req, serveOptions)
         }
-      }
-    }
-    const url = new URL(req.url)
-    if (routeSpecific) {
-      const pathname = url.pathname
-      for (const [routePath, middlewares] of routeSpecific) {
-        if (pathname.startsWith(routePath)) {
-          for (const middleware of middlewares) {
-            const result = middleware(req)
-            if (result) {
-              return result
+        for (const [routePath, middlewares] of this.routeSpecific) {
+          if (url.pathname.startsWith(routePath)) {
+            for (const middleware of middlewares) {
+              const result = middleware(req)
+              if (result) {
+                return result
+              }
             }
           }
         }
+        for (const middleware of this.middlewarePipeline) {
+          const result = middleware(req)
+          if (result) {
+            return result
+          }
+        }
+        const result = this.router.find(url.pathname, undefined, req.method)
+        if (result) {
+          const params = result.params || {}
+          try {
+            return await (
+              result.data as (
+                req: DeserveRequest,
+                params: Record<string, string>
+              ) => Promise<Response>
+            )(new DeserveRequest(req, params), params)
+          } catch (error) {
+            return this.handleError(req, 500, error as Error)
+          }
+        }
+        return this.handleError(req, 404, new Error('Route not found'))
+      } catch (error) {
+        return this.handleError(req, 500, error as Error)
       }
     }
-    const middlewareResponse = processMiddleware(middleware, req)
-    if (middlewareResponse) {
-      return middlewareResponse
+  }
+
+  /**
+   * Create route pattern from route file path.
+   * @param routePath - File path of the route
+   * @returns Route pattern string or null if invalid
+   */
+  createRoutePattern(routePath: string): string | null {
+    const pathWithoutExt = routePath.replace(this.routesExt, '')
+    const pathLastSegment = pathWithoutExt.split('/').pop()
+    const isValidSegment = /^[a-zA-Z0-9_\[\]-]+$/
+    if (!isValidSegment.test(pathLastSegment ?? '')) {
+      return null
     }
-    const method = req.method
-    const normalizedPath = normalizePath(url.pathname)
-    const exactPath = getExactPath(normalizedPath, routesExt)
-    let module = routeCache.get(exactPath)
-    let params: Record<string, string> = {}
-    if (!module) {
-      const { routePath, params: extractedParams } = findMatchingRoute(
-        normalizedPath,
-        url,
-        routePattern,
-        routesExt
-      )
-      if (routePath) {
-        module = routeCache.get(routePath)
-        params = extractedParams
+    const pathPattern = `/${pathWithoutExt}`.replace(/\[([^\]]+)\]/g, ':$1').toLowerCase()
+    if (pathPattern.endsWith('/index')) {
+      return pathPattern.slice(0, -6)
+    }
+    return pathPattern
+  }
+
+  /**
+   * Handle error response.
+   * @param req - Request object
+   * @param statusCode - Status code
+   * @param error - Error object
+   * @returns Response object
+   */
+  handleError(req: Request, statusCode: number, error: Error): Response {
+    if (this.errorMiddleware) {
+      const customResponse = this.errorMiddleware(req, {
+        path: req.url,
+        method: req.method,
+        statusCode,
+        error
+      })
+      if (customResponse) {
+        return customResponse
       }
     }
-    if (!module) {
-      if (errorMiddleware) {
-        const customResponse = errorMiddleware(req, {
-          path: req.url,
-          method,
-          statusCode: 404,
-          error: new Error('Route Not Found')
-        })
-        if (customResponse) {
-          return processMiddleware(middleware, req, customResponse) ?? customResponse
+    return new Response(null, { status: statusCode })
+  }
+
+  /**
+   * Recursively scan directory for route files.
+   * @param dir - Directory to scan
+   * @param basePath - Base path for route resolution
+   * @throws {Error} When routes directory is not found
+   */
+  async scanRoutes(dir: string, basePath = ''): Promise<void> {
+    try {
+      for await (const entry of Deno.readDir(dir)) {
+        const fullPath = `${dir}/${entry.name}`
+        const routePath = basePath ? `${basePath}/${entry.name}` : entry.name
+        if (entry.isDirectory) {
+          await this.scanRoutes(fullPath, routePath)
+        } else if (entry.name.endsWith(this.routesExt)) {
+          const fileModule = await import(pathToFileURL(fullPath).href)
+          const routePattern = this.createRoutePattern(routePath)
+          if (routePattern) {
+            this.validateRouteModule(fileModule, routePath)
+            Object.keys(fileModule).forEach(method => {
+              this.router.add(routePattern, fileModule[method], method)
+            })
+          }
         }
       }
-      const errorResponse = new Response(null, { status: 404 })
-      const middlewareResponse = processMiddleware(middleware, req, errorResponse)
-      return middlewareResponse ?? errorResponse
-    }
-    const response = await executeHandler(module, method, req, params, errorMiddleware)
-    return processMiddleware(middleware, req, response) ?? response
-  }
-}
-
-/**
- * Converts normalized path to exact file path for route lookup.
- * @param normalizedPath - Normalized pathname
- * @param routesExt - File extension for route files
- * @returns Exact file path for route lookup
- */
-function getExactPath(normalizedPath: string, routesExt: string): string {
-  return normalizedPath === '/' ? `index${routesExt}` : `${normalizedPath.slice(1)}${routesExt}`
-}
-
-/**
- * Normalizes URL pathname by removing duplicate slashes and trailing slashes.
- * @param pathname - Raw pathname from URL
- * @returns Normalized pathname
- */
-function normalizePath(pathname: string): string {
-  return pathname.replace(/\/+/g, '/').replace(/\/$/, '') || '/'
-}
-
-/**
- * Processes middleware functions and returns early response if any handles request.
- * @param middleware - Array of middleware functions
- * @param req - HTTP request object
- * @param res - HTTP response object (optional)
- * @returns Response if middleware handled request, null otherwise
- */
-function processMiddleware(
-  middleware: Array<RouterMiddleware>,
-  req: Request,
-  res?: Response
-): Response | null {
-  for (const middlewareFn of middleware) {
-    const result = middlewareFn(req, res)
-    if (result) {
-      return result
+    } catch (error) {
+      if (error instanceof Deno.errors.NotFound) {
+        throw new Error(`Routes directory not found: ${dir}`)
+      } else {
+        throw error
+      }
     }
   }
-  return null
+
+  /**
+   * Set error middleware handler for custom error responses.
+   * @param errorMiddleware - Error middleware function
+   */
+  setErrorMiddleware(errorMiddleware: ErrorMiddleware): void {
+    this.errorMiddleware = errorMiddleware
+  }
+
+  /**
+   * Set middleware pipeline.
+   * @param middlewarePipeline - Array of middleware functions
+   */
+  setMiddlewarePipeline(middlewarePipeline: Array<RouterMiddleware>): void {
+    this.middlewarePipeline = middlewarePipeline
+  }
+
+  /**
+   * Set route-specific middleware configuration.
+   * @param routeSpecific - Map of route-specific middleware
+   */
+  setRouteSpecific(routeSpecific: Map<string, Array<RouterMiddleware>>): void {
+    this.routeSpecific = routeSpecific
+  }
+
+  /**
+   * Set router instance.
+   * @param router - FastRouter instance
+   */
+  setRouter(router: FastRouter): void {
+    this.router = router
+  }
+
+  /**
+   * Set static routes configuration.
+   * @param staticRoutes - Map of static route configurations
+   */
+  setStaticRoutes(staticRoutes: Map<string, ServeDirOptions>): void {
+    this.staticRoutes = staticRoutes
+  }
+
+  /**
+   * Validates route module exports to ensure they are valid handler functions.
+   * @param module - Route module to validate
+   * @param routePath - Path of the route file for error reporting
+   * @throws {Error} When route exports are invalid
+   */
+  validateRouteModule(module: Record<string, unknown>, routePath: string): void {
+    const exportedMethods = Object.keys(module).filter(key => httpMethods.includes(key))
+    if (exportedMethods.length === 0) {
+      throw new Error(
+        `Route ${routePath}: Must export at least one HTTP method (${httpMethods.join(', ')})`
+      )
+    }
+    for (const [key, value] of Object.entries(module)) {
+      if (httpMethods.includes(key)) {
+        if (typeof value !== 'function') {
+          throw new Error(`Route ${routePath}: ${key} must be a function, got ${typeof value}`)
+        }
+      }
+    }
+  }
 }

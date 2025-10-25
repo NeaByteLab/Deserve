@@ -62,7 +62,9 @@ export async function POST(req: Request): Response {
 ### PUT - Update Resources
 ```typescript
 // routes/users/[id].ts
-export async function PUT(req: Request, params: Record<string, string>) {
+import { Send, DeserveRequest } from '@neabyte/deserve'
+
+export async function PUT(req: DeserveRequest, params: Record<string, string>) {
   const { id } = params
   const data = await req.json()
   // Update user with id...
@@ -73,7 +75,9 @@ export async function PUT(req: Request, params: Record<string, string>) {
 ### PATCH - Partial Updates
 ```typescript
 // routes/users/[id].ts
-export async function PATCH(req: Request, params: Record<string, string>) {
+import { Send, DeserveRequest } from '@neabyte/deserve'
+
+export async function PATCH(req: DeserveRequest, params: Record<string, string>) {
   const { id } = params
   const data = await req.json()
   // Partial update user with id...
@@ -84,7 +88,9 @@ export async function PATCH(req: Request, params: Record<string, string>) {
 ### DELETE - Remove Resources
 ```typescript
 // routes/users/[id].ts
-export function DELETE(req: Request, params: Record<string, string>) {
+import { Send, DeserveRequest } from '@neabyte/deserve'
+
+export function DELETE(req: DeserveRequest, params: Record<string, string>) {
   const { id } = params
   // Delete user with id...
   return Send.json({ message: 'User deleted', id })
@@ -160,3 +166,4 @@ router.onError((req, error) => {
 
 - [Route Patterns](/core-concepts/route-patterns) - Understanding pattern matching
 - [File-based Routing](/core-concepts/file-based-routing) - Core routing concepts
+- [Request Handling](/core-concepts/request-handling) - Working with DeserveRequest

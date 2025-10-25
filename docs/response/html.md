@@ -52,7 +52,9 @@ export function GET(req: Request): Response {
 ## Dynamic Content
 
 ```typescript
-export function GET(req: Request, params: Record<string, string>) {
+import { Send, DeserveRequest } from '@neabyte/deserve'
+
+export function GET(req: DeserveRequest, params: Record<string, string>) {
   const { id } = params
   const html = `
 <!DOCTYPE html>

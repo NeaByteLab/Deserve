@@ -1,12 +1,10 @@
 # Route Patterns
 
-> **Reference**: [URLPattern API Documentation](https://docs.deno.com/api/web/~/URLPattern)
-
-Deserve uses `URLPattern` for efficient route matching with native pattern support.
+Deserve uses a **Simple Router** with radix tree structure algorithm.
 
 ## Pattern Matching
 
-Deserve converts file paths to `URLPattern` instances for route matching:
+Deserve converts file paths to route patterns using a radix tree implementation:
 
 ```
 .
@@ -23,7 +21,9 @@ Use `[param]` syntax for dynamic route segments:
 ### Single Parameter
 ```typescript
 // routes/users/[id].ts
-export function GET(req: Request, params: Record<string, string>) {
+import { Send, DeserveRequest } from '@neabyte/deserve'
+
+export function GET(req: DeserveRequest, params: Record<string, string>) {
   const { id } = params
   return Send.json({ userId: id })
 }
@@ -32,7 +32,9 @@ export function GET(req: Request, params: Record<string, string>) {
 ### Multiple Parameters
 ```typescript
 // routes/users/[id]/posts/[postId].ts
-export function GET(req: Request, params: Record<string, string>) {
+import { Send, DeserveRequest } from '@neabyte/deserve'
+
+export function GET(req: DeserveRequest, params: Record<string, string>) {
   const { id, postId } = params
   return Send.json({ userId: id, postId })
 }
@@ -41,7 +43,9 @@ export function GET(req: Request, params: Record<string, string>) {
 ### Nested Parameters
 ```typescript
 // routes/api/v1/users/[userId]/posts/[postId]/comments/[commentId].ts
-export function GET(req: Request, params: Record<string, string>) {
+import { Send, DeserveRequest } from '@neabyte/deserve'
+
+export function GET(req: DeserveRequest, params: Record<string, string>) {
   const { userId, postId, commentId } = params
   return Send.json({ userId, postId, commentId })
 }
@@ -52,11 +56,11 @@ export function GET(req: Request, params: Record<string, string>) {
 ### User Management
 ```
 routes/
-├── users.ts                       → /users
-├── users/[id].ts                  → /users/:id
-├── users/[id]/profile.ts          → /users/:id/profile
-├── users/[id]/posts.ts            → /users/:id/posts
-└── users/[id]/posts/[postId].ts   → /users/:id/posts/:postId
+├── users.ts                         → /users
+├── users/[id].ts                    → /users/:id
+├── users/[id]/profile.ts            → /users/:id/profile
+├── users/[id]/posts.ts              → /users/:id/posts
+└── users/[id]/posts/[postId].ts     → /users/:id/posts/:postId
 ```
 
 ### API Versioning
@@ -64,20 +68,20 @@ routes/
 routes/
 ├── api/
 │   ├── v1/
-│   │   └── users/[id].ts       → /api/v1/users/:id
+│   │   └── users/[id].ts            → /api/v1/users/:id
 │   └── v2/
-│       └── users/[id].ts       → /api/v2/users/:id
+│       └── users/[id].ts            → /api/v2/users/:id
 ```
 
 ### Blog System
 ```
 routes/
 ├── blog/
-│   ├── [slug].ts               → /blog/:slug
+│   ├── [slug].ts                    → /blog/:slug
 │   └── [year]/
 │       └── [month]/
 │           └── [day]/
-│               └── [slug].ts   → /blog/:year/:month/:day/:slug
+│               └── [slug].ts        → /blog/:year/:month/:day/:slug
 ```
 
 ## Route Matching Priority
@@ -103,7 +107,9 @@ Extract and validate parameters in your route handlers:
 
 ```typescript
 // routes/users/[id].ts
-export function GET(req: Request, params: Record<string, string>) {
+import { Send, DeserveRequest } from '@neabyte/deserve'
+
+export function GET(req: DeserveRequest, params: Record<string, string>) {
   const { id } = params
   // Validate parameter
   if (!id || !/^\d+$/.test(id)) {
@@ -118,7 +124,9 @@ export function GET(req: Request, params: Record<string, string>) {
 ### Optional Parameters
 ```typescript
 // routes/posts/[slug].ts
-export function GET(req: Request, params: Record<string, string>) {
+import { Send, DeserveRequest } from '@neabyte/deserve'
+
+export function GET(req: DeserveRequest, params: Record<string, string>) {
   const { slug } = params
   // Handle post by slug
   return Send.json({ slug })
@@ -128,26 +136,58 @@ export function GET(req: Request, params: Record<string, string>) {
 ### Multiple Segments
 ```typescript
 // routes/categories/[category]/products/[product].ts
-export function GET(req: Request, params: Record<string, string>) {
+import { Send, DeserveRequest } from '@neabyte/deserve'
+
+export function GET(req: DeserveRequest, params: Record<string, string>) {
   const { category, product } = params
   return Send.json({ category, product })
 }
+```
+
+## Performance Benefits
+
+### Static Route Optimization
+Static routes (no parameters) are cached for O(1) lookup:
+```typescript
+// These routes are optimized for instant matching
+routes/index.ts                  → / (cached)
+routes/about.ts                  → /about (cached)
+routes/users.ts                  → /users (cached)
+```
+
+### Dynamic Route Matching
+Dynamic routes use radix tree traversal for efficient matching:
+```typescript
+// These routes use tree traversal
+routes/users/[id].ts             → /users/:id
+routes/users/[id]/posts.ts       → /users/:id/posts
+routes/api/v1/[version].ts       → /api/v1/:version
 ```
 
 ## Pattern Limitations
 
 ### Invalid Patterns
 ```
-❌ routes/users/[...id].ts      // Rest parameters not supported
-❌ routes/users/(group).ts      // Groups not supported
-❌ routes/users/:id.ts          // Colon syntax not supported
+❌ routes/users/[...id].ts       // Rest parameters not supported
+❌ routes/users/(group).ts       // Groups not supported
+❌ routes/users/:id.ts           // Colon syntax not supported
+❌ routes/users/*.ts             // Wildcard without brackets
+❌ routes/users/**.ts            // Double wildcard without brackets
+```
+
+### Supported Patterns
+```
+✅ routes/users/[id].ts          // Single parameter
+✅ routes/users/[id]/posts.ts    // Nested parameters
+✅ routes/api/v1/[version].ts    // API versioning
+✅ routes/posts/[slug].ts        // Slug-based routing
 ```
 
 ### Valid Patterns
 ```
-✅ routes/users/[id].ts         // Single parameter
-✅ routes/users/[id]/posts.ts   // Nested parameters
-✅ routes/api/v1/users.ts       // Static segments
+✅ routes/users/[id].ts          // Single parameter
+✅ routes/users/[id]/posts.ts    // Nested parameters
+✅ routes/api/v1/users.ts        // Static segments
 ```
 
 ## Best Practices
@@ -179,3 +219,4 @@ router.onError((req, error) => {
 
 - [HTTP Methods](/core-concepts/http-methods) - Supported methods
 - [File-based Routing](/core-concepts/file-based-routing) - Core routing concepts
+- [Request Handling](/core-concepts/request-handling) - Working with DeserveRequest

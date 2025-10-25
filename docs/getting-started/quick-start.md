@@ -96,10 +96,10 @@ Create `routes/users/[id].ts`:
 
 ```typescript
 // routes/users/[id].ts
-import { Send } from '@neabyte/deserve'
+import { Send, DeserveRequest } from '@neabyte/deserve'
 
 // GET /users/:id -> Returns a JSON response with the user id and name
-export function GET(req: Request, params: Record<string, string>) {
+export function GET(req: DeserveRequest, params: Record<string, string>) {
   const { id } = params
   return Send.json({ userId: id, name: `User ${id}` })
 }
@@ -108,6 +108,34 @@ export function GET(req: Request, params: Record<string, string>) {
 Test it:
 ```bash
 curl http://localhost:8000/users/123
+```
+
+## Request Types
+
+Deserve provides two request types:
+
+- **`Request`**: Use for static routes without parameters
+- **`DeserveRequest`**: Use for dynamic routes with parameters (like `[id].ts`)
+
+### Static Routes (use `Request`)
+```typescript
+// routes/index.ts
+export function GET(req: Request): Response {
+  return Send.json({ message: 'Hello!' })
+}
+```
+
+### Dynamic Routes (use `DeserveRequest`)
+```typescript
+// routes/users/[id].ts
+import { DeserveRequest } from '@neabyte/deserve'
+
+// GET /users/:id -> Returns a JSON response with the user id and query parameters
+export function GET(req: DeserveRequest, params: Record<string, string>) {
+  const userId = req.param('id')  // Access route parameter
+  const query = req.query()       // Access query parameters
+  return Send.json({ userId, query })
+}
 ```
 
 ## What's Next?

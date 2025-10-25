@@ -49,10 +49,10 @@ export function POST(req: Request): Response {
 
 ## Route Matching Priority
 
-Deserve uses URLPattern for efficient route matching with this priority:
+Deserve uses FastRouter with radix tree structure for efficient route matching with this priority:
 
-1. **Exact matches** - `users.ts` matches `/users`
-2. **Dynamic routes** - `users/[id].ts` matches `/users/123`
+1. **Static routes** - `users.ts` matches `/users` (O(1) lookup)
+2. **Dynamic routes** - `users/[id].ts` matches `/users/123` (O(k) tree traversal)
 3. **Longer paths** - More specific routes take precedence
 
 ## Examples
@@ -73,13 +73,17 @@ export function GET(req: Request): Response {
 ### Dynamic Routes
 ```typescript
 // routes/users/[id].ts
-export function GET(req: Request, params: Record<string, string>) {
+import { Send, DeserveRequest } from '@neabyte/deserve'
+
+export function GET(req: DeserveRequest, params: Record<string, string>) {
   const { id } = params
   return Send.json({ userId: id })
 }
 
 // routes/users/[id]/posts/[postId].ts
-export function GET(req: Request, params: Record<string, string>) {
+import { Send, DeserveRequest } from '@neabyte/deserve'
+
+export function GET(req: DeserveRequest, params: Record<string, string>) {
   const { id, postId } = params
   return Send.json({ userId: id, postId })
 }
@@ -96,3 +100,4 @@ export function GET(req: Request, params: Record<string, string>) {
 
 - [Route Patterns](/core-concepts/route-patterns) - Understanding pattern matching
 - [HTTP Methods](/core-concepts/http-methods) - Supported methods
+- [Request Handling](/core-concepts/request-handling) - Working with DeserveRequest

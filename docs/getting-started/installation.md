@@ -22,4 +22,6 @@ This will:
 
 Now that Deserve is installed, let's create your first server!
 
-[Quick Start →](/getting-started/quick-start)
+- [Quick Start](/getting-started/quick-start) - Create your first API
+- [Server Configuration](/getting-started/server-configuration) - Configure your server
+- [Custom Configuration](/getting-started/custom-configuration) - Advanced router options

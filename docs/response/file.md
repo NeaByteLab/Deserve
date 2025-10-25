@@ -50,7 +50,9 @@ export async function GET(req: Request): Response {
 
 ```typescript
 // routes/downloads/[filename].ts
-export async function GET(req: Request, params: Record<string, string>): Response {
+import { Send, DeserveRequest } from '@neabyte/deserve'
+
+export async function GET(req: DeserveRequest, params: Record<string, string>): Response {
   const { filename } = params
   // Validate filename to prevent directory traversal
   if (filename.includes('..') || filename.includes('/')) {
@@ -141,7 +143,9 @@ export async function GET(req: Request): Response {
 ## Example Security Implementation
 
 ```typescript
-export async function GET(req: Request, params: Record<string, string>): Response {
+import { Send, DeserveRequest } from '@neabyte/deserve'
+
+export async function GET(req: DeserveRequest, params: Record<string, string>): Response {
   const { filename } = params
   // Security checks
   if (!filename || filename.includes('..') || filename.includes('/')) {

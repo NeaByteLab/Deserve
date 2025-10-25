@@ -1,27 +1,16 @@
 import type { ServeDirOptions } from '@std/http/file-server'
-import type { ErrorMiddleware, RouterHandler, RouterMiddleware, RouterOptions } from '@app/Types.ts'
-import { pathToFileURL } from 'node:url'
-import { httpMethods } from '@app/Constant.ts'
-import { handleRequest } from '@app/Handler.ts'
+import type { ErrorMiddleware, RouterMiddleware, RouterOptions } from '@app/Types.ts'
+import { allowedExtensions } from '@app/Constant.ts'
 import { middlewares } from '@middlewares/index.ts'
+import { Handler } from '@app/Handler.ts'
 
 /**
  * Native Deno.serve file-based router.
- * @description File-based routing with URLPattern matching and middleware support.
+ * @description File-based routing with FastRouter matching and middleware support.
  */
 export class Router {
-  /** Error middleware for custom error responses */
-  private errorMiddleware: ErrorMiddleware | null = null
-  /** Middleware pipeline for request processing */
-  private middlewarePipeline: Array<RouterMiddleware> = []
-  /** Static file routes configuration */
-  private staticRoutes = new Map<string, ServeDirOptions>()
-  /** Route-specific middleware configuration */
-  private routeSpecific = new Map<string, Array<RouterMiddleware>>()
-  /** Cache of loaded route modules */
-  private routeCache = new Map<string, Record<string, RouterHandler>>()
-  /** URLPattern to route path mapping */
-  private routePattern = new Map<URLPattern, string>()
+  /** Handler instance for request processing */
+  private handler: Handler
   /** Directory containing route files */
   private routesDir: string
   /** File extension for route files */
@@ -40,7 +29,6 @@ export class Router {
       if (!options.prefix || !options.extension) {
         throw new Error('Router requires both prefix and extension options')
       } else {
-        const allowedExtensions = ['.cjs', '.js', '.jsx', '.mjs', '.ts', '.tsx']
         if (!allowedExtensions.includes(options.extension)) {
           throw new Error(`Invalid extension: ${options.extension}`)
         }
@@ -50,6 +38,7 @@ export class Router {
         this.routesExt = options.extension
       }
     }
+    this.handler = new Handler(this.routesExt)
   }
 
   /**
@@ -57,30 +46,32 @@ export class Router {
    * @param mwareConfig - Array of middleware names or [name, options] tuples
    */
   apply(mwareConfig: Array<string | [string, unknown]>): void {
+    const middlewarePipeline: Array<RouterMiddleware> = []
     for (const config of mwareConfig) {
       if (typeof config === 'string') {
         const middleware = middlewares[config as keyof typeof middlewares]
         if (middleware) {
-          this.middlewarePipeline.push(middleware())
+          middlewarePipeline.push(middleware())
         }
       } else if (Array.isArray(config)) {
         const [name, options] = config
         const middleware = middlewares[name as keyof typeof middlewares]
         if (middleware) {
-          this.middlewarePipeline.push(
+          middlewarePipeline.push(
             middleware(options as unknown as Parameters<typeof middleware>[0])
           )
         }
       }
     }
+    this.handler.setMiddlewarePipeline(middlewarePipeline)
   }
 
   /**
-   * Set error middleware for custom 404 and 501 responses.
-   * @param middleware - Error middleware function
+   * Set error middleware handler for custom error responses.
+   * @param errorMiddleware - Error middleware function
    */
-  onError(middleware: ErrorMiddleware): void {
-    this.errorMiddleware = middleware
+  onError(errorMiddleware: ErrorMiddleware): void {
+    this.handler.setErrorMiddleware(errorMiddleware)
   }
 
   /**
@@ -93,7 +84,7 @@ export class Router {
   async serve(port?: number, hostname?: string): Promise<void>
   async serve(port?: number, hostname?: string, signal?: AbortSignal): Promise<void>
   async serve(port?: number, hostname?: string, signal?: AbortSignal): Promise<void> {
-    await this.initializeRoutes()
+    await this.handler.scanRoutes(this.routesDir)
     const actualPort = port ?? 8000
     const actualHostname = hostname ?? '0.0.0.0'
     if (signal) {
@@ -101,13 +92,13 @@ export class Router {
         port: actualPort,
         hostname: actualHostname,
         signal,
-        handler: this.createHandler()
+        handler: this.handler.createHandler()
       })
     } else {
       Deno.serve({
         port: actualPort,
         hostname: actualHostname,
-        handler: this.createHandler()
+        handler: this.handler.createHandler()
       })
     }
   }
@@ -118,7 +109,9 @@ export class Router {
    * @param options - Static file serving options
    */
   static(urlPath: string, options?: ServeDirOptions): void {
-    this.staticRoutes.set(urlPath, options || {})
+    const staticRoutes = new Map<string, ServeDirOptions>()
+    staticRoutes.set(urlPath, options || {})
+    this.handler.setStaticRoutes(staticRoutes)
   }
 
   /**
@@ -134,114 +127,15 @@ export class Router {
   use(routePath: string, middleware: RouterMiddleware): void
   use(routePathOrMiddleware: string | RouterMiddleware, middleware?: RouterMiddleware): void {
     if (typeof routePathOrMiddleware === 'string' && middleware) {
-      const existing = this.routeSpecific.get(routePathOrMiddleware) || []
+      const routeSpecific = new Map<string, Array<RouterMiddleware>>()
+      const existing = routeSpecific.get(routePathOrMiddleware) || []
       existing.push(middleware)
-      this.routeSpecific.set(routePathOrMiddleware, existing)
+      routeSpecific.set(routePathOrMiddleware, existing)
+      this.handler.setRouteSpecific(routeSpecific)
     } else if (typeof routePathOrMiddleware === 'function') {
-      this.middlewarePipeline.push(routePathOrMiddleware)
-    }
-  }
-
-  /**
-   * Create native Deno.serve handler with URLPattern-based routing.
-   * @returns Request handler function
-   */
-  private createHandler(): (req: Request) => Promise<Response> {
-    return handleRequest(
-      this.errorMiddleware,
-      this.middlewarePipeline,
-      this.routeCache,
-      this.routePattern,
-      this.routeSpecific,
-      this.routesExt,
-      this.staticRoutes
-    )
-  }
-
-  /**
-   * Create URLPattern from route file path.
-   * @param routePath - File path of the route
-   * @returns URLPattern instance or null if invalid
-   */
-  private createURLPattern(routePath: string): URLPattern | null {
-    const pathWithoutExt = routePath.replace(this.routesExt, '')
-    if (pathWithoutExt === 'index') {
-      return new URLPattern({ pathname: '/' })
-    }
-    let patternPath = `/${pathWithoutExt}`
-    patternPath = patternPath.replace(/\[([^\]]+)\]/g, ':$1')
-    try {
-      return new URLPattern({ pathname: patternPath })
-    } catch {
-      return null
-    }
-  }
-
-  /**
-   * Initialize and cache all route files at startup.
-   */
-  private async initializeRoutes(): Promise<void> {
-    await this.scanRoutes(this.routesDir)
-  }
-
-  /**
-   * Recursively scan directory for route files.
-   * @param dir - Directory to scan
-   * @param basePath - Base path for route resolution
-   * @throws {Error} When routes directory is not found
-   */
-  private async scanRoutes(dir: string, basePath = ''): Promise<void> {
-    try {
-      for await (const entry of Deno.readDir(dir)) {
-        const fullPath = `${dir}/${entry.name}`
-        const routePath = basePath ? `${basePath}/${entry.name}` : entry.name
-        if (entry.isDirectory) {
-          await this.scanRoutes(fullPath, routePath)
-        } else if (entry.name.endsWith(this.routesExt)) {
-          const fileURL = pathToFileURL(fullPath).href
-          const module = await import(fileURL)
-          this.validateRouteModule(module, routePath)
-          this.routeCache.set(routePath, module)
-          const urlPattern = this.createURLPattern(routePath)
-          if (urlPattern) {
-            this.routePattern.set(urlPattern, routePath)
-          }
-        }
-      }
-    } catch (error) {
-      if (error instanceof Deno.errors.NotFound) {
-        throw new Error(`Routes directory not found: ${dir}`)
-      } else {
-        throw error
-      }
-    }
-  }
-
-  /**
-   * Validates route module exports to ensure they are valid handler functions.
-   * @param module - Route module to validate
-   * @param routePath - Path of the route file for error reporting
-   * @throws {Error} When route exports are invalid
-   */
-  private validateRouteModule(module: Record<string, unknown>, routePath: string): void {
-    const exportedMethods = Object.keys(module).filter((key) => httpMethods.includes(key))
-    if (exportedMethods.length === 0) {
-      throw new Error(
-        `Route ${routePath}: Must export at least one HTTP method (${httpMethods.join(', ')})`
-      )
-    }
-    for (const [key, value] of Object.entries(module)) {
-      if (httpMethods.includes(key)) {
-        if (typeof value !== 'function') {
-          throw new Error(`Route ${routePath}: ${key} must be a function, got ${typeof value}`)
-        }
-        const paramCount = value.length
-        if (paramCount < 1 || paramCount > 2) {
-          throw new Error(
-            `Route ${routePath}: ${key} function must accept 1 or 2 parameters (Request, params)`
-          )
-        }
-      }
+      const middlewarePipeline: Array<RouterMiddleware> = []
+      middlewarePipeline.push(routePathOrMiddleware)
+      this.handler.setMiddlewarePipeline(middlewarePipeline)
     }
   }
 }
