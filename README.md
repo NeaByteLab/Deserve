@@ -32,6 +32,7 @@ Follow our [installing guide](https://docs-deserve.neabyte.com/getting-started/i
   - [Global Middleware](https://docs-deserve.neabyte.com/middleware/global) - Cross-cutting functionality
   - [Route-Specific Middleware](https://docs-deserve.neabyte.com/middleware/route-specific) - Targeted middleware for specific routes
   - [CORS Middleware](https://docs-deserve.neabyte.com/middleware/cors) - Cross-origin request handling
+  - [WebSocket Middleware](https://docs-deserve.neabyte.com/middleware/websocket) - Real-time WebSocket communication
 
 - **Response Utilities**
   - [Data Downloads](https://docs-deserve.neabyte.com/response/data) - Download in-memory content

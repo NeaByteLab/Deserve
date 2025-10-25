@@ -33,7 +33,8 @@ export default defineConfig({
         items: [
           { text: 'Global Middleware', link: '/middleware/global' },
           { text: 'Route-Specific Middleware', link: '/middleware/route-specific' },
-          { text: 'CORS Middleware', link: '/middleware/cors' }
+          { text: 'CORS Middleware', link: '/middleware/cors' },
+          { text: 'WebSocket Middleware', link: '/middleware/websocket' }
         ]
       },
       {

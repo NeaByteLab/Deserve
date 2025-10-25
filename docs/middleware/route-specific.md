@@ -191,4 +191,4 @@ router.use('/api', (req: Request) => {
 
 - [Global Middleware](/middleware/global) - Cross-cutting functionality
 - [CORS Middleware](/middleware/cors) - Cross-origin request handling
-- [Error Handling](/error-handling/object-details) - Custom error responses
+- [WebSocket Middleware](/middleware/websocket) - Real-time communication

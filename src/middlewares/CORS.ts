@@ -22,7 +22,7 @@ export interface CorsOptions {
  * @param options - CORS configuration options
  * @returns Middleware function that handles CORS headers
  */
-export default function cors(options?: CorsOptions): RouterMiddleware {
+export default function corsMiddleware(options?: CorsOptions): RouterMiddleware {
   return (req: Request, res?: Response) => {
     const origin = options?.origin ?? '*'
     const methods = options?.methods ?? httpMethods

@@ -123,4 +123,4 @@ maxAge: 3600 // Cache preflight requests for 1 hour
 
 - [Global Middleware](/middleware/global) - Cross-cutting functionality
 - [Route-Specific Middleware](/middleware/route-specific) - Targeted middleware
-- [Error Handling](/error-handling/object-details) - Custom error responses
+- [WebSocket Middleware](/middleware/websocket) - Real-time communication

@@ -119,4 +119,4 @@ router.use(async (req: Request) => {
 
 - [Route-Specific Middleware](/middleware/route-specific) - Targeted middleware
 - [CORS Middleware](/middleware/cors) - Cross-origin request handling
-- [Error Handling](/error-handling/object-details) - Custom error responses
+- [WebSocket Middleware](/middleware/websocket) - Real-time communication
