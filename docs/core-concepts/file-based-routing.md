@@ -47,9 +47,24 @@ export function POST(req: Request): Response {
 }
 ```
 
+### 5. Case-Sensitive URLs
+URLs are case-sensitive following HTTP standards:
+- `/Users/John` ≠ `/users/john`
+- `/API/v1` ≠ `/api/v1`
+
+### 6. Valid Filename Characters
+Files can contain:
+- `a-z`, `A-Z`, `0-9` - Alphanumeric characters
+- `_` - Underscore
+- `-` - Dash
+- `.` - Dot
+- `~` - Tilde
+- `+` - Plus sign
+- `[` `]` - Brackets for dynamic parameters
+
 ## Route Matching Priority
 
-Deserve uses FastRouter with radix tree structure for efficient route matching with this priority:
+Deserve route matching follows this priority:
 
 1. **Static routes** - `users.ts` matches `/users` (O(1) lookup)
 2. **Dynamic routes** - `users/[id].ts` matches `/users/123` (O(k) tree traversal)

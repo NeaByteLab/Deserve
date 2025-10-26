@@ -95,13 +95,13 @@ export class Handler {
   createRoutePattern(routePath: string): string | null {
     const pathWithoutExt = routePath.replace(this.routesExt, '')
     const pathLastSegment = pathWithoutExt.split('/').pop()
-    const isValidSegment = /^[a-zA-Z0-9_\[\]-]+$/
+    const isValidSegment = /^[a-zA-Z0-9_\[\].~\-+]+$/
     if (!isValidSegment.test(pathLastSegment ?? '')) {
       return null
     }
-    const pathPattern = `/${pathWithoutExt}`.replace(/\[([^\]]+)\]/g, ':$1').toLowerCase()
+    const pathPattern = `/${pathWithoutExt}`.replace(/\[([^\]]+)\]/g, ':$1')
     if (pathPattern.endsWith('/index')) {
-      return pathPattern.slice(0, -6)
+      return pathPattern.slice(0, -5)
     }
     return pathPattern
   }

@@ -144,26 +144,6 @@ export function GET(req: DeserveRequest, params: Record<string, string>) {
 }
 ```
 
-## Performance Benefits
-
-### Static Route Optimization
-Static routes (no parameters) are cached for O(1) lookup:
-```typescript
-// These routes are optimized for instant matching
-routes/index.ts                  → / (cached)
-routes/about.ts                  → /about (cached)
-routes/users.ts                  → /users (cached)
-```
-
-### Dynamic Route Matching
-Dynamic routes use radix tree traversal for efficient matching:
-```typescript
-// These routes use tree traversal
-routes/users/[id].ts             → /users/:id
-routes/users/[id]/posts.ts       → /users/:id/posts
-routes/api/v1/[version].ts       → /api/v1/:version
-```
-
 ## Pattern Limitations
 
 ### Invalid Patterns
