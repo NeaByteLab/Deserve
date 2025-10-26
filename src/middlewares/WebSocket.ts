@@ -40,13 +40,13 @@ export default function websocketMiddleware(options?: WebSocketOptions): RouterM
       socket.addEventListener('open', () => {
         options.onConnect?.(socket, nativeReq)
       })
-      socket.addEventListener('message', event => {
+      socket.addEventListener('message', (event) => {
         options.onMessage?.(socket, event, nativeReq)
       })
       socket.addEventListener('close', () => {
         options.onDisconnect?.(socket, nativeReq)
       })
-      socket.addEventListener('error', event => {
+      socket.addEventListener('error', (event) => {
         options.onError?.(socket, event, nativeReq)
       })
       return response

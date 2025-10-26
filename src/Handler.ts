@@ -1,12 +1,12 @@
 import { serveDir, type ServeDirOptions } from '@std/http/file-server'
 import type { ErrorMiddleware, RouterMiddleware } from '@app/Types.ts'
+import { FastRouter } from '@neabyte/fast-router'
 import { pathToFileURL } from 'node:url'
 import { httpMethods } from '@app/Constant.ts'
 import { DeserveRequest } from '@app/Request.ts'
-import { FastRouter } from '@utils/index.ts'
 
 /**
- * Handler class for managing request processing, route scanning, and error handling.
+ * Handler class for managing and error handling.
  * @description Contains core functionality for request handling and route management.
  */
 export class Handler {
@@ -32,15 +32,43 @@ export class Handler {
   }
 
   /**
-   * Create native Deno.serve handler with integrated middleware and static file serving.
+   * Add middleware to the pipeline for all routes.
+   * @param middleware - Middleware function to add
+   */
+  addMiddleware(middleware: RouterMiddleware): void {
+    this.middlewarePipeline.push(middleware)
+  }
+
+  /**
+   * Add middleware for a specific route path for specific routes.
+   * @param routePath - Route path pattern
+   * @param middleware - Middleware function to add
+   */
+  addRouteSpecific(routePath: string, middleware: RouterMiddleware): void {
+    const existing = this.routeSpecific.get(routePath) || []
+    existing.push(middleware)
+    this.routeSpecific.set(routePath, existing)
+  }
+
+  /**
+   * Add a static route for specific routes.
+   * @param urlPath - URL path to serve files from
+   * @param options - Static file serving options
+   */
+  addStaticRoute(urlPath: string, options: ServeDirOptions): void {
+    this.staticRoutes.set(urlPath, options)
+  }
+
+  /**
+   * Create native Deno.serve handler with static file serving.
    * @returns Request handler function
    */
   createHandler(): (req: Request) => Promise<Response> {
     return async (req: Request) => {
       try {
         const url = new URL(req.url)
-        const routeResult = this.router.find(url.pathname, undefined, req.method)
-        const params = routeResult?.params || {}
+        const routeResult = this.router.find(req.method, url.pathname)
+        const params = routeResult && 'params' in routeResult ? routeResult.params || {} : {}
         const deserveReq = new DeserveRequest(req, params)
         const middlewareRequest: Request | DeserveRequest = deserveReq
         for (const [urlPath, options] of this.staticRoutes) {
@@ -70,11 +98,9 @@ export class Handler {
         }
         if (routeResult) {
           try {
+            const handler = 'data' in routeResult ? routeResult.data : routeResult
             return await (
-              routeResult.data as (
-                req: DeserveRequest,
-                params: Record<string, string>
-              ) => Promise<Response>
+              handler as (req: DeserveRequest, params: Record<string, string>) => Promise<Response>
             )(deserveReq, params)
           } catch (error) {
             return this.handleError(req, 500, error as Error)
@@ -146,8 +172,8 @@ export class Handler {
           const routePattern = this.createRoutePattern(routePath)
           if (routePattern) {
             this.validateRouteModule(fileModule, routePath)
-            Object.keys(fileModule).forEach(method => {
-              this.router.add(routePattern, fileModule[method], method)
+            Object.keys(fileModule).forEach((method) => {
+              this.router.add(method.toUpperCase(), routePattern, fileModule[method])
             })
           }
         }
@@ -170,45 +196,13 @@ export class Handler {
   }
 
   /**
-   * Set middleware pipeline.
-   * @param middlewarePipeline - Array of middleware functions
-   */
-  setMiddlewarePipeline(middlewarePipeline: Array<RouterMiddleware>): void {
-    this.middlewarePipeline = middlewarePipeline
-  }
-
-  /**
-   * Set route-specific middleware configuration.
-   * @param routeSpecific - Map of route-specific middleware
-   */
-  setRouteSpecific(routeSpecific: Map<string, Array<RouterMiddleware>>): void {
-    this.routeSpecific = routeSpecific
-  }
-
-  /**
-   * Set router instance.
-   * @param router - FastRouter instance
-   */
-  setRouter(router: FastRouter): void {
-    this.router = router
-  }
-
-  /**
-   * Set static routes configuration.
-   * @param staticRoutes - Map of static route configurations
-   */
-  setStaticRoutes(staticRoutes: Map<string, ServeDirOptions>): void {
-    this.staticRoutes = staticRoutes
-  }
-
-  /**
    * Validates route module exports to ensure they are valid handler functions.
    * @param module - Route module to validate
    * @param routePath - Path of the route file for error reporting
    * @throws {Error} When route exports are invalid
    */
   validateRouteModule(module: Record<string, unknown>, routePath: string): void {
-    const exportedMethods = Object.keys(module).filter(key => httpMethods.includes(key))
+    const exportedMethods = Object.keys(module).filter((key) => httpMethods.includes(key))
     if (exportedMethods.length === 0) {
       throw new Error(
         `Route ${routePath}: Must export at least one HTTP method (${httpMethods.join(', ')})`

@@ -46,24 +46,22 @@ export class Router {
    * @param mwareConfig - Array of middleware names or [name, options] tuples
    */
   apply(mwareConfig: Array<string | [string, unknown]>): void {
-    const middlewarePipeline: Array<RouterMiddleware> = []
     for (const config of mwareConfig) {
       if (typeof config === 'string') {
         const middleware = middlewares[config as keyof typeof middlewares]
         if (middleware) {
-          middlewarePipeline.push(middleware())
+          this.handler.addMiddleware(middleware())
         }
       } else if (Array.isArray(config)) {
         const [name, options] = config
         const middleware = middlewares[name as keyof typeof middlewares]
         if (middleware) {
-          middlewarePipeline.push(
+          this.handler.addMiddleware(
             middleware(options as unknown as Parameters<typeof middleware>[0])
           )
         }
       }
     }
-    this.handler.setMiddlewarePipeline(middlewarePipeline)
   }
 
   /**
@@ -109,9 +107,7 @@ export class Router {
    * @param options - Static file serving options
    */
   static(urlPath: string, options?: ServeDirOptions): void {
-    const staticRoutes = new Map<string, ServeDirOptions>()
-    staticRoutes.set(urlPath, options || {})
-    this.handler.setStaticRoutes(staticRoutes)
+    this.handler.addStaticRoute(urlPath, options || {})
   }
 
   /**
@@ -127,15 +123,11 @@ export class Router {
   use(routePath: string, middleware: RouterMiddleware): void
   use(routePathOrMiddleware: string | RouterMiddleware, middleware?: RouterMiddleware): void {
     if (typeof routePathOrMiddleware === 'string' && middleware) {
-      const routeSpecific = new Map<string, Array<RouterMiddleware>>()
-      const existing = routeSpecific.get(routePathOrMiddleware) || []
-      existing.push(middleware)
-      routeSpecific.set(routePathOrMiddleware, existing)
-      this.handler.setRouteSpecific(routeSpecific)
+      this.handler.addRouteSpecific(routePathOrMiddleware, middleware)
     } else if (typeof routePathOrMiddleware === 'function') {
-      const middlewarePipeline: Array<RouterMiddleware> = []
-      middlewarePipeline.push(routePathOrMiddleware)
-      this.handler.setMiddlewarePipeline(middlewarePipeline)
+      this.handler.addMiddleware(routePathOrMiddleware)
+    } else {
+      throw new Error('Invalid middleware configuration')
     }
   }
 }

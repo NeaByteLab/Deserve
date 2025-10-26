@@ -82,15 +82,17 @@ const router = new Router()
 const ac = new AbortController()
 
 // Handle SIGINT (Ctrl+C)
-process.on('SIGINT', async () => {
+Deno.addSignalListener('SIGINT', async () => {
   console.log('Received SIGINT, shutting down gracefully...')
   ac.abort()
+  Deno.exit(0)
 })
 
 // Handle SIGTERM
-process.on('SIGTERM', async () => {
+Deno.addSignalListener('SIGTERM', async () => {
   console.log('Received SIGTERM, shutting down gracefully...')
   ac.abort()
+  Deno.exit(0)
 })
 
 await router.serve(8000, '127.0.0.1', ac.signal)
@@ -105,6 +107,7 @@ import { Router } from '@neabyte/deserve'
 
 const router = new Router()
 
+// Get port and hostname from environment variables
 const port = parseInt(Deno.env.get('PORT') ?? '8000')
 const hostname = Deno.env.get('HOSTNAME') ?? '0.0.0.0'
 
@@ -119,6 +122,7 @@ import { Router } from '@neabyte/deserve'
 
 const router = new Router()
 
+// Get port and hostname from environment variables
 const isDev = Deno.env.get('NODE_ENV') === 'development'
 const port = isDev ? 3000 : 8000
 const hostname = isDev ? '127.0.0.1' : '0.0.0.0'
@@ -190,15 +194,16 @@ const ac = new AbortController()
 const port = parseInt(Deno.env.get('PORT') ?? '8000')
 const hostname = Deno.env.get('HOSTNAME') ?? '0.0.0.0'
 
-// Graceful shutdown handlers
-process.on('SIGINT', () => {
+// Graceful shutdown handlers for Deno
+Deno.addSignalListener('SIGINT', () => {
   console.log('Received SIGINT, shutting down...')
   ac.abort()
+  Deno.exit(0)
 })
-
-process.on('SIGTERM', () => {
+Deno.addSignalListener('SIGTERM', () => {
   console.log('Received SIGTERM, shutting down...')
   ac.abort()
+  Deno.exit(0)
 })
 
 // Start server
