@@ -29,11 +29,11 @@ export type RouterHandler = (
 
 /**
  * Middleware function type.
- * @param req - HTTP request object
+ * @param req - HTTP request object (Request or DeserveRequest)
  * @param res - HTTP response object (optional for response modification)
  * @returns HTTP response or null
  */
-export type RouterMiddleware = (req: Request, res?: Response) => Response | null
+export type RouterMiddleware = (req: Request | DeserveRequest, res?: Response) => Response | null
 
 /**
  * Router configuration options.

@@ -203,6 +203,14 @@ export class DeserveRequest {
   }
 
   /**
+   * Get the underlying native Request object.
+   * @returns Native Request object
+   */
+  get request(): Request {
+    return this.reqSession
+  }
+
+  /**
    * Get the abort signal.
    * @returns Abort signal for request cancellation
    */

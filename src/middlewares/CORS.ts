@@ -1,3 +1,4 @@
+import type { DeserveRequest } from '@app/Request.ts'
 import type { RouterMiddleware } from '@app/Types.ts'
 import { httpMethods } from '@app/Constant.ts'
 
@@ -23,7 +24,7 @@ export interface CorsOptions {
  * @returns Middleware function that handles CORS headers
  */
 export default function corsMiddleware(options?: CorsOptions): RouterMiddleware {
-  return (req: Request, res?: Response) => {
+  return (req: Request | DeserveRequest, res?: Response) => {
     const origin = options?.origin ?? '*'
     const methods = options?.methods ?? httpMethods
     const headers = options?.headers ?? ['Content-Type', 'Authorization']

@@ -1,3 +1,4 @@
+import type { DeserveRequest } from '@app/Request.ts'
 import type { RouterMiddleware } from '@app/Types.ts'
 
 /**
@@ -22,7 +23,7 @@ export interface WebSocketOptions {
  * @returns Middleware function that handles WebSocket upgrades
  */
 export default function websocketMiddleware(options?: WebSocketOptions): RouterMiddleware {
-  return (req: Request, _res?: Response) => {
+  return (req: Request | DeserveRequest, _res?: Response) => {
     if (!options?.listener) {
       return null
     }
@@ -33,19 +34,20 @@ export default function websocketMiddleware(options?: WebSocketOptions): RouterM
     if (!url.pathname.startsWith(options.listener)) {
       return null
     }
+    const nativeReq = 'request' in req ? (req as DeserveRequest).request : req
     try {
-      const { socket, response } = Deno.upgradeWebSocket(req)
+      const { socket, response } = Deno.upgradeWebSocket(nativeReq)
       socket.addEventListener('open', () => {
-        options.onConnect?.(socket, req)
+        options.onConnect?.(socket, nativeReq)
       })
-      socket.addEventListener('message', (event) => {
-        options.onMessage?.(socket, event, req)
+      socket.addEventListener('message', event => {
+        options.onMessage?.(socket, event, nativeReq)
       })
       socket.addEventListener('close', () => {
-        options.onDisconnect?.(socket, req)
+        options.onDisconnect?.(socket, nativeReq)
       })
-      socket.addEventListener('error', (event) => {
-        options.onError?.(socket, event, req)
+      socket.addEventListener('error', event => {
+        options.onError?.(socket, event, nativeReq)
       })
       return response
     } catch (error) {

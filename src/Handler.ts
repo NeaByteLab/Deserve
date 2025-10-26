@@ -39,6 +39,10 @@ export class Handler {
     return async (req: Request) => {
       try {
         const url = new URL(req.url)
+        const routeResult = this.router.find(url.pathname, undefined, req.method)
+        const params = routeResult?.params || {}
+        const deserveReq = new DeserveRequest(req, params)
+        const middlewareRequest: Request | DeserveRequest = deserveReq
         for (const [urlPath, options] of this.staticRoutes) {
           if (url.pathname.startsWith(urlPath)) {
             const serveOptions = {
@@ -51,7 +55,7 @@ export class Handler {
         for (const [routePath, middlewares] of this.routeSpecific) {
           if (url.pathname.startsWith(routePath)) {
             for (const middleware of middlewares) {
-              const result = middleware(req)
+              const result = middleware(middlewareRequest)
               if (result) {
                 return result
               }
@@ -59,21 +63,19 @@ export class Handler {
           }
         }
         for (const middleware of this.middlewarePipeline) {
-          const result = middleware(req)
+          const result = middleware(middlewareRequest)
           if (result) {
             return result
           }
         }
-        const result = this.router.find(url.pathname, undefined, req.method)
-        if (result) {
-          const params = result.params || {}
+        if (routeResult) {
           try {
             return await (
-              result.data as (
+              routeResult.data as (
                 req: DeserveRequest,
                 params: Record<string, string>
               ) => Promise<Response>
-            )(new DeserveRequest(req, params), params)
+            )(deserveReq, params)
           } catch (error) {
             return this.handleError(req, 500, error as Error)
           }
@@ -144,7 +146,7 @@ export class Handler {
           const routePattern = this.createRoutePattern(routePath)
           if (routePattern) {
             this.validateRouteModule(fileModule, routePath)
-            Object.keys(fileModule).forEach((method) => {
+            Object.keys(fileModule).forEach(method => {
               this.router.add(routePattern, fileModule[method], method)
             })
           }
@@ -206,7 +208,7 @@ export class Handler {
    * @throws {Error} When route exports are invalid
    */
   validateRouteModule(module: Record<string, unknown>, routePath: string): void {
-    const exportedMethods = Object.keys(module).filter((key) => httpMethods.includes(key))
+    const exportedMethods = Object.keys(module).filter(key => httpMethods.includes(key))
     if (exportedMethods.length === 0) {
       throw new Error(
         `Route ${routePath}: Must export at least one HTTP method (${httpMethods.join(', ')})`

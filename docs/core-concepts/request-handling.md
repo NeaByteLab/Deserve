@@ -34,7 +34,16 @@ export function GET(req: DeserveRequest): Response {
 }
 ```
 
+**Important:** When duplicate keys exist in the URL, `query()` returns the **last value**:
+```typescript
+// URL: /search?tag=deno&tag=typescript
+const query = req.query() // { tag: 'typescript' } ← returns last value
+```
+
 ### Multiple Values for Same Key
+
+Use `queries()` when you need **all values** for a specific key:
+
 ```typescript
 // URL: /search?tags=deno&tags=typescript&tags=javascript
 export function GET(req: DeserveRequest): Response {
@@ -42,6 +51,10 @@ export function GET(req: DeserveRequest): Response {
   return Send.json({ tags })
 }
 ```
+
+**Use cases:**
+- **`query()`** - Get single values or last value when duplicates exist
+- **`queries()`** - Get all values for arrays/multi-select parameters
 
 ### Complete Query Object
 ```typescript
@@ -95,21 +108,29 @@ export function GET(req: DeserveRequest): Response {
 ## Method Reference
 
 #### `req.query()`
-Returns all query parameters as an object.
+Returns all query parameters as an object. **Returns the last value for duplicate keys.**
 
 ```typescript
 // URL: /search?q=deno&limit=10
 const query = req.query()
 // Expected: { q: 'deno', limit: '10' }
+
+// URL: /search?tag=deno&tag=typescript
+const query = req.query()
+// Expected: { tag: 'typescript' } ← last value only
 ```
 
 #### `req.queries(key)`
-Returns all values for a specific query parameter key.
+Returns **all values** for a specific query parameter key as an array.
 
 ```typescript
 // URL: /search?tags=deno&tags=typescript
 const tags = req.queries('tags')
-// Expected: ['deno', 'typescript']
+// Expected: ['deno', 'typescript'] ← all values
+
+// When to use:
+// - query() for single values or when you only need the last value
+// - queries() when you need all values for arrays/multi-select
 ```
 
 #### `req.param(key)`
