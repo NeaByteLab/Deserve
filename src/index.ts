@@ -1,23 +1,17 @@
 /**
- * Enhanced Request class with automatic parsing.
- * @description Extends native Request with convenient methods.
+ * Main entry point.
+ * @description Exports all public API from the framework
  */
-export * from '@app/Request.ts'
+export * from '@app/Context.ts'
 
 /**
- * Router class for file-based routing.
- * @description File-based routing with Deno serve API.
+ * Router export.
+ * @description Router class for file-based routing.
  */
 export * from '@app/Router.ts'
 
 /**
- * Response utility for HTTP responses.
- * @description Provides static methods for responses.
- */
-export * from '@app/Send.ts'
-
-/**
- * Type definitions for router configuration and handlers.
+ * Type definitions export.
  * @description TypeScript interfaces and types.
  */
 export * from '@app/Types.ts'

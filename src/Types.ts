@@ -1,46 +1,78 @@
-import type { DeserveRequest } from '@app/Request.ts'
+import type { Context } from '@app/Context.ts'
 
 /**
- * Error middleware function type.
- * @param req - HTTP request object
+ * Error handling middleware function.
+ * @param req - Request object
  * @param error - Error information
- * @returns HTTP response or null (null uses default error response)
+ * @returns Error response or null to use default
  */
 export type ErrorMiddleware = (
   req: Request,
   error: {
-    path: string
-    method: string
-    statusCode: number
     error?: Error
+    method: string
+    path: string
+    statusCode: number
   }
 ) => Response | null
 
 /**
- * Route handler function type.
- * @param req - Enhanced request object with query parsing
- * @param params - Route parameters from URL
- * @returns HTTP response or promise
+ * Middleware function.
+ * @param ctx - Request context
+ * @param next - Function to call next middleware
+ * @returns Response or undefined (can be synchronous or wrapped in Promise)
  */
-export type RouterHandler = (
-  req: DeserveRequest,
-  params: Record<string, string>
-) => Response | Promise<Response>
+export type Middleware = (
+  ctx: Context,
+  next: () => Promise<Response>
+) => MiddlewareResult | Promise<MiddlewareResult>
 
 /**
- * Middleware function type.
- * @param req - HTTP request object (Request or DeserveRequest)
- * @param res - HTTP response object (optional for response modification)
- * @returns HTTP response or null
+ * Middleware entry binding handler to path pattern.
  */
-export type RouterMiddleware = (req: Request | DeserveRequest, res?: Response) => Response | null
+export interface MiddlewareEntry {
+  /** Middleware function */
+  handler: Middleware
+  /** Path pattern for middleware (empty for global) */
+  path: string
+}
+
+/**
+ * Route handler function.
+ * @param context - Request context
+ * @returns Response or promise of response
+ */
+export type RouteHandler = (context: Context) => Response | Promise<Response>
+
+/**
+ * Route metadata.
+ */
+export interface RouteMetadata {
+  /** Handler function for the route */
+  handler: RouteHandler | StaticFileHandler
+  /** Route pattern string */
+  pattern: string
+}
 
 /**
  * Router configuration options.
  */
 export interface RouterOptions {
-  /** Directory prefix for route files */
-  prefix: string
-  /** File extension for route files */
-  extension: string
+  /** Directory containing route files */
+  routesDir: string
 }
+
+/**
+ * Static file handler type.
+ */
+export type StaticFileHandler = {
+  /** Executes static file serving */
+  execute: (req: Request) => Promise<Response>
+  /** Indicates this is a static route */
+  staticRoute: true
+}
+
+/**
+ * Middleware return type - can be returned directly or wrapped in Promise
+ */
+type MiddlewareResult = Response | undefined

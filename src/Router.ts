@@ -1,133 +1,94 @@
 import type { ServeDirOptions } from '@std/http/file-server'
-import type { ErrorMiddleware, RouterMiddleware, RouterOptions } from '@app/Types.ts'
-import { allowedExtensions } from '@app/Constant.ts'
-import { middlewares } from '@middlewares/index.ts'
+import type { ErrorMiddleware, Middleware, RouterOptions } from '@app/Types.ts'
 import { Handler } from '@app/Handler.ts'
 
 /**
- * Native Deno.serve file-based router.
- * @description File-based routing with FastRouter matching and middleware support.
+ * Router class.
+ * @description Main entry point for the routing system.
  */
 export class Router {
-  /** Handler instance for request processing */
+  /** The handler instance. */
   private handler: Handler
-  /** Directory containing route files */
+  /** The routes directory. */
   private routesDir: string
-  /** File extension for route files */
-  private routesExt: string
 
   /**
-   * Initialize router with configuration options.
-   * @param options - Router configuration options
-   * @throws {Error} When prefix or extension options are missing or invalid
+   * Creates a new router instance.
+   * @param options - Optional router configuration
+   * @throws {Error} When options are invalid or extension not allowed
    */
   constructor(options?: RouterOptions) {
     if (!options) {
       this.routesDir = './routes'
-      this.routesExt = '.ts'
     } else {
-      if (!options.prefix || !options.extension) {
-        throw new Error('Router requires both prefix and extension options')
-      } else {
-        if (!allowedExtensions.includes(options.extension)) {
-          throw new Error(`Invalid extension: ${options.extension}`)
-        }
-        this.routesDir = options.prefix.startsWith('/')
-          ? options.prefix
-          : `${Deno.cwd()}/${options.prefix}`
-        this.routesExt = options.extension
+      if (!options.routesDir) {
+        throw new Error(
+          'Router requires `routesDir` option, which is the directory containing the route files.'
+        )
       }
+      this.routesDir = options.routesDir.startsWith('/')
+        ? options.routesDir
+        : `${Deno.cwd()}/${options.routesDir}`
     }
-    this.handler = new Handler(this.routesExt)
+    this.handler = new Handler()
   }
 
   /**
-   * Apply built-in middleware by name.
-   * @param mwareConfig - Array of middleware names or [name, options] tuples
+   * Sets the error handling middleware.
+   * @param errorHandler - Error handling function
    */
-  apply(mwareConfig: Array<string | [string, unknown]>): void {
-    for (const config of mwareConfig) {
-      if (typeof config === 'string') {
-        const middleware = middlewares[config as keyof typeof middlewares]
-        if (middleware) {
-          this.handler.addMiddleware(middleware())
-        }
-      } else if (Array.isArray(config)) {
-        const [name, options] = config
-        const middleware = middlewares[name as keyof typeof middlewares]
-        if (middleware) {
-          this.handler.addMiddleware(
-            middleware(options as unknown as Parameters<typeof middleware>[0])
-          )
-        }
-      }
-    }
+  catch(errorHandler: ErrorMiddleware): void {
+    this.handler.setErrorMiddleware(errorHandler)
   }
 
   /**
-   * Set error middleware handler for custom error responses.
-   * @param errorMiddleware - Error middleware function
-   */
-  onError(errorMiddleware: ErrorMiddleware): void {
-    this.handler.setErrorMiddleware(errorMiddleware)
-  }
-
-  /**
-   * Start server with file-based routing.
-   * @param port - Port number to serve on (default: 8000)
-   * @param hostname - Hostname to bind to (default: "0.0.0.0")
-   * @param signal - Abort signal for server control
+   * Starts the server and begins listening for requests.
+   * @param port - Port number (default: 8000)
+   * @param hostname - Hostname (default: '0.0.0.0')
+   * @param signal - Abort signal for graceful shutdown
    */
   async serve(port?: number): Promise<void>
   async serve(port?: number, hostname?: string): Promise<void>
   async serve(port?: number, hostname?: string, signal?: AbortSignal): Promise<void>
   async serve(port?: number, hostname?: string, signal?: AbortSignal): Promise<void> {
     await this.handler.scanRoutes(this.routesDir)
-    const actualPort = port ?? 8000
-    const actualHostname = hostname ?? '0.0.0.0'
     if (signal) {
-      Deno.serve({
-        port: actualPort,
-        hostname: actualHostname,
+      await Deno.serve({
+        port: port ?? 8000,
+        hostname: hostname ?? '0.0.0.0',
         signal,
         handler: this.handler.createHandler()
       })
     } else {
-      Deno.serve({
-        port: actualPort,
-        hostname: actualHostname,
+      await Deno.serve({
+        port: port ?? 8000,
+        hostname: hostname ?? '0.0.0.0',
         handler: this.handler.createHandler()
       })
     }
   }
 
   /**
-   * Serve static files from a directory.
-   * @param urlPath - URL path to serve files from
+   * Registers middleware.
+   * @param path - Path pattern or middleware function(s)
+   * @param handlers - Middleware functions
+   */
+  use(...handlers: Middleware[]): void
+  use(path: string, ...handlers: Middleware[]): void
+  use(pathOrMiddleware: string | Middleware, ...handlers: Middleware[]): void {
+    if (typeof pathOrMiddleware === 'string') {
+      this.handler.addMiddleware(pathOrMiddleware, ...handlers)
+    } else {
+      this.handler.addMiddleware('', pathOrMiddleware, ...handlers)
+    }
+  }
+
+  /**
+   * Registers a static file serving route.
+   * @param urlPath - URL path to serve static files from
    * @param options - Static file serving options
    */
   static(urlPath: string, options?: ServeDirOptions): void {
     this.handler.addStaticRoute(urlPath, options || {})
-  }
-
-  /**
-   * Add global middleware to the pipeline.
-   * @param middleware - Middleware function to execute before route handlers.
-   */
-  use(middleware: RouterMiddleware): void
-  /**
-   * Add route-specific middleware to the pipeline.
-   * @param routePath - Route path pattern to apply middleware to
-   * @param middleware - Middleware function to execute for matching routes
-   */
-  use(routePath: string, middleware: RouterMiddleware): void
-  use(routePathOrMiddleware: string | RouterMiddleware, middleware?: RouterMiddleware): void {
-    if (typeof routePathOrMiddleware === 'string' && middleware) {
-      this.handler.addRouteSpecific(routePathOrMiddleware, middleware)
-    } else if (typeof routePathOrMiddleware === 'function') {
-      this.handler.addMiddleware(routePathOrMiddleware)
-    } else {
-      throw new Error('Invalid middleware configuration')
-    }
   }
 }
