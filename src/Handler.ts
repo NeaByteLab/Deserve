@@ -1,15 +1,15 @@
-import { serveDir, type ServeDirOptions } from '@std/http/file-server'
 import type {
   ErrorMiddleware,
   Middleware,
   MiddlewareEntry,
   RouteHandler,
   RouteMetadata,
+  ServeOptions,
   StaticFileHandler
 } from '@app/Types.ts'
 import { FastRouter } from '@neabyte/fast-router'
 import { pathToFileURL } from 'node:url'
-import { allowedExtensions, httpMethods } from '@app/Constant.ts'
+import { allowedExtensions, contentTypes, httpMethods } from '@app/Constant.ts'
 import { Context } from '@app/Context.ts'
 
 /**
@@ -18,30 +18,35 @@ import { Context } from '@app/Context.ts'
  */
 export class Handler {
   private routerInstance = new FastRouter<RouteMetadata>()
+  private entryMiddleware: MiddlewareEntry[] = []
   private errorMiddleware: ErrorMiddleware | null = null
-  private middlewares: MiddlewareEntry[] = []
+
+  /**
+   * Adds middleware to the stack.
+   * @param path - Path pattern (empty for global)
+   * @param handlers - Middleware functions
+   */
+  addMiddleware(path: string, ...handlers: Middleware[]): void {
+    for (const handler of handlers) {
+      this.entryMiddleware.push({ path, handler })
+    }
+  }
 
   /**
    * Adds a static file route.
    * @param urlPath - URL path to serve static files from
    * @param options - Static file serving options
    */
-  addStaticRoute(urlPath: string, options: ServeDirOptions): void {
-    const staticHandler: StaticFileHandler = {
-      staticRoute: true,
-      execute: async (req: Request) => {
-        const serveOptions: ServeDirOptions = {
-          fsRoot: options.fsRoot ?? './static',
-          urlRoot: urlPath.startsWith('/') ? urlPath.slice(1) : urlPath,
-          ...options
-        }
-        return await serveDir(req, serveOptions)
-      }
-    }
+  addStaticRoute(urlPath: string, options: ServeOptions): void {
     for (const method of httpMethods) {
       const routePattern = urlPath === '/' ? '/**' : `${urlPath}/**`
       const metadata: RouteMetadata = {
-        handler: staticHandler as RouteHandler | StaticFileHandler,
+        handler: {
+          staticRoute: true,
+          execute: async (ctx: Context) => {
+            return await this.serveStaticFile(ctx, options)
+          }
+        },
         pattern: routePattern
       }
       this.routerInstance.add(method, routePattern, metadata)
@@ -54,10 +59,10 @@ export class Handler {
    */
   createHandler(): (req: Request) => Promise<Response> {
     return async (req: Request) => {
+      const url = new URL(req.url)
+      const ctx = new Context(req, url, {})
       try {
-        const url = new URL(req.url)
-        const context = new Context(req, url, {})
-        const middlewareResult = await this.executeMiddlewares(context, url.pathname)
+        const middlewareResult = await this.executeMiddlewares(ctx, url.pathname)
         if (middlewareResult !== undefined) {
           return middlewareResult
         }
@@ -65,10 +70,10 @@ export class Handler {
         if (routeResult) {
           const metadata = 'data' in routeResult ? routeResult.data : null
           if (!metadata) {
-            return this.handleError(req, 404, new Error('Route not found'))
+            return this.handleResponse(ctx, 404, new Error('Route not found'))
           }
           if ('params' in routeResult && routeResult.params) {
-            context.setParams(routeResult.params)
+            ctx.setParams(routeResult.params)
           }
           const { handler } = metadata as RouteMetadata
           if (
@@ -77,17 +82,17 @@ export class Handler {
             'staticRoute' in handler &&
             handler.staticRoute
           ) {
-            return await (handler as StaticFileHandler).execute(req)
+            return await (handler as StaticFileHandler).execute(ctx)
           }
           try {
-            return await (handler as RouteHandler)(context)
+            return await (handler as RouteHandler)(ctx)
           } catch (error) {
-            return this.handleError(req, 500, error as Error)
+            return this.handleResponse(ctx, 500, error as Error)
           }
         }
-        return this.handleError(req, 404, new Error('Route not found'))
+        return this.handleResponse(ctx, 404, new Error('Route not found'))
       } catch (error) {
-        return this.handleError(req, 500, error as Error)
+        return this.handleResponse(ctx, 500, error as Error)
       }
     }
   }
@@ -115,17 +120,17 @@ export class Handler {
   }
 
   /**
-   * Handles errors with optional custom error middleware.
-   * @param req - The request object
+   * Handles responses with optional custom error middleware.
+   * @param ctx - The context object
    * @param statusCode - HTTP status code
    * @param error - Error object
-   * @returns Error response
+   * @returns Response
    */
-  handleError(req: Request, statusCode: number, error: Error): Response {
+  handleResponse(ctx: Context, statusCode: number, error: Error): Response {
     if (this.errorMiddleware) {
-      const customResponse = this.errorMiddleware(req, {
-        path: req.url,
-        method: req.method,
+      const customResponse = this.errorMiddleware(ctx.request, {
+        path: ctx.url,
+        method: ctx.request.method,
         statusCode,
         error
       })
@@ -133,7 +138,7 @@ export class Handler {
         return customResponse
       }
     }
-    return new Response(null, { status: statusCode })
+    return ctx.send.custom(null, { status: statusCode, headers: ctx.responseHeadersMap })
   }
 
   /**
@@ -154,7 +159,7 @@ export class Handler {
           const routePattern = this.createRoutePattern(routePath)
           if (routePattern) {
             this.validateRouteModule(fileModule, routePath)
-            Object.keys(fileModule).forEach(method => {
+            Object.keys(fileModule).forEach((method) => {
               const handler = fileModule[method] as RouteHandler
               const metadata: RouteMetadata = {
                 handler,
@@ -175,22 +180,33 @@ export class Handler {
   }
 
   /**
-   * Adds middleware to the stack.
-   * @param path - Path pattern (empty for global)
-   * @param handlers - Middleware functions
-   */
-  addMiddleware(path: string, ...handlers: Middleware[]): void {
-    for (const handler of handlers) {
-      this.middlewares.push({ path, handler })
-    }
-  }
-
-  /**
    * Sets the error handling middleware.
    * @param errorMiddleware - Error handling function
    */
   setErrorMiddleware(errorMiddleware: ErrorMiddleware): void {
     this.errorMiddleware = errorMiddleware
+  }
+
+  /**
+   * Validates that a route module exports valid HTTP methods.
+   * @param module - Module to validate
+   * @param routePath - Route path for error messages
+   * @throws {Error} When module is invalid
+   */
+  validateRouteModule(module: Record<string, unknown>, routePath: string): void {
+    const exportedMethods = Object.keys(module).filter((key) => httpMethods.includes(key))
+    if (exportedMethods.length === 0) {
+      throw new Error(
+        `Route ${routePath}: Must export at least one HTTP method (${httpMethods.join(', ')})`
+      )
+    }
+    for (const [key, value] of Object.entries(module)) {
+      if (httpMethods.includes(key)) {
+        if (typeof value !== 'function') {
+          throw new Error(`Route ${routePath}: ${key} must be a function, got ${typeof value}`)
+        }
+      }
+    }
   }
 
   /**
@@ -200,8 +216,8 @@ export class Handler {
    * @returns Response if middleware returned one, undefined otherwise
    */
   private async executeMiddlewares(ctx: Context, pathname: string): Promise<Response | undefined> {
-    const applicableMiddlewares = this.middlewares.filter(
-      mw => mw.path === '' || pathname.startsWith(mw.path) || mw.path === '*'
+    const applicableMiddlewares = this.entryMiddleware.filter(
+      (mw) => mw.path === '' || pathname.startsWith(mw.path) || mw.path === '*'
     )
     let index = 0
     const next = async (): Promise<Response> => {
@@ -223,24 +239,49 @@ export class Handler {
   }
 
   /**
-   * Validates that a route module exports valid HTTP methods.
-   * @param module - Module to validate
-   * @param routePath - Route path for error messages
-   * @throws {Error} When module is invalid
+   * Serves static files from the filesystem.
+   * @param ctx - Context object
+   * @param options - Static file serving options
+   * @returns Response with file or 404
    */
-  validateRouteModule(module: Record<string, unknown>, routePath: string): void {
-    const exportedMethods = Object.keys(module).filter(key => httpMethods.includes(key))
-    if (exportedMethods.length === 0) {
-      throw new Error(
-        `Route ${routePath}: Must export at least one HTTP method (${httpMethods.join(', ')})`
-      )
-    }
-    for (const [key, value] of Object.entries(module)) {
-      if (httpMethods.includes(key)) {
-        if (typeof value !== 'function') {
-          throw new Error(`Route ${routePath}: ${key} must be a function, got ${typeof value}`)
-        }
+  private async serveStaticFile(ctx: Context, options: ServeOptions): Promise<Response> {
+    try {
+      const params = ctx.params()
+      const filePath = params['_'] ?? 'index.html'
+      const basePath = options.path.startsWith('/') ? options.path : `${Deno.cwd()}/${options.path}`
+      const fullPath = new URL(filePath, `file://${basePath.replace(/^\.\//, '')}/`).pathname
+      const fileInfo = await Deno.stat(fullPath).catch(() => null)
+      if (!fileInfo || !fileInfo.isFile) {
+        return this.handleResponse(ctx, 404, new Error('File not found'))
       }
+      const fileData = await Deno.readFile(fullPath)
+      const extension = filePath.split('.').pop()?.toLowerCase() ?? ''
+      const contentType = contentTypes[extension] ?? 'application/octet-stream'
+      let etag: string | null = null
+      if (options.etag) {
+        const hashBuffer = await crypto.subtle.digest('SHA-256', fileData)
+        const hashArray = Array.from(new Uint8Array(hashBuffer))
+        const hashHex = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('')
+        etag = `"${hashHex}"`
+      }
+      if (etag && ctx.request.headers.get('If-None-Match') === etag) {
+        ctx.setHeader('ETag', etag)
+        if (options.cacheControl !== undefined) {
+          ctx.setHeader('Cache-Control', `public, max-age=${options.cacheControl}`)
+        }
+        return this.handleResponse(ctx, 304, new Error('Not Modified'))
+      }
+      ctx.setHeader('Content-Type', contentType)
+      ctx.setHeader('Content-Length', fileData.length.toString())
+      if (etag) {
+        ctx.setHeader('ETag', etag)
+      }
+      if (options.cacheControl !== undefined) {
+        ctx.setHeader('Cache-Control', `public, max-age=${options.cacheControl}`)
+      }
+      return ctx.send.custom(fileData)
+    } catch (error) {
+      return this.handleResponse(ctx, 500, error as Error)
     }
   }
 }

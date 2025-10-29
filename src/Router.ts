@@ -1,5 +1,4 @@
-import type { ServeDirOptions } from '@std/http/file-server'
-import type { ErrorMiddleware, Middleware, RouterOptions } from '@app/Types.ts'
+import type { ErrorMiddleware, Middleware, RouterOptions, ServeOptions } from '@app/Types.ts'
 import { Handler } from '@app/Handler.ts'
 
 /**
@@ -88,7 +87,7 @@ export class Router {
    * @param urlPath - URL path to serve static files from
    * @param options - Static file serving options
    */
-  static(urlPath: string, options?: ServeDirOptions): void {
-    this.handler.addStaticRoute(urlPath, options || {})
+  static(urlPath: string, options: ServeOptions): void {
+    this.handler.addStaticRoute(urlPath, options)
   }
 }

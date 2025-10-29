@@ -220,6 +220,7 @@ export class Context {
    * @returns Object with response utility methods
    */
   get send(): {
+    custom: (body: BodyInit | null, options?: ResponseInit) => Response
     data: (
       data: Uint8Array | string,
       filename: string,
@@ -233,6 +234,15 @@ export class Context {
     text: (text: string, options?: ResponseInit) => Response
   } {
     return {
+      custom: (body: BodyInit | null, options?: ResponseInit): Response => {
+        return new Response(body, {
+          ...options,
+          headers: {
+            ...this.responseHeaders,
+            ...(options?.headers || {})
+          }
+        })
+      },
       data: (
         data: Uint8Array | string,
         filename: string,

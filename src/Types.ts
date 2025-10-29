@@ -63,13 +63,25 @@ export interface RouterOptions {
 }
 
 /**
+ * Static file serving options.
+ */
+export interface ServeOptions {
+  /** Directory path to serve files from */
+  path: string
+  /** Enable ETag generation (optional) */
+  etag?: boolean
+  /** Cache control max-age in seconds (optional) */
+  cacheControl?: number
+}
+
+/**
  * Static file handler type.
  */
 export type StaticFileHandler = {
-  /** Executes static file serving */
-  execute: (req: Request) => Promise<Response>
   /** Indicates this is a static route */
   staticRoute: true
+  /** Executes static file serving */
+  execute: (ctx: Context) => Promise<Response>
 }
 
 /**

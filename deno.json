@@ -88,8 +88,7 @@
   "imports": {
     "@app/": "./src/",
     "@middlewares/": "./src/middlewares/",
-    "@neabyte/fast-router": "jsr:@neabyte/fast-router@^0.1.0",
-    "@std/http": "jsr:@std/http@^1.0.21"
+    "@neabyte/fast-router": "jsr:@neabyte/fast-router@^0.1.0"
   },
   "publish": {
     "exclude": [
