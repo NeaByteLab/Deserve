@@ -1,6 +1,6 @@
 # Deserve [![License: MIT](https://img.shields.io/badge/License-MIT-red.svg)](LICENSE) [![Deno](https://img.shields.io/badge/Deno-2.5.4-blue)](https://deno.land) [![JSR](https://jsr.io/badges/@neabyte/deserve)](https://jsr.io/@neabyte/deserve)
 
-HTTP server with file-based routing for Deno that supports middleware and dynamic routing.
+Build HTTP server effortlessly with zero configuration for productivity.
 
 ## Installation
 
@@ -12,46 +12,58 @@ Add Deserve using the `deno add` command:
 deno add jsr:@neabyte/deserve
 ```
 
-Follow our [installing guide](https://docs-deserve.neabyte.com/getting-started/installation) for more information.
+Follow our [installing guide](https://docs-deserve.neabyte.com/en/getting-started/installation) for more information.
 
 ## Table of Contents
 
 - **Getting Started**
-  - [Installation](https://docs-deserve.neabyte.com/getting-started/installation) - Set up Deserve in your project
-  - [Quick Start](https://docs-deserve.neabyte.com/getting-started/quick-start) - Create your first API in minutes
-  - [Server Configuration](https://docs-deserve.neabyte.com/getting-started/server-configuration) - Server setup and shutdown
-  - [Custom Configuration](https://docs-deserve.neabyte.com/getting-started/custom-configuration) - Configure router options
+  - [Installation](https://docs-deserve.neabyte.com/en/getting-started/installation) - Set up Deserve in your project
+  - [Quick Start](https://docs-deserve.neabyte.com/en/getting-started/quick-start) - Create your first API in minutes
+  - [Server Configuration](https://docs-deserve.neabyte.com/en/getting-started/server-configuration) - Server setup and shutdown
+  - [Routes Configuration](https://docs-deserve.neabyte.com/en/getting-started/routes-configuration) - Configure router options
 
 - **Core Concepts**
-  - [File-based Routing](https://docs-deserve.neabyte.com/core-concepts/file-based-routing) - How file structure becomes API endpoints
-  - [Route Patterns](https://docs-deserve.neabyte.com/core-concepts/route-patterns) - Dynamic routes and parameter matching
-  - [HTTP Methods](https://docs-deserve.neabyte.com/core-concepts/http-methods) - All supported HTTP methods
-  - [Request Handling](https://docs-deserve.neabyte.com/core-concepts/request-handling) - Enhanced request object with automatic parsing
+  - [Philosophy](https://docs-deserve.neabyte.com/en/core-concepts/philosophy) - Framework design principles
+  - [File-based Routing](https://docs-deserve.neabyte.com/en/core-concepts/file-based-routing) - How file structure becomes API endpoints
+  - [Route Patterns](https://docs-deserve.neabyte.com/en/core-concepts/route-patterns) - Dynamic routes and parameter matching
+  - [Context Object](https://docs-deserve.neabyte.com/en/core-concepts/context-object) - Request context wrapper with convenient methods
+  - [Request Handling](https://docs-deserve.neabyte.com/en/core-concepts/request-handling) - Enhanced request object with automatic parsing
 
 - **Middleware**
-  - [Global Middleware](https://docs-deserve.neabyte.com/middleware/global) - Cross-cutting functionality
-  - [Route-Specific Middleware](https://docs-deserve.neabyte.com/middleware/route-specific) - Targeted middleware for specific routes
-  - [CORS Middleware](https://docs-deserve.neabyte.com/middleware/cors) - Cross-origin request handling
-  - [WebSocket Middleware](https://docs-deserve.neabyte.com/middleware/websocket) - Real-time WebSocket communication
+  - [Global Middleware](https://docs-deserve.neabyte.com/en/middleware/global) - Cross-cutting functionality
+  - [Route-Specific Middleware](https://docs-deserve.neabyte.com/en/middleware/route-specific) - Targeted middleware for specific routes
+  - [CORS Middleware](https://docs-deserve.neabyte.com/en/middleware/cors) - Cross-origin request handling
+  - [WebSocket Middleware](https://docs-deserve.neabyte.com/en/middleware/websocket) - Real-time bidirectional communication
 
 - **Response Utilities**
-  - [Data Downloads](https://docs-deserve.neabyte.com/response/data) - Download in-memory content
-  - [File Downloads](https://docs-deserve.neabyte.com/response/file) - Download files from filesystem
-  - [JSON Format](https://docs-deserve.neabyte.com/response/json) - Create JSON responses easily
-  - [Text Format](https://docs-deserve.neabyte.com/response/text) - Plain text responses
-  - [HTML Format](https://docs-deserve.neabyte.com/response/html) - HTML content responses
-  - [Redirect](https://docs-deserve.neabyte.com/response/redirect) - Redirect responses
+  - [JSON Format](https://docs-deserve.neabyte.com/en/response/json) - Create JSON responses easily
+  - [Text Format](https://docs-deserve.neabyte.com/en/response/text) - Plain text responses
+  - [HTML Format](https://docs-deserve.neabyte.com/en/response/html) - HTML content responses
+  - [File Downloads](https://docs-deserve.neabyte.com/en/response/file) - Download files from filesystem
+  - [Data Downloads](https://docs-deserve.neabyte.com/en/response/data) - Download in-memory content
+  - [Redirects](https://docs-deserve.neabyte.com/en/response/redirect) - Redirect responses
+  - [Custom Responses](https://docs-deserve.neabyte.com/en/response/custom) - Full control over response options
 
 - **Static Files**
-  - [Basic Static Serving](https://docs-deserve.neabyte.com/static-file/basic) - Serve static files from directories
-  - [Multiple Directories](https://docs-deserve.neabyte.com/static-file/multiple) - Serve from multiple locations
+  - [Basic Static Serving](https://docs-deserve.neabyte.com/en/static-file/basic) - Serve static files from directories
+  - [Multiple Directories](https://docs-deserve.neabyte.com/en/static-file/multiple) - Serve from multiple locations
 
 - **Error Handling**
-  - [Object Details](https://docs-deserve.neabyte.com/error-handling/object-details) - Detailed error information
+  - [Default Behavior](https://docs-deserve.neabyte.com/en/error-handling/default-behavior) - Automatic error handling
+  - [Object Details](https://docs-deserve.neabyte.com/en/error-handling/object-details) - Detailed error information
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a [Pull Request](https://github.com/NeaByteLab/Deserve/pulls).
+**Help us make Deserve even simpler!** Every contribution helps make building APIs effortless.
+
+### How to Contribute
+
+- **Report Bugs** - Found something broken? Let us know via [GitHub Issues](https://github.com/NeaByteLab/Deserve/issues)
+- **Suggest Features** - Have an idea that aligns with our simplicity-first philosophy? [Create an issue](https://github.com/NeaByteLab/Deserve/issues/new)
+- **Fix & Improve** - Submit [Pull Requests](https://github.com/NeaByteLab/Deserve/pulls) for bug fixes, typos, or code improvements
+- **Build Middleware** - Create and share third-party middleware that extends Deserve's capabilities
+- **Improve Docs** - Help us make the documentation clearer (supports English and Indonesian!)
+- **Use Deserve** - The best contribution? Use it in your projects and share your feedback
 
 ## License
 

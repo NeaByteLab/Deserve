@@ -1,7 +1,7 @@
 {
   "name": "@neabyte/deserve",
   "description": "HTTP server with file-based routing library for Deno",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "type": "module",
   "license": "MIT",
   "exports": "./src/index.ts",
@@ -95,6 +95,7 @@
       "*.spec.ts",
       "*.test.ts",
       ".github/",
+      "benchmark/",
       "coverage/",
       "deno.json",
       "docs/",

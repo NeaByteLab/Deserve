@@ -128,7 +128,7 @@ export class Handler {
    */
   handleResponse(ctx: Context, statusCode: number, error: Error): Response {
     if (this.errorMiddleware) {
-      const customResponse = this.errorMiddleware(ctx.request, {
+      const customResponse = this.errorMiddleware(ctx, {
         path: ctx.url,
         method: ctx.request.method,
         statusCode,

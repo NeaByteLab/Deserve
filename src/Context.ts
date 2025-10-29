@@ -139,12 +139,11 @@ export class Context {
   }
 
   /**
-   * Sets route parameters.
-   * @param params - Route parameters to set
-   * @internal
+   * Gets the URL pathname.
+   * @returns The pathname portion of the URL
    */
-  setParams(params: Record<string, string>): void {
-    Object.assign(this.routeParams, params)
+  get pathname(): string {
+    return this.urlObj.pathname
   }
 
   /**
@@ -192,27 +191,6 @@ export class Context {
    */
   get responseHeadersMap(): Record<string, string> {
     return { ...this.responseHeaders }
-  }
-
-  /**
-   * Sets a response header.
-   * @param key - Header name
-   * @param value - Header value
-   * @returns The context instance for chaining
-   */
-  setHeader(key: string, value: string): this {
-    this.responseHeaders[key] = value
-    return this
-  }
-
-  /**
-   * Sets multiple response headers.
-   * @param headers - Object containing headers to set
-   * @returns The context instance for chaining
-   */
-  setHeaders(headers: Record<string, string>): this {
-    Object.assign(this.responseHeaders, headers)
-    return this
   }
 
   /**
@@ -320,6 +298,36 @@ export class Context {
   }
 
   /**
+   * Sets a response header.
+   * @param key - Header name
+   * @param value - Header value
+   * @returns The context instance for chaining
+   */
+  setHeader(key: string, value: string): this {
+    this.responseHeaders[key] = value
+    return this
+  }
+
+  /**
+   * Sets multiple response headers.
+   * @param headers - Object containing headers to set
+   * @returns The context instance for chaining
+   */
+  setHeaders(headers: Record<string, string>): this {
+    Object.assign(this.responseHeaders, headers)
+    return this
+  }
+
+  /**
+   * Sets route parameters.
+   * @param params - Route parameters to set
+   * @internal
+   */
+  setParams(params: Record<string, string>): void {
+    Object.assign(this.routeParams, params)
+  }
+
+  /**
    * Reads the request body as text.
    * @returns The request body as text
    */
@@ -342,7 +350,7 @@ export class Context {
     const result: Record<string, string> = {}
     const cookieHeader = this.req.headers.get('cookie')
     if (cookieHeader) {
-      cookieHeader.split(';').forEach((cookie) => {
+      cookieHeader.split(';').forEach(cookie => {
         const [key, ...valueParts] = cookie.trim().split('=')
         if (key) {
           result[key] = valueParts.join('=')

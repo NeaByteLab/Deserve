@@ -2,12 +2,12 @@ import type { Context } from '@app/Context.ts'
 
 /**
  * Error handling middleware function.
- * @param req - Request object
+ * @param ctx - Context object
  * @param error - Error information
  * @returns Error response or null to use default
  */
 export type ErrorMiddleware = (
-  req: Request,
+  ctx: Context,
   error: {
     error?: Error
     method: string
