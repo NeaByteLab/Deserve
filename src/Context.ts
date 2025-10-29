@@ -1,3 +1,5 @@
+import type { ErrorHandler } from '@app/Types.ts'
+
 /**
  * Request context class.
  * @description Provides access to request data, headers, and response utilities.
@@ -19,6 +21,8 @@ export class Context {
   private bodyData: unknown = undefined
   /** Body parsed */
   private bodyParsed = false
+  /** Error handler callback */
+  private errorHandler: ErrorHandler | undefined = undefined
   /** Response headers */
   private responseHeaders: Record<string, string> = {}
 
@@ -27,11 +31,13 @@ export class Context {
    * @param req - The original request object
    * @param url - The parsed URL object
    * @param params - Route parameters extracted from the URL
+   * @param errorHandler - Optional error handler callback
    */
-  constructor(req: Request, url: URL, params: Record<string, string>) {
+  constructor(req: Request, url: URL, params: Record<string, string>, errorHandler?: ErrorHandler) {
     this.req = req
     this.urlObj = url
     this.routeParams = params
+    this.errorHandler = errorHandler
   }
 
   /**
@@ -91,6 +97,19 @@ export class Context {
    */
   async formData(): Promise<FormData> {
     return await this.req.formData()
+  }
+
+  /**
+   * Handles error responses with optional custom error middleware.
+   * @param statusCode - HTTP status code
+   * @param error - Error object
+   * @returns Error response
+   */
+  handleError(statusCode: number, error: Error): Response {
+    if (this.errorHandler) {
+      return this.errorHandler(this, statusCode, error)
+    }
+    return this.send.custom(null, { status: statusCode, headers: this.responseHeadersMap })
   }
 
   /**
@@ -350,7 +369,7 @@ export class Context {
     const result: Record<string, string> = {}
     const cookieHeader = this.req.headers.get('cookie')
     if (cookieHeader) {
-      cookieHeader.split(';').forEach(cookie => {
+      cookieHeader.split(';').forEach((cookie) => {
         const [key, ...valueParts] = cookie.trim().split('=')
         if (key) {
           result[key] = valueParts.join('=')

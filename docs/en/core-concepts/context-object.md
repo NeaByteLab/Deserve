@@ -76,6 +76,7 @@ Send responses using `ctx.send`:
 - `ctx.send.data()` - In-memory data downloads
 - `ctx.send.redirect()` - Redirects
 - `ctx.send.custom()` - Custom responses
+- `ctx.handleError()` - Error handling (unreleased)
 
 You can also use `ctx.redirect()` directly as a convenience method:
 
@@ -139,6 +140,47 @@ export function GET(ctx: Context): Response {
   const path = ctx.pathname // '/api/users/123'
   return ctx.send.json({ path, fullUrl })
 }
+```
+
+## Error Handling
+
+> [!WARNING]
+> This feature is available in the development version but not yet released.
+
+Handle errors consistently using `ctx.handleError()`:
+
+```typescript
+export function GET(ctx: Context): Response {
+  try {
+    if (!isAuthorized) {
+      return ctx.handleError(401, new Error('Unauthorized'))
+    }
+    return ctx.send.json({ data: 'success' })
+  } catch (error) {
+    return ctx.handleError(500, error as Error)
+  }
+}
+```
+
+### How It Works
+
+`ctx.handleError()` respects your global error handler set with `router.catch()`:
+
+- **If `router.catch()` is defined** - Uses your custom error handler
+- **If no error handler** - Returns a simple response with the status code
+
+### Use in Middleware
+
+Middleware can use `ctx.handleError()` to trigger error handling:
+
+```typescript
+router.use(async (ctx, next) => {
+  if (!isValid) {
+    return ctx.handleError(401, new Error('Unauthorized'))
+    // This will use router.catch() if defined
+  }
+  return await next()
+})
 ```
 
 ## Context Lifecycle

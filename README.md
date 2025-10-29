@@ -30,10 +30,11 @@ Follow our [installing guide](https://docs-deserve.neabyte.com/en/getting-starte
   - [Request Handling](https://docs-deserve.neabyte.com/en/core-concepts/request-handling) - Enhanced request object with automatic parsing
 
 - **Middleware**
-  - [Global Middleware](https://docs-deserve.neabyte.com/en/middleware/global) - Cross-cutting functionality
-  - [Route-Specific Middleware](https://docs-deserve.neabyte.com/en/middleware/route-specific) - Targeted middleware for specific routes
-  - [CORS Middleware](https://docs-deserve.neabyte.com/en/middleware/cors) - Cross-origin request handling
-  - [WebSocket Middleware](https://docs-deserve.neabyte.com/en/middleware/websocket) - Real-time bidirectional communication
+  - [Use Global](https://docs-deserve.neabyte.com/en/middleware/global) - Cross-cutting functionality
+  - [Use Route-Specific](https://docs-deserve.neabyte.com/en/middleware/route-specific) - Targeted middleware for specific routes
+  - [Basic Auth](https://docs-deserve.neabyte.com/en/middleware/basic-auth) - HTTP Basic Authentication
+  - [CORS](https://docs-deserve.neabyte.com/en/middleware/cors) - Cross-origin request handling
+  - [WebSocket](https://docs-deserve.neabyte.com/en/middleware/websocket) - Real-time bidirectional communication
 
 - **Response Utilities**
   - [JSON Format](https://docs-deserve.neabyte.com/en/response/json) - Create JSON responses easily

@@ -76,6 +76,7 @@ Kirim response menggunakan `ctx.send`:
 - `ctx.send.data()` - Unduhan data in-memory
 - `ctx.send.redirect()` - Redirect
 - `ctx.send.custom()` - Response custom
+- `ctx.handleError()` - Error handling (belum dirilis)
 
 Anda juga dapat menggunakan `ctx.redirect()` secara langsung sebagai method convenience:
 
@@ -139,6 +140,47 @@ export function GET(ctx: Context): Response {
   const path = ctx.pathname // '/api/users/123'
   return ctx.send.json({ path, fullUrl })
 }
+```
+
+## Penanganan Error
+
+> [!WARNING]
+> Fitur ini tersedia di versi development tetapi belum dirilis.
+
+Tangani error secara konsisten menggunakan `ctx.handleError()`:
+
+```typescript
+export function GET(ctx: Context): Response {
+  try {
+    if (!isAuthorized) {
+      return ctx.handleError(401, new Error('Unauthorized'))
+    }
+    return ctx.send.json({ data: 'success' })
+  } catch (error) {
+    return ctx.handleError(500, error as Error)
+  }
+}
+```
+
+### Cara Kerja
+
+`ctx.handleError()` menghormati error handler global yang diatur dengan `router.catch()`:
+
+- **Jika `router.catch()` didefinisikan** - Menggunakan error handler kustom Anda
+- **Jika tidak ada error handler** - Mengembalikan response sederhana dengan status code
+
+### Gunakan di Middleware
+
+Middleware dapat menggunakan `ctx.handleError()` untuk memicu error handling:
+
+```typescript
+router.use(async (ctx, next) => {
+  if (!isValid) {
+    return ctx.handleError(401, new Error('Unauthorized'))
+    // Ini akan menggunakan router.catch() jika didefinisikan
+  }
+  return await next()
+})
 ```
 
 ## Lifecycle Context

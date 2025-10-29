@@ -1,5 +1,7 @@
 # CORS Middleware
 
+> **Reference**: [MDN HTTP CORS Guide](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS)
+
 CORS (Cross-Origin Resource Sharing) middleware handles cross-origin requests by adding appropriate headers and handling preflight OPTIONS requests.
 
 ## Basic Usage

@@ -53,7 +53,7 @@ export function websocket(options: WebSocketOptions = {}): Middleware {
       return response
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-      throw new Error(`WebSocket upgrade failed: ${errorMessage}`)
+      return ctx.handleError(500, new Error(`WebSocket upgrade failed: ${errorMessage}`))
     }
   }
 }

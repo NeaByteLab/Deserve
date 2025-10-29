@@ -1,4 +1,5 @@
 import type { Middleware } from '@app/Types.ts'
+import { basicAuth, type BasicAuthOptions } from '@app/middleware/BasicAuth.ts'
 import { cors, type CorsOptions } from '@app/middleware/CORS.ts'
 import { websocket, type WebSocketOptions } from '@app/middleware/WebSocket.ts'
 
@@ -6,6 +7,12 @@ import { websocket, type WebSocketOptions } from '@app/middleware/WebSocket.ts'
  * Middleware utilities for common HTTP middleware.
  */
 export const Mware = {
+  /**
+   * Basic authentication middleware configuration.
+   * @param options - Basic auth configuration options
+   * @returns Basic auth middleware function
+   */
+  basicAuth: (options: BasicAuthOptions): Middleware => basicAuth(options),
   /**
    * CORS middleware configuration.
    * @param options - CORS configuration options

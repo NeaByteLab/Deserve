@@ -1,5 +1,7 @@
 # Middleware CORS
 
+> **Referensi**: [MDN HTTP CORS Guide](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS)
+
 Middleware CORS (Cross-Origin Resource Sharing) menangani cross-origin requests dengan menambahkan header yang sesuai dan menangani preflight OPTIONS requests.
 
 ## Penggunaan Dasar

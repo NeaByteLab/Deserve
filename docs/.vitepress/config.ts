@@ -94,10 +94,11 @@ export default withMermaid(
                 text: 'Middleware',
                 collapsed: true,
                 items: [
-                  { text: 'Global Middleware', link: '/en/middleware/global' },
-                  { text: 'Route-Specific Middleware', link: '/en/middleware/route-specific' },
-                  { text: 'CORS Middleware', link: '/en/middleware/cors' },
-                  { text: 'WebSocket Middleware', link: '/en/middleware/websocket' }
+                  { text: 'Use Global', link: '/en/middleware/global' },
+                  { text: 'Use Route-Specific', link: '/en/middleware/route-specific' },
+                  { text: 'Basic Auth (Unreleased)', link: '/en/middleware/basic-auth' },
+                  { text: 'CORS', link: '/en/middleware/cors' },
+                  { text: 'WebSocket', link: '/en/middleware/websocket' }
                 ]
               },
               {
@@ -162,10 +163,11 @@ export default withMermaid(
                 text: 'Middleware',
                 collapsed: true,
                 items: [
-                  { text: 'Global Middleware', link: '/en/middleware/global' },
-                  { text: 'Route-Specific Middleware', link: '/en/middleware/route-specific' },
-                  { text: 'CORS Middleware', link: '/en/middleware/cors' },
-                  { text: 'WebSocket Middleware', link: '/en/middleware/websocket' }
+                  { text: 'Use Global', link: '/en/middleware/global' },
+                  { text: 'Use Route-Specific', link: '/en/middleware/route-specific' },
+                  { text: 'Basic Auth', link: '/en/middleware/basic-auth' },
+                  { text: 'CORS', link: '/en/middleware/cors' },
+                  { text: 'WebSocket', link: '/en/middleware/websocket' }
                 ]
               },
               {
@@ -270,10 +272,11 @@ export default withMermaid(
                 text: 'Middleware',
                 collapsed: true,
                 items: [
-                  { text: 'Middleware Global', link: '/id/middleware/global' },
-                  { text: 'Middleware Spesifik Rute', link: '/id/middleware/route-specific' },
-                  { text: 'Middleware CORS', link: '/id/middleware/cors' },
-                  { text: 'Middleware WebSocket', link: '/id/middleware/websocket' }
+                  { text: 'Gunakan Global', link: '/id/middleware/global' },
+                  { text: 'Gunakan Route-Spesific', link: '/id/middleware/route-specific' },
+                  { text: 'Basic Auth', link: '/id/middleware/basic-auth' },
+                  { text: 'CORS', link: '/id/middleware/cors' },
+                  { text: 'WebSocket', link: '/id/middleware/websocket' }
                 ]
               },
               {

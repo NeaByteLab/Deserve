@@ -60,7 +60,7 @@ export class Handler {
   createHandler(): (req: Request) => Promise<Response> {
     return async (req: Request) => {
       const url = new URL(req.url)
-      const ctx = new Context(req, url, {})
+      const ctx = new Context(req, url, {}, this.handleResponse)
       try {
         const middlewareResult = await this.executeMiddlewares(ctx, url.pathname)
         if (middlewareResult !== undefined) {
@@ -70,7 +70,7 @@ export class Handler {
         if (routeResult) {
           const metadata = 'data' in routeResult ? routeResult.data : null
           if (!metadata) {
-            return this.handleResponse(ctx, 404, new Error('Route not found'))
+            return ctx.handleError(404, new Error('Route not found'))
           }
           if ('params' in routeResult && routeResult.params) {
             ctx.setParams(routeResult.params)
@@ -87,12 +87,12 @@ export class Handler {
           try {
             return await (handler as RouteHandler)(ctx)
           } catch (error) {
-            return this.handleResponse(ctx, 500, error as Error)
+            return ctx.handleError(500, error as Error)
           }
         }
-        return this.handleResponse(ctx, 404, new Error('Route not found'))
+        return ctx.handleError(404, new Error('Route not found'))
       } catch (error) {
-        return this.handleResponse(ctx, 500, error as Error)
+        return ctx.handleError(500, error as Error)
       }
     }
   }
@@ -252,7 +252,7 @@ export class Handler {
       const fullPath = new URL(filePath, `file://${basePath.replace(/^\.\//, '')}/`).pathname
       const fileInfo = await Deno.stat(fullPath).catch(() => null)
       if (!fileInfo || !fileInfo.isFile) {
-        return this.handleResponse(ctx, 404, new Error('File not found'))
+        return ctx.handleError(404, new Error('File not found'))
       }
       const fileData = await Deno.readFile(fullPath)
       const extension = filePath.split('.').pop()?.toLowerCase() ?? ''
@@ -269,7 +269,7 @@ export class Handler {
         if (options.cacheControl !== undefined) {
           ctx.setHeader('Cache-Control', `public, max-age=${options.cacheControl}`)
         }
-        return this.handleResponse(ctx, 304, new Error('Not Modified'))
+        return ctx.handleError(304, new Error('Not Modified'))
       }
       ctx.setHeader('Content-Type', contentType)
       ctx.setHeader('Content-Length', fileData.length.toString())
@@ -281,7 +281,7 @@ export class Handler {
       }
       return ctx.send.custom(fileData)
     } catch (error) {
-      return this.handleResponse(ctx, 500, error as Error)
+      return ctx.handleError(500, error as Error)
     }
   }
 }

@@ -1,6 +1,15 @@
 import type { Context } from '@app/Context.ts'
 
 /**
+ * Error handler function.
+ * @param ctx - Context object
+ * @param statusCode - HTTP status code
+ * @param error - Error object
+ * @returns Error response
+ */
+export type ErrorHandler = (ctx: Context, statusCode: number, error: Error) => Response
+
+/**
  * Error handling middleware function.
  * @param ctx - Context object
  * @param error - Error information
