@@ -4,8 +4,13 @@ import { withMermaid } from 'vitepress-plugin-mermaid'
 export default withMermaid(
   defineConfig({
     base: '/',
-    ignoreDeadLinks: true,
     cleanUrls: true,
+    ignoreDeadLinks: true,
+    themeConfig: {
+      search: {
+        provider: 'local'
+      }
+    },
     head: [
       ['link', { rel: 'icon', href: '/favicon.svg', type: 'image/svg+xml' }],
       ['meta', { name: 'theme-color', content: '#158f77' }],
@@ -206,9 +211,6 @@ export default withMermaid(
             ]
           },
           socialLinks: [{ icon: 'github', link: 'https://github.com/NeaByteLab/Deserve' }],
-          search: {
-            provider: 'local'
-          },
           footer: {
             message: 'Released under the MIT License.',
             copyright: 'Copyright © 2025 NeaByteLab'
@@ -317,9 +319,6 @@ export default withMermaid(
             ]
           },
           socialLinks: [{ icon: 'github', link: 'https://github.com/NeaByteLab/Deserve' }],
-          search: {
-            provider: 'local'
-          },
           footer: {
             message: 'Dirilis di bawah Lisensi MIT.',
             copyright: 'Hak Cipta © 2025 NeaByteLab'
