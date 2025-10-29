@@ -2,6 +2,7 @@ import type { Middleware } from '@app/Types.ts'
 import { basicAuth, type BasicAuthOptions } from '@app/middleware/BasicAuth.ts'
 import { bodyLimit, type BodyLimitOptions } from '@app/middleware/BodyLimit.ts'
 import { cors, type CorsOptions } from '@app/middleware/CORS.ts'
+import { securityHeaders, type SecurityHeadersOptions } from '@app/middleware/SecurityHeaders.ts'
 import { websocket, type WebSocketOptions } from '@app/middleware/WebSocket.ts'
 
 /**
@@ -26,6 +27,12 @@ export const Mware = {
    * @returns CORS middleware function
    */
   cors: (options?: CorsOptions): Middleware => cors(options),
+  /**
+   * Security headers middleware configuration.
+   * @param options - Security headers configuration options
+   * @returns Security headers middleware function
+   */
+  securityHeaders: (options?: SecurityHeadersOptions): Middleware => securityHeaders(options),
   /**
    * WebSocket middleware configuration.
    * @param options - WebSocket configuration options

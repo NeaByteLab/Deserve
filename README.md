@@ -35,6 +35,7 @@ Follow our [installing guide](https://docs-deserve.neabyte.com/en/getting-starte
   - [Basic Auth](https://docs-deserve.neabyte.com/en/middleware/basic-auth) - HTTP Basic Authentication
   - [Body Limit](https://docs-deserve.neabyte.com/en/middleware/body-limit) - Enforce maximum request body size
   - [CORS](https://docs-deserve.neabyte.com/en/middleware/cors) - Cross-origin request handling
+  - [Security Headers](https://docs-deserve.neabyte.com/en/middleware/security-headers) - Set HTTP security headers to protect your application
   - [WebSocket](https://docs-deserve.neabyte.com/en/middleware/websocket) - Real-time bidirectional communication
 
 - **Response Utilities**

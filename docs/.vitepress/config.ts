@@ -99,6 +99,7 @@ export default withMermaid(
                   { text: '🚧 Basic Auth', link: '/en/middleware/basic-auth' },
                   { text: '🚧 Body Limit', link: '/en/middleware/body-limit' },
                   { text: 'CORS', link: '/en/middleware/cors' },
+                  { text: '🚧 Security Headers', link: '/en/middleware/security-headers' },
                   { text: 'WebSocket', link: '/en/middleware/websocket' }
                 ]
               },
@@ -169,6 +170,7 @@ export default withMermaid(
                   { text: '🚧 Basic Auth', link: '/en/middleware/basic-auth' },
                   { text: '🚧 Body Limit', link: '/en/middleware/body-limit' },
                   { text: 'CORS', link: '/en/middleware/cors' },
+                  { text: '🚧 Security Headers', link: '/en/middleware/security-headers' },
                   { text: 'WebSocket', link: '/en/middleware/websocket' }
                 ]
               },
@@ -279,6 +281,7 @@ export default withMermaid(
                   { text: '🚧 Basic Auth', link: '/id/middleware/basic-auth' },
                   { text: '🚧 Body Limit', link: '/id/middleware/body-limit' },
                   { text: 'CORS', link: '/id/middleware/cors' },
+                  { text: '🚧 Security Headers', link: '/id/middleware/security-headers' },
                   { text: 'WebSocket', link: '/id/middleware/websocket' }
                 ]
               },
