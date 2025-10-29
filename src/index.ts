@@ -1,4 +1,10 @@
 /**
+ * Middleware utilities export.
+ * @description Built-in middleware utilities and custom middleware support.
+ */
+export * from '@app/middleware/index.ts'
+
+/**
  * Main entry point.
  * @description Exports all public API from the framework
  */

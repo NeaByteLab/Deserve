@@ -17,19 +17,8 @@ export class Router {
    * @throws {Error} When options are invalid or extension not allowed
    */
   constructor(options?: RouterOptions) {
-    if (!options) {
-      this.routesDir = './routes'
-    } else {
-      if (!options.routesDir) {
-        throw new Error(
-          'Router requires `routesDir` option, which is the directory containing the route files.'
-        )
-      }
-      this.routesDir = options.routesDir.startsWith('/')
-        ? options.routesDir
-        : `${Deno.cwd()}/${options.routesDir}`
-    }
     this.handler = new Handler()
+    this.routesDir = options?.routesDir ?? './routes'
   }
 
   /**
