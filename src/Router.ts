@@ -1,4 +1,4 @@
-import type { ErrorMiddleware, Middleware, RouterOptions, ServeOptions } from '@app/Types.ts'
+import type { ErrorMiddleware, Middleware, RouterOptions, ServeOptions } from '@app/index.ts'
 import { Handler } from '@app/Handler.ts'
 
 /**

@@ -33,6 +33,7 @@ Follow our [installing guide](https://docs-deserve.neabyte.com/en/getting-starte
   - [Use Global](https://docs-deserve.neabyte.com/en/middleware/global) - Cross-cutting functionality
   - [Use Route-Specific](https://docs-deserve.neabyte.com/en/middleware/route-specific) - Targeted middleware for specific routes
   - [Basic Auth](https://docs-deserve.neabyte.com/en/middleware/basic-auth) - HTTP Basic Authentication
+  - [Body Limit](https://docs-deserve.neabyte.com/en/middleware/body-limit) - Enforce maximum request body size
   - [CORS](https://docs-deserve.neabyte.com/en/middleware/cors) - Cross-origin request handling
   - [WebSocket](https://docs-deserve.neabyte.com/en/middleware/websocket) - Real-time bidirectional communication
 

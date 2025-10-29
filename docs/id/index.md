@@ -6,7 +6,7 @@ hero:
   text: "Framework Web"
   tagline: "Bangun server HTTP dengan mudah tanpa konfigurasi untuk produktivitas."
   image:
-    src: /public/image.png
+    src: /image.png
     alt: Deserve
 
   actions:

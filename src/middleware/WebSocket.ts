@@ -1,5 +1,4 @@
-import type { Middleware } from '@app/Types.ts'
-import type { Context } from '@app/Context.ts'
+import type { Context, Middleware } from '@app/index.ts'
 
 /**
  * WebSocket middleware configuration options.

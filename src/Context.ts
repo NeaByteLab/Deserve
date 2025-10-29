@@ -1,4 +1,4 @@
-import type { ErrorHandler } from '@app/Types.ts'
+import type { ErrorHandler } from '@app/index.ts'
 
 /**
  * Request context class.

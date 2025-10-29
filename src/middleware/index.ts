@@ -1,5 +1,6 @@
 import type { Middleware } from '@app/Types.ts'
 import { basicAuth, type BasicAuthOptions } from '@app/middleware/BasicAuth.ts'
+import { bodyLimit, type BodyLimitOptions } from '@app/middleware/BodyLimit.ts'
 import { cors, type CorsOptions } from '@app/middleware/CORS.ts'
 import { websocket, type WebSocketOptions } from '@app/middleware/WebSocket.ts'
 
@@ -13,6 +14,12 @@ export const Mware = {
    * @returns Basic auth middleware function
    */
   basicAuth: (options: BasicAuthOptions): Middleware => basicAuth(options),
+  /**
+   * Body limit middleware configuration.
+   * @param options - Body limit configuration options
+   * @returns Body limit middleware function
+   */
+  bodyLimit: (options: BodyLimitOptions): Middleware => bodyLimit(options),
   /**
    * CORS middleware configuration.
    * @param options - CORS configuration options

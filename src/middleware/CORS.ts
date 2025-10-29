@@ -1,4 +1,4 @@
-import type { Middleware } from '@app/Types.ts'
+import type { Middleware } from '@app/index.ts'
 import { httpMethods } from '@app/Constant.ts'
 
 /**

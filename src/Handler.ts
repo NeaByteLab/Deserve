@@ -1,16 +1,16 @@
-import type {
-  ErrorMiddleware,
-  Middleware,
-  MiddlewareEntry,
-  RouteHandler,
-  RouteMetadata,
-  ServeOptions,
-  StaticFileHandler
-} from '@app/Types.ts'
-import { FastRouter } from '@neabyte/fast-router'
+import {
+  Context,
+  type ErrorMiddleware,
+  type Middleware,
+  type MiddlewareEntry,
+  type RouteHandler,
+  type RouteMetadata,
+  type ServeOptions,
+  type StaticFileHandler
+} from '@app/index.ts'
 import { pathToFileURL } from 'node:url'
+import { FastRouter } from '@neabyte/fast-router'
 import { allowedExtensions, contentTypes, httpMethods } from '@app/Constant.ts'
-import { Context } from '@app/Context.ts'
 
 /**
  * Request handler class.

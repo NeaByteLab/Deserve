@@ -1,9 +1,8 @@
 # Basic Auth Middleware
 
-> **Reference**: [MDN HTTP Authentication Guide](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Authentication)
+> [!WARNING] This feature is available in the development version but not yet released.
 
-> [!WARNING]
-> This feature is available in the development version but not yet released.
+> **Reference**: [MDN HTTP Authentication Guide](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Authentication)
 
 HTTP Basic Authentication middleware for protecting routes with username and password authentication. Simple, secure, and easy to configure.
 
