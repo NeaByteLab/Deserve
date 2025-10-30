@@ -30,9 +30,22 @@ Ini menyajikan file dari direktori `public/` di path URL `/static`:
 Deserve menggunakan implementasi custom untuk menyajikan file statis:
 
 1. **Route Matching**: Membuat routes dengan pola `${urlPath}/**` untuk mencocokkan semua file
-2. **File Resolution**: Memetakan URL paths ke file system paths menggunakan opsi `path`
-3. **Wildcard Capture**: Mengekstrak path file dari route parameters (`params['_']`)
+2. **Path Extraction**: Menggunakan `ctx.pathname` langsung untuk mendapatkan full request path (pola `/**` dari FastRouter hanya menangkap segment pertama, jadi kita menggunakan pathname sebagai gantinya)
+3. **File Resolution**: Memetakan URL paths ke file system paths menggunakan opsi `path`
 4. **Priority**: Static routes diregistrasi untuk semua HTTP methods sebelum dynamic routes
+
+### Perilaku Wildcard Pattern
+
+Ketika `urlPath` adalah `/`, Deserve membuat pola `/**`. Untuk path resolution, Deserve menggunakan `ctx.pathname` daripada mengandalkan wildcard parameter, karena:
+
+- Pola `/**` dari FastRouter hanya menangkap **segment pertama** dari request path alih-alih full path (misalnya, `"styles"` untuk `/styles/ui.css`)
+- Untuk menyajikan file nested dengan benar, Deserve mengekstrak full path dari `ctx.pathname` dan menghapus leading `/` untuk mendapatkan relative file path
+
+**Contoh:**
+- Request: `GET /styles/ui.css`
+- Pattern: `/**` cocok dari path yang dikonfigurasi
+- File path: Diekstrak dari `ctx.pathname` → `"styles/ui.css"`
+- Resolved: `static/styles/ui.css`
 
 ## Opsi Static File
 

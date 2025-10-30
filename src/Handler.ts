@@ -176,7 +176,7 @@ export class Handler {
       }
     } catch (error) {
       if (error instanceof Deno.errors.NotFound) {
-        throw new Error(`Routes directory not found: ${targetDir}`)
+        return
       } else {
         throw error
       }

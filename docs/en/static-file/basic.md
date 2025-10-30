@@ -30,9 +30,22 @@ This serves files from the `public/` directory at the `/static` URL path:
 Deserve uses a custom static file serving implementation:
 
 1. **Route Matching**: Creates routes with pattern `${urlPath}/**` to match all files
-2. **File Resolution**: Maps URL paths to file system paths using the `path` option
-3. **Wildcard Capture**: Extracts file path from route parameters (`params['_']`)
+2. **Path Extraction**: Uses `ctx.pathname` directly to get the full request path (FastRouter's `/**` pattern only captures the first segment, so we use pathname instead)
+3. **File Resolution**: Maps URL paths to file system paths using the `path` option
 4. **Priority**: Static routes are registered for all HTTP methods before dynamic routes
+
+### Wildcard Pattern Behavior
+
+When `urlPath` is `/`, Deserve creates a `/**` pattern. For path resolution, Deserve uses `ctx.pathname` instead of relying on wildcard parameter, because:
+
+- FastRouter's `/**` pattern only captures the **first segment** of the request path instead of the full path (e.g., `"styles"` for `/styles/ui.css`)
+- To serve nested files correctly, Deserve extracts the full path from `ctx.pathname` and removes the leading `/` to get the relative file path
+
+**Example:**
+- Request: `GET /styles/ui.css`
+- Pattern: `/**` matches from configurable path
+- File path: Extracted from `ctx.pathname` → `"styles/ui.css"`
+- Resolved: `static/styles/ui.css`
 
 ## Static File Options
 
