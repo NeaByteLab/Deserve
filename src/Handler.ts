@@ -155,6 +155,10 @@ export class Handler {
         if (entry.isDirectory) {
           await this.scanRoutes(fullPath, routePath)
         } else {
+          const pathExtension = entry.name.split('.').pop()?.toLowerCase()
+          if (!allowedExtensions.includes(pathExtension ?? '')) {
+            continue
+          }
           const fileModule = await import(pathToFileURL(fullPath).href)
           const routePattern = this.createRoutePattern(routePath)
           if (routePattern) {
@@ -246,8 +250,7 @@ export class Handler {
    */
   private async serveStaticFile(ctx: Context, options: ServeOptions): Promise<Response> {
     try {
-      const params = ctx.params()
-      const filePath = params['_'] ?? 'index.html'
+      const filePath = ctx.pathname === '/' ? 'index.html' : ctx.pathname.slice(1)
       const basePath = options.path.startsWith('/') ? options.path : `${Deno.cwd()}/${options.path}`
       const fullPath = new URL(filePath, `file://${basePath.replace(/^\.\//, '')}/`).pathname
       const fileInfo = await Deno.stat(fullPath).catch(() => null)
