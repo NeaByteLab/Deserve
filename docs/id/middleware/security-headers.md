@@ -1,7 +1,5 @@
 # Middleware Security Headers
 
-> [!WARNING] Fitur ini tersedia di versi development tetapi belum dirilis.
-
 > **Referensi**: [OWASP Secure Headers Project](https://owasp.org/www-project-secure-headers/)
 
 Middleware Security Headers mengatur header keamanan HTTP untuk melindungi aplikasi Anda dari kerentanan umum seperti clickjacking, MIME type sniffing, dan serangan XSS.

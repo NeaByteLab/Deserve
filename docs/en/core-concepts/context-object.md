@@ -76,7 +76,7 @@ Send responses using `ctx.send`:
 - `ctx.send.data()` - In-memory data downloads
 - `ctx.send.redirect()` - Redirects
 - `ctx.send.custom()` - Custom responses
-- `ctx.handleError()` - Error handling (unreleased)
+- `ctx.handleError()` - Error handling
 
 You can also use `ctx.redirect()` directly as a convenience method:
 
@@ -143,9 +143,6 @@ export function GET(ctx: Context): Response {
 ```
 
 ## Error Handling
-
-> [!WARNING]
-> This feature is available in the development version but not yet released.
 
 Handle errors consistently using `ctx.handleError()`:
 

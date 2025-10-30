@@ -1,7 +1,5 @@
 # Middleware Body Limit
 
-> [!WARNING] Fitur ini tersedia di versi development tetapi belum dirilis.
-
 > **Referensi**: [RFC 7230 HTTP/1.1 Message Syntax and Routing](https://datatracker.ietf.org/doc/html/rfc7230#section-3.3.1)
 
 Middleware Body Limit menegakkan ukuran body request maksimum dengan memeriksa header `Content-Length`. Mencegah payload besar yang dapat membebani server Anda.

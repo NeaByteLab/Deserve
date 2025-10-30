@@ -1,7 +1,5 @@
 # Security Headers Middleware
 
-> [!WARNING] This feature is available in the development version but not yet released.
-
 > **Reference**: [OWASP Secure Headers Project](https://owasp.org/www-project-secure-headers/)
 
 Security Headers middleware sets HTTP security headers to protect your application from common vulnerabilities like clickjacking, MIME type sniffing, and XSS attacks.

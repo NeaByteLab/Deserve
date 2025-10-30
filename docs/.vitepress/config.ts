@@ -101,10 +101,10 @@ export default withMermaid(
                 items: [
                   { text: 'Use Global', link: '/en/middleware/global' },
                   { text: 'Use Route-Specific', link: '/en/middleware/route-specific' },
-                  { text: '🚧 Basic Auth', link: '/en/middleware/basic-auth' },
-                  { text: '🚧 Body Limit', link: '/en/middleware/body-limit' },
+                  { text: 'Basic Auth', link: '/en/middleware/basic-auth' },
+                  { text: 'Body Limit', link: '/en/middleware/body-limit' },
                   { text: 'CORS', link: '/en/middleware/cors' },
-                  { text: '🚧 Security Headers', link: '/en/middleware/security-headers' },
+                  { text: 'Security Headers', link: '/en/middleware/security-headers' },
                   { text: 'WebSocket', link: '/en/middleware/websocket' }
                 ]
               },
@@ -172,10 +172,10 @@ export default withMermaid(
                 items: [
                   { text: 'Use Global', link: '/en/middleware/global' },
                   { text: 'Use Route-Specific', link: '/en/middleware/route-specific' },
-                  { text: '🚧 Basic Auth', link: '/en/middleware/basic-auth' },
-                  { text: '🚧 Body Limit', link: '/en/middleware/body-limit' },
+                  { text: 'Basic Auth', link: '/en/middleware/basic-auth' },
+                  { text: 'Body Limit', link: '/en/middleware/body-limit' },
                   { text: 'CORS', link: '/en/middleware/cors' },
-                  { text: '🚧 Security Headers', link: '/en/middleware/security-headers' },
+                  { text: 'Security Headers', link: '/en/middleware/security-headers' },
                   { text: 'WebSocket', link: '/en/middleware/websocket' }
                 ]
               },
@@ -280,10 +280,10 @@ export default withMermaid(
                 items: [
                   { text: 'Gunakan Global', link: '/id/middleware/global' },
                   { text: 'Gunakan Spesifik Rute', link: '/id/middleware/route-specific' },
-                  { text: '🚧 Basic Auth', link: '/id/middleware/basic-auth' },
-                  { text: '🚧 Body Limit', link: '/id/middleware/body-limit' },
+                  { text: 'Basic Auth', link: '/id/middleware/basic-auth' },
+                  { text: 'Body Limit', link: '/id/middleware/body-limit' },
                   { text: 'CORS', link: '/id/middleware/cors' },
-                  { text: '🚧 Security Headers', link: '/id/middleware/security-headers' },
+                  { text: 'Security Headers', link: '/id/middleware/security-headers' },
                   { text: 'WebSocket', link: '/id/middleware/websocket' }
                 ]
               },
