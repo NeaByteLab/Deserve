@@ -1,4 +1,4 @@
-import type { ErrorHandler } from '@app/index.ts'
+import type { ErrorHandler } from '@app/Types.ts'
 
 /**
  * Request context class.
@@ -228,6 +228,7 @@ export class Context {
     html: (html: string, options?: ResponseInit) => Response
     json: (data: unknown, options?: ResponseInit) => Response
     redirect: (url: string, status?: number) => Response
+    stream: (stream: ReadableStream, options?: ResponseInit, contentType?: string) => Response
     text: (text: string, options?: ResponseInit) => Response
   } {
     return {
@@ -264,16 +265,18 @@ export class Context {
         options?: ResponseInit
       ): Promise<Response> => {
         try {
-          const fileData = await Deno.readFile(filePath)
+          const file = await Deno.open(filePath, { read: true })
+          const fileInfo = await file.stat()
           const fileName = filename || filePath.split('/').pop() || 'download'
-          return new Response(fileData, {
+          return new Response(file.readable, {
             headers: {
               'Content-Type': 'application/octet-stream',
               'Content-Disposition': `attachment; filename="${fileName}"`,
-              'Content-Length': fileData.length.toString(),
+              'Content-Length': fileInfo.size.toString(),
               ...this.responseHeaders,
               ...(options?.headers || {})
-            }
+            },
+            ...options
           })
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Unknown error'
@@ -302,6 +305,20 @@ export class Context {
       },
       redirect: (url: string, status = 302): Response => {
         return Response.redirect(url, status)
+      },
+      stream: (
+        stream: ReadableStream,
+        options?: ResponseInit,
+        contentType = 'application/octet-stream'
+      ): Response => {
+        return new Response(stream, {
+          headers: {
+            'Content-Type': contentType,
+            ...this.responseHeaders,
+            ...(options?.headers || {})
+          },
+          ...options
+        })
       },
       text: (text: string, options?: ResponseInit): Response => {
         return new Response(text, {
@@ -369,7 +386,7 @@ export class Context {
     const result: Record<string, string> = {}
     const cookieHeader = this.req.headers.get('cookie')
     if (cookieHeader) {
-      cookieHeader.split(';').forEach((cookie) => {
+      cookieHeader.split(';').forEach(cookie => {
         const [key, ...valueParts] = cookie.trim().split('=')
         if (key) {
           result[key] = valueParts.join('=')

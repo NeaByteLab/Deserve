@@ -1,16 +1,16 @@
-import {
-  Context,
-  type ErrorMiddleware,
-  type Middleware,
-  type MiddlewareEntry,
-  type RouteHandler,
-  type RouteMetadata,
-  type ServeOptions,
-  type StaticFileHandler
-} from '@app/index.ts'
+import type {
+  ErrorMiddleware,
+  Middleware,
+  MiddlewareEntry,
+  RouteHandler,
+  RouteMetadata,
+  ServeOptions,
+  StaticFileHandler
+} from '@app/Types.ts'
 import { pathToFileURL } from 'node:url'
 import { FastRouter } from '@neabyte/fast-router'
 import { allowedExtensions, contentTypes, httpMethods } from '@app/Constant.ts'
+import { Context } from '@app/Context.ts'
 
 /**
  * Request handler class.
@@ -43,8 +43,9 @@ export class Handler {
       const metadata: RouteMetadata = {
         handler: {
           staticRoute: true,
+          urlPath,
           execute: async (ctx: Context) => {
-            return await this.serveStaticFile(ctx, options)
+            return await this.serveStaticFile(ctx, options, urlPath)
           }
         },
         pattern: routePattern
@@ -82,7 +83,8 @@ export class Handler {
             'staticRoute' in handler &&
             handler.staticRoute
           ) {
-            return await (handler as StaticFileHandler).execute(ctx)
+            const staticHandler = handler as StaticFileHandler
+            return await staticHandler.execute(ctx)
           }
           try {
             return await (handler as RouteHandler)(ctx)
@@ -120,11 +122,11 @@ export class Handler {
   }
 
   /**
-   * Handles responses with optional custom error middleware.
-   * @param ctx - The context object
+   * Handles responses for routes and errors.
+   * @param ctx - Context object
    * @param statusCode - HTTP status code
    * @param error - Error object
-   * @returns Response
+   * @returns Response object
    */
   handleResponse(ctx: Context, statusCode: number, error: Error): Response {
     if (this.errorMiddleware) {
@@ -138,7 +140,38 @@ export class Handler {
         return customResponse
       }
     }
-    return ctx.send.custom(null, { status: statusCode, headers: ctx.responseHeadersMap })
+    const isJson = ctx.request.headers.get('accept')?.includes('application/json')
+    if (isJson) {
+      return ctx.send.json(
+        {
+          error: error.message,
+          path: ctx.pathname,
+          statusCode
+        },
+        { status: statusCode }
+      )
+    }
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>${statusCode} - ${error.message}</title>
+          <style>
+            body { font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #fafafa; color: #333; }
+            .card { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center; max-width: 400px; }
+            h1 { font-size: 3rem; margin: 0; color: #ff6b6b; }
+            p { color: #666; margin: 1rem 0; }
+          </style>
+        </head>
+        <body>
+          <div class="card">
+            <h1>${statusCode}</h1>
+            <p>${error.message}</p>
+          </div>
+        </body>
+      </html>
+    `
+    return ctx.send.html(html, { status: statusCode })
   }
 
   /**
@@ -163,7 +196,7 @@ export class Handler {
           const routePattern = this.createRoutePattern(routePath)
           if (routePattern) {
             this.validateRouteModule(fileModule, routePath)
-            Object.keys(fileModule).forEach((method) => {
+            Object.keys(fileModule).forEach(method => {
               const handler = fileModule[method] as RouteHandler
               const metadata: RouteMetadata = {
                 handler,
@@ -198,7 +231,7 @@ export class Handler {
    * @throws {Error} When module is invalid
    */
   validateRouteModule(module: Record<string, unknown>, routePath: string): void {
-    const exportedMethods = Object.keys(module).filter((key) => httpMethods.includes(key))
+    const exportedMethods = Object.keys(module).filter(key => httpMethods.includes(key))
     if (exportedMethods.length === 0) {
       throw new Error(
         `Route ${routePath}: Must export at least one HTTP method (${httpMethods.join(', ')})`
@@ -220,9 +253,14 @@ export class Handler {
    * @returns Response if middleware returned one, undefined otherwise
    */
   private async executeMiddlewares(ctx: Context, pathname: string): Promise<Response | undefined> {
-    const applicableMiddlewares = this.entryMiddleware.filter(
-      (mw) => mw.path === '' || pathname.startsWith(mw.path) || mw.path === '*'
-    )
+    const applicableMiddlewares = this.entryMiddleware.filter(mw => {
+      if (mw.path === '' || mw.path === '*') return true
+      if (mw.path.endsWith('/**')) {
+        const base = mw.path.slice(0, -3)
+        return pathname.startsWith(base)
+      }
+      return pathname === mw.path
+    })
     let index = 0
     const next = async (): Promise<Response> => {
       if (index >= applicableMiddlewares.length) {
@@ -246,28 +284,45 @@ export class Handler {
    * Serves static files from the filesystem.
    * @param ctx - Context object
    * @param options - Static file serving options
+   * @param urlPath - URL mount point
    * @returns Response with file or 404
    */
-  private async serveStaticFile(ctx: Context, options: ServeOptions): Promise<Response> {
+  private async serveStaticFile(
+    ctx: Context,
+    options: ServeOptions,
+    urlPath: string
+  ): Promise<Response> {
     try {
-      const filePath = ctx.pathname === '/' ? 'index.html' : ctx.pathname.slice(1)
+      let filePath = ctx.pathname
+      if (urlPath !== '/') {
+        filePath = ctx.pathname.slice(urlPath.length)
+      }
+      if (filePath === '/' || filePath === '') {
+        filePath = 'index.html'
+      } else if (filePath.startsWith('/')) {
+        filePath = filePath.slice(1)
+      }
       const basePath = options.path.startsWith('/') ? options.path : `${Deno.cwd()}/${options.path}`
       const fullPath = new URL(filePath, `file://${basePath.replace(/^\.\//, '')}/`).pathname
       const fileInfo = await Deno.stat(fullPath).catch(() => null)
       if (!fileInfo || !fileInfo.isFile) {
         return ctx.handleError(404, new Error('File not found'))
       }
-      const fileData = await Deno.readFile(fullPath)
       const extension = filePath.split('.').pop()?.toLowerCase() ?? ''
       const contentType = contentTypes[extension] ?? 'application/octet-stream'
+      const file = await Deno.open(fullPath, { read: true })
       let etag: string | null = null
       if (options.etag) {
-        const hashBuffer = await crypto.subtle.digest('SHA-256', fileData)
+        const hashBuffer = await crypto.subtle.digest(
+          'SHA-256',
+          new TextEncoder().encode(`${fileInfo.size}-${fileInfo.mtime?.getTime()}`)
+        )
         const hashArray = Array.from(new Uint8Array(hashBuffer))
-        const hashHex = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('')
+        const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
         etag = `"${hashHex}"`
       }
       if (etag && ctx.request.headers.get('If-None-Match') === etag) {
+        file.close()
         ctx.setHeader('ETag', etag)
         if (options.cacheControl !== undefined) {
           ctx.setHeader('Cache-Control', `public, max-age=${options.cacheControl}`)
@@ -275,14 +330,14 @@ export class Handler {
         return ctx.handleError(304, new Error('Not Modified'))
       }
       ctx.setHeader('Content-Type', contentType)
-      ctx.setHeader('Content-Length', fileData.length.toString())
+      ctx.setHeader('Content-Length', fileInfo.size.toString())
       if (etag) {
         ctx.setHeader('ETag', etag)
       }
       if (options.cacheControl !== undefined) {
         ctx.setHeader('Cache-Control', `public, max-age=${options.cacheControl}`)
       }
-      return ctx.send.custom(fileData)
+      return ctx.send.custom(file.readable)
     } catch (error) {
       return ctx.handleError(500, error as Error)
     }

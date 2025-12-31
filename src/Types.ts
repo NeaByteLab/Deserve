@@ -89,6 +89,8 @@ export interface ServeOptions {
 export type StaticFileHandler = {
   /** Indicates this is a static route */
   staticRoute: true
+  /** URL path mount point */
+  urlPath: string
   /** Executes static file serving */
   execute: (ctx: Context) => Promise<Response>
 }
