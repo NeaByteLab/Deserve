@@ -254,7 +254,9 @@ export class Handler {
    */
   private async executeMiddlewares(ctx: Context, pathname: string): Promise<Response | undefined> {
     const applicableMiddlewares = this.entryMiddleware.filter(mw => {
-      if (mw.path === '' || mw.path === '*') return true
+      if (mw.path === '' || mw.path === '*') {
+        return true
+      }
       if (mw.path.endsWith('/**')) {
         const base = mw.path.slice(0, -3)
         return pathname.startsWith(base)
