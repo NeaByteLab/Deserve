@@ -1,42 +1,27 @@
-import type { Middleware } from '@app/Types.ts'
-import { basicAuth, type BasicAuthOptions } from '@app/middleware/BasicAuth.ts'
-import { bodyLimit, type BodyLimitOptions } from '@app/middleware/BodyLimit.ts'
-import { cors, type CorsOptions } from '@app/middleware/CORS.ts'
-import { securityHeaders, type SecurityHeadersOptions } from '@app/middleware/SecurityHeaders.ts'
-import { websocket, type WebSocketOptions } from '@app/middleware/WebSocket.ts'
+import type { Middleware, Types } from '@app/index.ts'
+import * as Loader from '@app/middleware/Loaders.ts'
+import MwareUtils from '@app/middleware/Utils.ts'
 
-/**
- * Middleware utilities for common HTTP middleware.
- */
+/** Middleware wrapper with try/catch and label. */
+export const wrapMiddleware: (label: string, middleware: Middleware) => Middleware =
+  MwareUtils.wrapMiddleware.bind(MwareUtils)
+
+/** Prebuilt middleware factories for common use. */
 export const Mware = {
-  /**
-   * Basic authentication middleware configuration.
-   * @param options - Basic auth configuration options
-   * @returns Basic auth middleware function
-   */
-  basicAuth: (options: BasicAuthOptions): Middleware => basicAuth(options),
-  /**
-   * Body limit middleware configuration.
-   * @param options - Body limit configuration options
-   * @returns Body limit middleware function
-   */
-  bodyLimit: (options: BodyLimitOptions): Middleware => bodyLimit(options),
-  /**
-   * CORS middleware configuration.
-   * @param options - CORS configuration options
-   * @returns CORS middleware function
-   */
-  cors: (options?: CorsOptions): Middleware => cors(options),
-  /**
-   * Security headers middleware configuration.
-   * @param options - Security headers configuration options
-   * @returns Security headers middleware function
-   */
-  securityHeaders: (options?: SecurityHeadersOptions): Middleware => securityHeaders(options),
-  /**
-   * WebSocket middleware configuration.
-   * @param options - WebSocket configuration options
-   * @returns WebSocket middleware function
-   */
-  websocket: (options?: WebSocketOptions): Middleware => websocket(options)
+  /** Basic Auth middleware factory */
+  basicAuth: (options: Types.BasicAuthOptions): Middleware => Loader.BasicAuth.create(options),
+  /** Body size limit middleware factory */
+  bodyLimit: (options: Types.BodyLimitOptions): Middleware => Loader.BodyLimit.create(options),
+  /** CORS middleware factory */
+  cors: (options?: Types.CorsOptions): Middleware => Loader.Cors.create(options),
+  /** Security headers middleware factory */
+  securityHeaders: (options?: Types.SecurityHeadersOptions): Middleware =>
+    Loader.SecHeaders.create(options),
+  /** Session middleware factory */
+  session: (options?: Types.SessionOptions): Middleware => Loader.Session.create(options),
+  /** WebSocket upgrade middleware factory */
+  websocket: (options?: Types.WebSocketOptions): Middleware => Loader.WebSocket.create(options)
 }
+
+/** Utility class for middleware error wrapping. */
+export { default as MwareUtils } from '@app/middleware/Utils.ts'

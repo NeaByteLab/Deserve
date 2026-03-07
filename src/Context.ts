@@ -1,88 +1,105 @@
-import type { ErrorHandler } from '@app/Types.ts'
+import type * as Types from '@app/Types.ts'
+import { ResponseHelpers, Redirect } from '@app/index.ts'
 
 /**
- * Request context class.
- * @description Provides access to request data, headers, and response utilities.
+ * Request wrapper with body, query, params.
+ * @description Parses body once; exposes headers, cookies, state.
  */
 export class Context {
-  /** Original request object */
-  private req: Request
-  /** Parsed URL object */
-  private urlObj: URL
-  /** Route parameters extracted from the URL */
-  private routeParams: Record<string, string>
-  /** Query parameters */
-  private queryParams: Record<string, string> | undefined = undefined
-  /** Header map */
-  private headerMap: Record<string, string> | undefined = undefined
-  /** Cookie map */
-  private cookieMap: Record<string, string> | undefined = undefined
-  /** Body data */
   private bodyData: unknown = undefined
-  /** Body parsed */
-  private bodyParsed = false
-  /** Error handler callback */
-  private errorHandler: ErrorHandler | undefined = undefined
-  /** Response headers */
+  private bodyParsedAs: 'arraybuffer' | 'blob' | 'form' | 'json' | 'text' | null = null
+  private cookieMap: Record<string, string> | undefined = undefined
+  private errorHandler: Types.ErrorHandler | undefined = undefined
+  private headerMap: Record<string, string> | undefined = undefined
+  private queryParams: Record<string, string> | undefined = undefined
+  private requestState: Record<string, unknown> = {}
+  private req: Request
   private responseHeaders: Record<string, string> = {}
+  private routeParams: Record<string, string>
+  private urlObj: URL
 
   /**
-   * Creates a new context instance.
-   * @param req - The original request object
-   * @param url - The parsed URL object
-   * @param params - Route parameters extracted from the URL
-   * @param errorHandler - Optional error handler callback
+   * Create context for one request.
+   * @description Binds request, URL, params, and optional error handler.
+   * @param req - Incoming request
+   * @param url - Parsed request URL
+   * @param params - Route path params
+   * @param errorHandler - Optional custom error handler
    */
-  constructor(req: Request, url: URL, params: Record<string, string>, errorHandler?: ErrorHandler) {
+  constructor(
+    req: Request,
+    url: URL,
+    params: Record<string, string>,
+    errorHandler?: Types.ErrorHandler
+  ) {
     this.req = req
     this.urlObj = url
     this.routeParams = params
     this.errorHandler = errorHandler
+    this.requestState = {}
   }
 
   /**
-   * Reads the request body as an ArrayBuffer.
-   * @returns The request body as an ArrayBuffer
+   * Read body as ArrayBuffer.
+   * @description Parses once; returns cached if already read.
+   * @returns Body as ArrayBuffer
    */
   async arrayBuffer(): Promise<ArrayBuffer> {
-    return await this.req.arrayBuffer()
+    if (this.bodyParsedAs === 'arraybuffer') {
+      return this.bodyData as ArrayBuffer
+    }
+    this.ensureBodyNotConsumed()
+    this.bodyData = await this.req.arrayBuffer()
+    this.bodyParsedAs = 'arraybuffer'
+    return this.bodyData as ArrayBuffer
   }
 
   /**
-   * Reads the request body as a Blob.
-   * @returns The request body as a Blob
+   * Read body as Blob.
+   * @description Parses once; returns cached if already read.
+   * @returns Body as Blob
    */
   async blob(): Promise<Blob> {
-    return await this.req.blob()
+    if (this.bodyParsedAs === 'blob') {
+      return this.bodyData as Blob
+    }
+    this.ensureBodyNotConsumed()
+    this.bodyData = await this.req.blob()
+    this.bodyParsedAs = 'blob'
+    return this.bodyData as Blob
   }
 
   /**
-   * Parses and returns the request body.
-   * @returns The parsed request body
+   * Read body as JSON, form, or text.
+   * @description Chooses parser from Content-Type; parses once.
+   * @returns Parsed body (object, FormData, or string)
    */
   async body(): Promise<unknown> {
-    if (this.bodyParsed && this.bodyData !== undefined) {
+    if (this.bodyParsedAs !== null) {
       return this.bodyData
     }
     const contentType = this.req.headers.get('content-type') || ''
     if (contentType.includes('application/json')) {
       this.bodyData = await this.req.json()
+      this.bodyParsedAs = 'json'
     } else if (
       contentType.includes('multipart/form-data') ||
       contentType.includes('application/x-www-form-urlencoded')
     ) {
       this.bodyData = await this.req.formData()
+      this.bodyParsedAs = 'form'
     } else {
       this.bodyData = await this.req.text()
+      this.bodyParsedAs = 'text'
     }
-    this.bodyParsed = true
     return this.bodyData
   }
 
   /**
-   * Gets cookie value by key or all cookies.
-   * @param key - Cookie name to retrieve
-   * @returns Cookie value, all cookies as object, or undefined
+   * Get cookie by key or all cookies.
+   * @description Parses Cookie header on first access.
+   * @param key - Optional cookie name
+   * @returns Cookie value or full map
    */
   cookie(key?: string): string | Record<string, string> | undefined {
     if (this.cookieMap === undefined) {
@@ -92,30 +109,39 @@ export class Context {
   }
 
   /**
-   * Reads the request body as FormData.
-   * @returns The request body as FormData
+   * Read body as FormData.
+   * @description Parses once; returns cached if already read.
+   * @returns Body as FormData
    */
   async formData(): Promise<FormData> {
-    return await this.req.formData()
+    if (this.bodyParsedAs === 'form') {
+      return this.bodyData as FormData
+    }
+    this.ensureBodyNotConsumed()
+    this.bodyData = await this.req.formData()
+    this.bodyParsedAs = 'form'
+    return this.bodyData as FormData
   }
 
   /**
-   * Handles error responses with optional custom error middleware.
+   * Build error response via handler.
+   * @description Uses errorHandler if set else custom response.
    * @param statusCode - HTTP status code
-   * @param error - Error object
+   * @param error - Error instance
    * @returns Error response
    */
-  handleError(statusCode: number, error: Error): Response {
+  async handleError(statusCode: number, error: Error): Promise<Response> {
     if (this.errorHandler) {
-      return this.errorHandler(this, statusCode, error)
+      return await this.errorHandler(this, statusCode, error)
     }
     return this.send.custom(null, { status: statusCode, headers: this.responseHeadersMap })
   }
 
   /**
-   * Gets header value by key or all headers.
-   * @param key - Header name to retrieve (case-insensitive)
-   * @returns Header value, all headers as object, or undefined
+   * Get header by name or all headers.
+   * @description Parses headers on first access; keys lowercased.
+   * @param key - Optional header name
+   * @returns Header value or full map
    */
   header(key?: string): string | Record<string, string> | undefined {
     if (this.headerMap === undefined) {
@@ -124,51 +150,55 @@ export class Context {
     return key ? this.headerMap?.[key?.toLowerCase()] : this.headerMap
   }
 
-  /**
-   * Gets all request headers.
-   * @returns Headers object
-   */
+  /** Raw request Headers */
   get headers(): Headers {
     return this.req.headers
   }
 
   /**
-   * Reads the request body as JSON.
-   * @returns The request body parsed as JSON
+   * Read body as JSON.
+   * @description Parses once; returns cached if already read.
+   * @returns Parsed JSON value
    */
   async json(): Promise<unknown> {
-    return await this.req.json()
+    if (this.bodyParsedAs === 'json') {
+      return this.bodyData
+    }
+    this.ensureBodyNotConsumed()
+    this.bodyData = await this.req.json()
+    this.bodyParsedAs = 'json'
+    return this.bodyData
   }
 
   /**
-   * Gets a single route parameter by key.
-   * @param key - Parameter key
-   * @returns Parameter value or undefined
+   * Get single route param by key.
+   * @description Returns one named param from route match.
+   * @param key - Param name from pattern
+   * @returns Param value or undefined
    */
   param(key: string): string | undefined {
     return this.routeParams[key]
   }
 
   /**
-   * Gets all route parameters.
-   * @returns Object containing all route parameters
+   * Get all route path params.
+   * @description Returns copy of params from route match.
+   * @returns Copy of params object
    */
   params(): Record<string, string> {
     return { ...this.routeParams }
   }
 
-  /**
-   * Gets the URL pathname.
-   * @returns The pathname portion of the URL
-   */
+  /** Request pathname from URL */
   get pathname(): string {
     return this.urlObj.pathname
   }
 
   /**
-   * Gets query parameter value by key or all query parameters.
-   * @param key - Query parameter key
-   * @returns Query parameter value, all parameters as object, or undefined
+   * Get query param by key or all.
+   * @description Parses search params on first access.
+   * @param key - Optional query key
+   * @returns Query value or full map
    */
   query(key?: string): string | Record<string, string> | undefined {
     if (this.queryParams === undefined) {
@@ -178,166 +208,63 @@ export class Context {
   }
 
   /**
-   * Gets all values for a query parameter.
-   * @param key - Query parameter key
-   * @returns Array of all values for the query parameter
+   * Get all values for a query key.
+   * @description Returns all query values for repeated key.
+   * @param key - Query parameter name
+   * @returns Array of values
    */
   queries(key: string): string[] {
     return this.urlObj.searchParams.getAll(key)
   }
 
   /**
-   * Creates a redirect response.
-   * @param url - URL to redirect to
-   * @param status - HTTP status code (default: 302)
+   * Build redirect response to URL.
+   * @description Resolves relative URL against request URL.
+   * @param url - Target URL (absolute or relative)
+   * @param status - Redirect status; default 302
+   * @param init - Optional extra headers
    * @returns Redirect response
    */
-  redirect(url: string, status = 302): Response {
-    return Response.redirect(url, status)
+  redirect(url: string, status = 302, init?: { headers?: HeadersInit }): Response {
+    return Redirect.buildResponse(this.req.url, this.responseHeaders, url, status, init?.headers)
   }
 
-  /**
-   * Gets the original request object.
-   * @returns The original Request object
-   */
+  /** Raw Request object */
   get request(): Request {
     return this.req
   }
 
   /**
-   * Gets all response headers.
-   * @returns Object containing all response headers
+   * Replace request and reset body state.
+   * @description Used by body-limiting middleware to replace request.
+   * @param req - New request to use
    */
+  replaceRequest(req: Request): void {
+    this.req = req
+    this.bodyData = undefined
+    this.bodyParsedAs = null
+  }
+
+  /** Copy of response headers set on context */
   get responseHeadersMap(): Record<string, string> {
     return { ...this.responseHeaders }
   }
 
-  /**
-   * Response sending utilities.
-   * @returns Object with response utility methods
-   */
-  get send(): {
-    custom: (body: BodyInit | null, options?: ResponseInit) => Response
-    data: (
-      data: Uint8Array | string,
-      filename: string,
-      options?: ResponseInit,
-      contentType?: string
-    ) => Response
-    file: (filePath: string, filename?: string, options?: ResponseInit) => Promise<Response>
-    html: (html: string, options?: ResponseInit) => Response
-    json: (data: unknown, options?: ResponseInit) => Response
-    redirect: (url: string, status?: number) => Response
-    stream: (stream: ReadableStream, options?: ResponseInit, contentType?: string) => Response
-    text: (text: string, options?: ResponseInit) => Response
-  } {
-    return {
-      custom: (body: BodyInit | null, options?: ResponseInit): Response => {
-        return new Response(body, {
-          ...options,
-          headers: {
-            ...this.responseHeaders,
-            ...(options?.headers || {})
-          }
-        })
-      },
-      data: (
-        data: Uint8Array | string,
-        filename: string,
-        options?: ResponseInit,
-        contentType = 'application/octet-stream'
-      ): Response => {
-        const body = typeof data === 'string' ? new TextEncoder().encode(data) : data
-        return new Response(body as BodyInit, {
-          headers: {
-            'Content-Type': contentType,
-            'Content-Disposition': `attachment; filename="${filename}"`,
-            'Content-Length': body.length.toString(),
-            ...this.responseHeaders,
-            ...(options?.headers || {})
-          },
-          ...options
-        })
-      },
-      file: async (
-        filePath: string,
-        filename?: string,
-        options?: ResponseInit
-      ): Promise<Response> => {
-        try {
-          const file = await Deno.open(filePath, { read: true })
-          const fileInfo = await file.stat()
-          const fileName = filename || filePath.split('/').pop() || 'download'
-          return new Response(file.readable, {
-            headers: {
-              'Content-Type': 'application/octet-stream',
-              'Content-Disposition': `attachment; filename="${fileName}"`,
-              'Content-Length': fileInfo.size.toString(),
-              ...this.responseHeaders,
-              ...(options?.headers || {})
-            },
-            ...options
-          })
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-          throw new Error(`Failed to read file: ${errorMessage}`)
-        }
-      },
-      html: (html: string, options?: ResponseInit): Response => {
-        return new Response(html, {
-          headers: {
-            'Content-Type': 'text/html',
-            ...this.responseHeaders,
-            ...(options?.headers || {})
-          },
-          ...options
-        })
-      },
-      json: (data: unknown, options?: ResponseInit): Response => {
-        return Response.json(data, {
-          headers: {
-            'Content-Type': 'application/json',
-            ...this.responseHeaders,
-            ...(options?.headers || {})
-          },
-          ...options
-        })
-      },
-      redirect: (url: string, status = 302): Response => {
-        return Response.redirect(url, status)
-      },
-      stream: (
-        stream: ReadableStream,
-        options?: ResponseInit,
-        contentType = 'application/octet-stream'
-      ): Response => {
-        return new Response(stream, {
-          headers: {
-            'Content-Type': contentType,
-            ...this.responseHeaders,
-            ...(options?.headers || {})
-          },
-          ...options
-        })
-      },
-      text: (text: string, options?: ResponseInit): Response => {
-        return new Response(text, {
-          headers: {
-            'Content-Type': 'text/plain',
-            ...this.responseHeaders,
-            ...(options?.headers || {})
-          },
-          ...options
-        })
-      }
-    }
+  /** Helpers to send JSON, HTML, file, redirect, etc. */
+  get send(): Types.SendHelpers {
+    return ResponseHelpers.create(
+      this.responseHeaders,
+      (url, status, extraHeaders) =>
+        Redirect.buildResponse(this.req.url, this.responseHeaders, url, status, extraHeaders)
+    )
   }
 
   /**
-   * Sets a response header.
+   * Set one response header.
+   * @description Merges one header into response headers.
    * @param key - Header name
    * @param value - Header value
-   * @returns The context instance for chaining
+   * @returns this for chaining
    */
   setHeader(key: string, value: string): this {
     this.responseHeaders[key] = value
@@ -345,9 +272,10 @@ export class Context {
   }
 
   /**
-   * Sets multiple response headers.
-   * @param headers - Object containing headers to set
-   * @returns The context instance for chaining
+   * Set multiple response headers.
+   * @description Merges headers into response headers.
+   * @param headers - Key-value map of headers
+   * @returns this for chaining
    */
   setHeaders(headers: Record<string, string>): this {
     Object.assign(this.responseHeaders, headers)
@@ -355,39 +283,53 @@ export class Context {
   }
 
   /**
-   * Sets route parameters.
-   * @param params - Route parameters to set
-   * @internal
+   * Merge route params into context.
+   * @description Assigns params from router match to context.
+   * @param params - Params from router match
    */
   setParams(params: Record<string, string>): void {
     Object.assign(this.routeParams, params)
   }
 
-  /**
-   * Reads the request body as text.
-   * @returns The request body as text
-   */
-  async text(): Promise<string> {
-    return await this.req.text()
+  /** Mutable state shared by middleware and route */
+  get state(): Record<string, unknown> {
+    return this.requestState
   }
 
   /**
-   * Gets the request URL.
-   * @returns The request URL string
+   * Read body as plain text.
+   * @description Parses once; returns cached if already read.
+   * @returns Body as string
    */
+  async text(): Promise<string> {
+    if (this.bodyParsedAs === 'text') {
+      return this.bodyData as string
+    }
+    this.ensureBodyNotConsumed()
+    this.bodyData = await this.req.text()
+    this.bodyParsedAs = 'text'
+    return this.bodyData as string
+  }
+
+  /** Full request URL string */
   get url(): string {
     return this.req.url
   }
 
-  /**
-   * Parses cookies from the Cookie header.
-   */
+  /** Throws if body was already consumed. */
+  private ensureBodyNotConsumed(): void {
+    if (this.bodyParsedAs !== null) {
+      throw new Error('Request body already consumed')
+    }
+  }
+
+  /** Parse Cookie header into key-value map. */
   private parseCookies(): void {
     const result: Record<string, string> = {}
     const cookieHeader = this.req.headers.get('cookie')
     if (cookieHeader) {
-      cookieHeader.split(';').forEach(cookie => {
-        const [key, ...valueParts] = cookie.trim().split('=')
+      cookieHeader.split(';').forEach((cookiePart) => {
+        const [key, ...valueParts] = cookiePart.trim().split('=')
         if (key) {
           result[key] = valueParts.join('=')
         }
@@ -396,24 +338,20 @@ export class Context {
     this.cookieMap = result
   }
 
-  /**
-   * Parses headers from the request.
-   */
+  /** Parse request headers into lowercased map. */
   private parseHeaders(): void {
     const result: Record<string, string> = {}
-    this.req.headers.forEach((value, key) => {
-      result[key.toLowerCase()] = value
+    this.req.headers.forEach((headerValue, headerKey) => {
+      result[headerKey.toLowerCase()] = headerValue
     })
     this.headerMap = result
   }
 
-  /**
-   * Parses query parameters from the URL.
-   */
+  /** Parse URL search params into map. */
   private parseQuery(): void {
     const result: Record<string, string> = {}
-    this.urlObj.searchParams.forEach((value, key) => {
-      result[key] = value
+    this.urlObj.searchParams.forEach((paramValue, paramKey) => {
+      result[paramKey] = paramValue
     })
     this.queryParams = result
   }

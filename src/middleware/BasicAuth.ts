@@ -1,53 +1,70 @@
-import type { Context, Middleware } from '@app/index.ts'
+import type { Context, Middleware, Types } from '@app/index.ts'
 
 /**
- * User credentials for basic authentication.
+ * Basic Auth middleware with user list.
+ * @description Validates Authorization header; constant-time compare.
  */
-export interface BasicAuthUser {
-  /** Username */
-  username: string
-  /** Password */
-  password: string
-}
-
-/**
- * Basic authentication configuration options.
- */
-export interface BasicAuthOptions {
-  /** Array of valid user credentials */
-  users: BasicAuthUser[]
-}
-
-/**
- * Creates a basic authentication middleware.
- * @param options - Basic auth configuration options
- * @returns Middleware function
- */
-export function basicAuth(options: BasicAuthOptions): Middleware {
-  const { users } = options
-  if (!users || users.length === 0) {
-    throw new Error('Basic auth: users array cannot be empty')
+export default class BasicAuth {
+  /**
+   * Create Basic Auth middleware.
+   * @description Validates Authorization header against user list.
+   * @param options - List of username/password pairs
+   * @returns Middleware that returns 401 when invalid
+   * @throws {Error} When users array is empty
+   */
+  static create(options: Types.BasicAuthOptions): Middleware {
+    const { users } = options
+    if (!users || users.length === 0) {
+      throw new Error('Basic auth: users array cannot be empty')
+    }
+    return async (
+      ctx: Context,
+      next: () => Promise<Response | undefined>
+    ): Promise<Response | undefined> => {
+      ctx.setHeader('WWW-Authenticate', 'Basic realm="Secure Area"')
+      const authHeader = ctx.header('authorization') as string | undefined
+      if (!authHeader || !authHeader.startsWith('Basic ')) {
+        return await ctx.handleError(401, new Error('Unauthorized'))
+      }
+      try {
+        const credentials = atob(authHeader.slice(6))
+        const colonIndex = credentials.indexOf(':')
+        if (colonIndex <= 0 || colonIndex === credentials.length - 1) {
+          return await ctx.handleError(401, new Error('Unauthorized'))
+        }
+        let isValid = false
+        for (const userCredential of users) {
+          const expected = `${userCredential.username}:${userCredential.password}`
+          if (BasicAuth.constantTimeEqual(credentials, expected)) {
+            isValid = true
+          }
+        }
+        if (!isValid) {
+          return await ctx.handleError(401, new Error('Unauthorized'))
+        }
+        return await next()
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        return await ctx.handleError(401, new Error(`Basic auth error: ${errorMessage}`))
+      }
+    }
   }
-  return async (ctx: Context, next: () => Promise<Response>): Promise<Response> => {
-    ctx.setHeader('WWW-Authenticate', 'Basic realm="Secure Area"')
-    const authHeader = ctx.header('authorization') as string | undefined
-    if (!authHeader || !authHeader.startsWith('Basic ')) {
-      return ctx.handleError(401, new Error('Unauthorized'))
+
+  /**
+   * Constant-time string comparison for credentials.
+   * @description Compares two strings in constant time to avoid timing leaks.
+   * @param a - First string
+   * @param b - Second string
+   * @returns True when equal
+   */
+  private static constantTimeEqual(a: string, b: string): boolean {
+    if (a.length !== b.length) {
+      return false
     }
-    try {
-      const base64Credentials = authHeader.slice(6)
-      const [username, password] = atob(base64Credentials).split(':')
-      if (!username || !password) {
-        return ctx.handleError(401, new Error('Unauthorized'))
-      }
-      const isValid = users.some((v) => v.username === username && v.password === password)
-      if (!isValid) {
-        return ctx.handleError(401, new Error('Unauthorized'))
-      }
-      return await next()
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-      return ctx.handleError(401, new Error(`Basic auth error: ${errorMessage}`))
+    let result = 0
+    for (let i = 0; i < a.length; i++) {
+      result |= a.charCodeAt(i) ^ b.charCodeAt(i)
     }
+    return result === 0
   }
 }

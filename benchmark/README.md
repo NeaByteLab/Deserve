@@ -2,46 +2,48 @@
 
 ## Test Environment
 
-- **Tool:** `autocannon` - [https://www.npmjs.com/package/autocannon](https://www.npmjs.com/package/autocannon)
-- **Hardware:** MacBook Pro M3 Pro (11 cores, 18GB RAM)
-- **Configuration:** 500 connections, 10 pipelining, 30 seconds
+- **Tool:** `autocannon` — [npmjs.com/package/autocannon](https://www.npmjs.com/package/autocannon)
+- **Configuration:** 500 connections, 10 pipelining, 30 seconds (adjust per run)
 
+## How to Run
 
-#### Main Application (`main.ts`)
-```typescript
-import { Router } from '@neabyte/deserve'
+**1. Start the server** (from repo root):
 
-// Create a new router
-const router = new Router({
-  prefix: './routes',    // Directory for route files
-  extension: '.ts'       // File extension to load
-})
-
-// Serve the router on port 8000
-router.serve(8000)
+```bash
+deno task bench
 ```
 
-#### Route Handler (`routes/test.ts`)
-```typescript
-import { Send, DeserveRequest } from '@neabyte/deserve'
+Or:
 
-export function GET(req: DeserveRequest): Response {
-  return Send.json({ hello: 'world!' })
-}
+```bash
+deno run --allow-net --allow-read benchmark/main.ts
 ```
+
+**2. Run autocannon** (in another terminal; requires Node/npx):
+
+```bash
+npx autocannon http://localhost:8000/test -c 500 -p 10 -d 30
+```
+
+## Files
+
+- **`benchmark/main.ts`** — Router with `routesDir: 'benchmark/routes'`, serves on port 8000.
+- **`benchmark/routes/test.ts`** — GET handler returning `{ hello: 'world!' }` via `ctx.send.json()`.
 
 ## Test Behavior
 
-### Simple Load Testing
-- **Method:** GET only
-- **Route:** `/test` endpoint
-- **Response:** `{ hello: 'world!' }` JSON
-- **File-based routing:** `routes/test.ts`
-- **Features:** `DeserveRequest` + `Send.json()` utility
+- **Method:** GET
+- **Route:** `/test`
+- **Response:** `{ "hello": "world!" }` (JSON)
+- **File-based routing:** `benchmark/routes/test.ts` → pattern `/test`
+- **API:** `Context` + `ctx.send.json()`
 
-## Benchmark Results
+## Previous Benchmark Results
+
+Below: autocannon runs with the older API (MacBook Pro M3 Pro, 11 cores, 18GB RAM). Re-run with the steps above to get numbers for the current codebase.
 
 ### Test Run 1
+
 ```
 Running 30s test @ http://localhost:8000/test
 500 connections with 10 pipelining factor
@@ -67,6 +69,7 @@ Req/Bytes counts sampled once per second.
 ```
 
 ### Test Run 2
+
 ```
 Running 30s test @ http://localhost:8000/test
 500 connections with 10 pipelining factor
@@ -92,6 +95,7 @@ Req/Bytes counts sampled once per second.
 ```
 
 ### Test Run 3
+
 ```
 Running 30s test @ http://localhost:8000/test
 500 connections with 10 pipelining factor

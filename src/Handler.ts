@@ -1,52 +1,64 @@
-import type {
-  ErrorMiddleware,
-  Middleware,
-  MiddlewareEntry,
-  RouteHandler,
-  RouteMetadata,
-  ServeOptions,
-  StaticFileHandler
-} from '@app/Types.ts'
-import { pathToFileURL } from 'node:url'
+import type * as Types from '@app/Types.ts'
 import { FastRouter } from '@neabyte/fast-router'
-import { allowedExtensions, contentTypes, httpMethods } from '@app/Constant.ts'
-import { Context } from '@app/Context.ts'
+import { Constant, Context, ErrorHelpers, Scanner, Static } from '@app/index.ts'
 
 /**
- * Request handler class.
- * @description Manages routes, static file serving, and error handling.
+ * Core request handler: middleware, routing, static.
+ * @description Scans routes, runs middleware chain, dispatches to route or static.
  */
 export class Handler {
-  private routerInstance = new FastRouter<RouteMetadata>()
-  private entryMiddleware: MiddlewareEntry[] = []
-  private errorMiddleware: ErrorMiddleware | null = null
+  private static readonly defaultErrorResponseBuilder: Types.ErrorResponseBuilder = {
+    build: (ctx, statusCode, error, errorMiddleware) =>
+      ErrorHelpers.buildResponse(ctx, statusCode, error, errorMiddleware)
+  }
+
+  private static readonly defaultStaticHandler: Types.StaticHandler = {
+    serve: (ctx, options, urlPath) => Static.serveStaticFile(ctx, options, urlPath)
+  }
+
+  private entryMiddleware: Types.MiddlewareEntry[] = []
+  private errorMiddleware: Types.ErrorMiddleware | null = null
+  private errorResponseBuilder: Types.ErrorResponseBuilder
+  private routerInstance = new FastRouter<Types.RouteMetadata>()
+  private staticHandler: Types.StaticHandler
 
   /**
-   * Adds middleware to the stack.
-   * @param path - Path pattern (empty for global)
+   * Create handler with optional overrides.
+   * @description Uses default builder and static handler when omitted.
+   * @param options - Error builder and static handler
+   */
+  constructor(options?: Types.HandlerOptions) {
+    this.errorResponseBuilder = options?.errorResponseBuilder ?? Handler.defaultErrorResponseBuilder
+    this.staticHandler = options?.staticHandler ?? Handler.defaultStaticHandler
+  }
+
+  /**
+   * Register middleware for path prefix or all.
+   * @description Appends middleware to list; path filters by prefix.
+   * @param path - Path prefix, '', or '*'
    * @param handlers - Middleware functions
    */
-  addMiddleware(path: string, ...handlers: Middleware[]): void {
+  addMiddleware(path: string, ...handlers: Types.Middleware[]): void {
     for (const handler of handlers) {
       this.entryMiddleware.push({ path, handler })
     }
   }
 
   /**
-   * Adds a static file route.
-   * @param urlPath - URL path to serve static files from
-   * @param options - Static file serving options
+   * Register static file route for urlPath.
+   * @description Registers static handler for all HTTP methods.
+   * @param urlPath - URL prefix for static files
+   * @param options - Path, etag, cacheControl
    */
-  addStaticRoute(urlPath: string, options: ServeOptions): void {
-    for (const method of httpMethods) {
+  addStaticRoute(urlPath: string, options: Types.ServeOptions): void {
+    const staticHandler = this.staticHandler
+    for (const method of Constant.httpMethods) {
       const routePattern = urlPath === '/' ? '/**' : `${urlPath}/**`
-      const metadata: RouteMetadata = {
+      const metadata: Types.RouteMetadata = {
         handler: {
           staticRoute: true,
           urlPath,
-          execute: async (ctx: Context) => {
-            return await this.serveStaticFile(ctx, options, urlPath)
-          }
+          execute: (ctx: Context) => staticHandler.serve(ctx, options, urlPath)
         },
         pattern: routePattern
       }
@@ -55,13 +67,14 @@ export class Handler {
   }
 
   /**
-   * Creates the main request handler function.
-   * @returns Async function that handles requests and returns responses
+   * Build Deno.serve request handler.
+   * @description Middleware then route lookup then handler or 404.
+   * @returns Async function from Request to Response
    */
   createHandler(): (req: Request) => Promise<Response> {
     return async (req: Request) => {
       const url = new URL(req.url)
-      const ctx = new Context(req, url, {}, this.handleResponse)
+      const ctx = new Context(req, url, {}, this.handleResponse.bind(this))
       try {
         const middlewareResult = await this.executeMiddlewares(ctx, url.pathname)
         if (middlewareResult !== undefined) {
@@ -71,277 +84,145 @@ export class Handler {
         if (routeResult) {
           const metadata = 'data' in routeResult ? routeResult.data : null
           if (!metadata) {
-            return ctx.handleError(404, new Error('Route not found'))
+            return await ctx.handleError(404, new Error('Route not found'))
           }
           if ('params' in routeResult && routeResult.params) {
             ctx.setParams(routeResult.params)
           }
-          const { handler } = metadata as RouteMetadata
+          const { handler } = metadata as Types.RouteMetadata
           if (
             handler &&
             typeof handler === 'object' &&
             'staticRoute' in handler &&
             handler.staticRoute
           ) {
-            const staticHandler = handler as StaticFileHandler
+            const staticHandler = handler as Types.StaticFileHandler
             return await staticHandler.execute(ctx)
           }
           try {
-            return await (handler as RouteHandler)(ctx)
-          } catch (error) {
-            return ctx.handleError(500, error as Error)
+            return await (handler as Types.RouteHandler)(ctx)
+          } catch (routeError) {
+            const thrownError = routeError as Error & { statusCode?: number }
+            return await ctx.handleError(thrownError.statusCode ?? 500, thrownError)
           }
         }
-        return ctx.handleError(404, new Error('Route not found'))
-      } catch (error) {
-        return ctx.handleError(500, error as Error)
+        return await ctx.handleError(404, new Error('Route not found'))
+      } catch (handlerError) {
+        const thrownError = handlerError as Error & { statusCode?: number }
+        return await ctx.handleError(thrownError.statusCode ?? 500, thrownError)
       }
     }
   }
 
   /**
-   * Converts a file path to a route pattern.
-   * @param routePath - File path to convert
-   * @returns Route pattern string or null if invalid
+   * Convert file path to route pattern.
+   * @description Drops extension; [id] to :id; index to /.
+   * @param routePath - Path like users/[id].ts
+   * @returns Pattern like /users/:id or null
    */
-  createRoutePattern(routePath: string): string | null {
-    const pathExtension = routePath.split('.').pop()
-    if (!allowedExtensions.includes(pathExtension ?? '')) {
-      return null
-    }
-    const pathWithoutExt = routePath.slice(0, -`.${pathExtension}`.length)
-    const pathLastSegment = pathWithoutExt.split('/').pop()
-    if (!/^[a-zA-Z0-9_\[\].~\-+]+$/.test(pathLastSegment ?? '')) {
-      return null
-    }
-    const pathPattern = `/${pathWithoutExt}`.replace(/\[([^\]]+)\]/g, ':$1')
-    if (pathPattern.endsWith('/index')) {
-      return pathPattern.slice(0, -5)
-    }
-    return pathPattern
+  createPattern(routePath: string): string | null {
+    return Scanner.createPattern(routePath, Constant.allowedExtensions)
   }
 
   /**
-   * Handles responses for routes and errors.
-   * @param ctx - Context object
-   * @param statusCode - HTTP status code
-   * @param error - Error object
-   * @returns Response object
+   * Build error response via builder and middleware.
+   * @description Delegates to errorResponseBuilder with optional middleware.
+   * @param ctx - Request context
+   * @param statusCode - HTTP status
+   * @param error - Error instance
+   * @returns Error response
    */
-  handleResponse(ctx: Context, statusCode: number, error: Error): Response {
-    if (this.errorMiddleware) {
-      const customResponse = this.errorMiddleware(ctx, {
-        path: ctx.url,
-        method: ctx.request.method,
-        statusCode,
-        error
-      })
-      if (customResponse) {
-        return customResponse
-      }
-    }
-    const isJson = ctx.request.headers.get('accept')?.includes('application/json')
-    if (isJson) {
-      return ctx.send.json(
-        {
-          error: error.message,
-          path: ctx.pathname,
-          statusCode
-        },
-        { status: statusCode }
-      )
-    }
-    const html = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>${statusCode} - ${error.message}</title>
-          <style>
-            body { font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #fafafa; color: #333; }
-            .card { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center; max-width: 400px; }
-            h1 { font-size: 3rem; margin: 0; color: #ff6b6b; }
-            p { color: #666; margin: 1rem 0; }
-          </style>
-        </head>
-        <body>
-          <div class="card">
-            <h1>${statusCode}</h1>
-            <p>${error.message}</p>
-          </div>
-        </body>
-      </html>
-    `
-    return ctx.send.html(html, { status: statusCode })
+  async handleResponse(ctx: Context, statusCode: number, error: Error): Promise<Response> {
+    return await this.errorResponseBuilder.build(ctx, statusCode, error, this.errorMiddleware)
   }
 
   /**
-   * Scans directory for route files and registers them.
+   * Scan directory and register file-based routes.
+   * @description Imports route modules and adds to router.
    * @param targetDir - Directory to scan
-   * @param basePath - Base path for route pattern generation
-   * @throws {Error} When directory is not found
+   * @param basePath - Base path prefix for route paths
    */
   async scanRoutes(targetDir: string, basePath = ''): Promise<void> {
-    try {
-      for await (const entry of Deno.readDir(targetDir)) {
-        const fullPath = `${targetDir}/${entry.name}`
-        const routePath = basePath ? `${basePath}/${entry.name}` : entry.name
-        if (entry.isDirectory) {
-          await this.scanRoutes(fullPath, routePath)
-        } else {
-          const pathExtension = entry.name.split('.').pop()?.toLowerCase()
-          if (!allowedExtensions.includes(pathExtension ?? '')) {
-            continue
-          }
-          const fileModule = await import(pathToFileURL(fullPath).href)
-          const routePattern = this.createRoutePattern(routePath)
-          if (routePattern) {
-            this.validateRouteModule(fileModule, routePath)
-            Object.keys(fileModule).forEach(method => {
-              const handler = fileModule[method] as RouteHandler
-              const metadata: RouteMetadata = {
-                handler,
-                pattern: routePattern
-              }
-              this.routerInstance.add(method.toUpperCase(), routePattern, metadata)
-            })
-          }
-        }
-      }
-    } catch (error) {
-      if (error instanceof Deno.errors.NotFound) {
-        return
-      } else {
-        throw error
-      }
-    }
+    return await Scanner.explore(
+      this.routerInstance,
+      targetDir,
+      basePath,
+      Constant.httpMethods,
+      Constant.allowedExtensions
+    )
   }
 
   /**
-   * Sets the error handling middleware.
-   * @param errorMiddleware - Error handling function
+   * Set custom error middleware.
+   * @description Invoked before default error response when set.
+   * @param errorMiddleware - Called before default error response
    */
-  setErrorMiddleware(errorMiddleware: ErrorMiddleware): void {
+  setErrorMiddleware(errorMiddleware: Types.ErrorMiddleware): void {
     this.errorMiddleware = errorMiddleware
   }
 
   /**
-   * Validates that a route module exports valid HTTP methods.
-   * @param module - Module to validate
-   * @param routePath - Route path for error messages
-   * @throws {Error} When module is invalid
+   * Set custom error response builder.
+   * @description Replaces default builder for error responses.
+   * @param builder - Builds final error Response
    */
-  validateRouteModule(module: Record<string, unknown>, routePath: string): void {
-    const exportedMethods = Object.keys(module).filter(key => httpMethods.includes(key))
-    if (exportedMethods.length === 0) {
-      throw new Error(
-        `Route ${routePath}: Must export at least one HTTP method (${httpMethods.join(', ')})`
-      )
-    }
-    for (const [key, value] of Object.entries(module)) {
-      if (httpMethods.includes(key)) {
-        if (typeof value !== 'function') {
-          throw new Error(`Route ${routePath}: ${key} must be a function, got ${typeof value}`)
-        }
-      }
-    }
+  setErrorResponseBuilder(builder: Types.ErrorResponseBuilder): void {
+    this.errorResponseBuilder = builder
   }
 
   /**
-   * Executes middleware chain for a given path.
+   * Set custom static file handler.
+   * @description Replaces default static file serving implementation.
+   * @param handler - Serves static files for route
+   */
+  setStaticHandler(handler: Types.StaticHandler): void {
+    this.staticHandler = handler
+  }
+
+  /**
+   * Ensure module exports one HTTP method.
+   * @param module - Loaded route module
+   * @param routePath - Path for error messages
+   * @throws {Error} When no method exported or handler not function
+   */
+  validateModule(module: Record<string, unknown>, routePath: string): void {
+    Scanner.validateModule(module, routePath, Constant.httpMethods)
+  }
+
+  /**
+   * Run middleware chain for pathname.
+   * @description Filters by path then runs next chain; returns first response.
    * @param ctx - Request context
-   * @param pathname - Request pathname
-   * @returns Response if middleware returned one, undefined otherwise
+   * @param pathname - Request pathname for path matching
+   * @returns Response from middleware or undefined to continue
    */
   private async executeMiddlewares(ctx: Context, pathname: string): Promise<Response | undefined> {
-    const applicableMiddlewares = this.entryMiddleware.filter(mw => {
-      if (mw.path === '' || mw.path === '*') {
+    const applicableMiddlewares = this.entryMiddleware.filter((middlewareEntry) => {
+      if (middlewareEntry.path === '' || middlewareEntry.path === '*') {
         return true
       }
-      if (mw.path.endsWith('/**')) {
-        const base = mw.path.slice(0, -3)
-        return pathname.startsWith(base)
+      if (middlewareEntry.path.endsWith('/**')) {
+        const pathPrefix = middlewareEntry.path.slice(0, -3)
+        return pathname.startsWith(pathPrefix)
       }
-      return pathname === mw.path
+      return pathname === middlewareEntry.path
     })
-    let index = 0
-    const next = async (): Promise<Response> => {
-      if (index >= applicableMiddlewares.length) {
-        return undefined as unknown as Response
+    let middlewareIndex = 0
+    const next = async (): Promise<Response | undefined> => {
+      if (middlewareIndex >= applicableMiddlewares.length) {
+        return undefined
       }
-      const middleware = applicableMiddlewares[index]
+      const middleware = applicableMiddlewares[middlewareIndex]
       if (!middleware) {
-        return undefined as unknown as Response
+        return undefined
       }
-      index++
-      const result = await middleware.handler(ctx, next)
-      if (result !== undefined) {
-        return result
+      middlewareIndex++
+      const middlewareResponse = await middleware.handler(ctx, next)
+      if (middlewareResponse !== undefined) {
+        return middlewareResponse
       }
       return next()
     }
     return await next()
-  }
-
-  /**
-   * Serves static files from the filesystem.
-   * @param ctx - Context object
-   * @param options - Static file serving options
-   * @param urlPath - URL mount point
-   * @returns Response with file or 404
-   */
-  private async serveStaticFile(
-    ctx: Context,
-    options: ServeOptions,
-    urlPath: string
-  ): Promise<Response> {
-    try {
-      let filePath = ctx.pathname
-      if (urlPath !== '/') {
-        filePath = ctx.pathname.slice(urlPath.length)
-      }
-      if (filePath === '/' || filePath === '') {
-        filePath = 'index.html'
-      } else if (filePath.startsWith('/')) {
-        filePath = filePath.slice(1)
-      }
-      const basePath = options.path.startsWith('/') ? options.path : `${Deno.cwd()}/${options.path}`
-      const fullPath = new URL(filePath, `file://${basePath.replace(/^\.\//, '')}/`).pathname
-      const fileInfo = await Deno.stat(fullPath).catch(() => null)
-      if (!fileInfo || !fileInfo.isFile) {
-        return ctx.handleError(404, new Error('File not found'))
-      }
-      const extension = filePath.split('.').pop()?.toLowerCase() ?? ''
-      const contentType = contentTypes[extension] ?? 'application/octet-stream'
-      const file = await Deno.open(fullPath, { read: true })
-      let etag: string | null = null
-      if (options.etag) {
-        const hashBuffer = await crypto.subtle.digest(
-          'SHA-256',
-          new TextEncoder().encode(`${fileInfo.size}-${fileInfo.mtime?.getTime()}`)
-        )
-        const hashArray = Array.from(new Uint8Array(hashBuffer))
-        const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
-        etag = `"${hashHex}"`
-      }
-      if (etag && ctx.request.headers.get('If-None-Match') === etag) {
-        file.close()
-        ctx.setHeader('ETag', etag)
-        if (options.cacheControl !== undefined) {
-          ctx.setHeader('Cache-Control', `public, max-age=${options.cacheControl}`)
-        }
-        return ctx.handleError(304, new Error('Not Modified'))
-      }
-      ctx.setHeader('Content-Type', contentType)
-      ctx.setHeader('Content-Length', fileInfo.size.toString())
-      if (etag) {
-        ctx.setHeader('ETag', etag)
-      }
-      if (options.cacheControl !== undefined) {
-        ctx.setHeader('Cache-Control', `public, max-age=${options.cacheControl}`)
-      }
-      return ctx.send.custom(file.readable)
-    } catch (error) {
-      return ctx.handleError(500, error as Error)
-    }
   }
 }

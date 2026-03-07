@@ -1,73 +1,100 @@
-# Deserve [![License: MIT](https://img.shields.io/badge/License-MIT-red.svg)](LICENSE) [![Deno](https://img.shields.io/badge/Deno-2.5.4-blue)](https://deno.land) [![JSR](https://jsr.io/badges/@neabyte/deserve)](https://jsr.io/@neabyte/deserve)
+<div align="center">
+
+# Deserve
 
 Build HTTP server effortlessly with zero configuration for productivity.
 
+[![Deno](https://img.shields.io/badge/deno-2.5.4+-000000?logo=deno&logoColor=white)](https://deno.com) [![JSR](https://jsr.io/badges/@neabyte/deserve)](https://jsr.io/@neabyte/deserve) [![CI](https://github.com/NeaByteLab/Deserve/actions/workflows/ci.yaml/badge.svg)](https://github.com/NeaByteLab/Deserve/actions/workflows/ci.yaml) [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
+</div>
+
+## Features
+
+- **Zero config** — No build step for the server. Point to a routes directory and serve.
+- **File-Based Routing** — Drop files in `routes/`; export `GET`, `POST`, etc. File structure is your API.
+- **Context** — Request wrapper: body (JSON/form/text), query, params, cookies, headers, `ctx.send`.
+- **Middleware** — Global, path-specific. CORS, SecHeaders, Body Limit, Basic Auth, Session, WebSocket.
+- **Static files** — `router.static(urlPath, options)` with optional etag and cache-control.
+- **Error handling** — Pluggable error response builder and error middleware; default HTML/JSON by `Accept`.
+- **Frontend optional** — Use any stack (Vite, React, etc.); Deserve stays the server.
+
 ## Installation
 
-Install [Deno](https://github.com/denoland/deno_install) 2.5.4+ and run `deno init` for new projects.
-
-Add Deserve using the `deno add` command:
+> [!NOTE]
+> **Prerequisites:** [Deno](https://deno.com/) 2.5.4 or later.
 
 ```bash
+# Add Deserve from JSR
 deno add jsr:@neabyte/deserve
 ```
 
-Follow our [installing guide](https://docs-deserve.neabyte.com/en/getting-started/installation) for more information.
+See the [installation guide](https://docs-deserve.neabyte.com/en/getting-started/installation) for details.
 
-## Table of Contents
+## Quick Start
 
-- **Getting Started**
-  - [Installation](https://docs-deserve.neabyte.com/en/getting-started/installation) - Set up Deserve in your project
-  - [Quick Start](https://docs-deserve.neabyte.com/en/getting-started/quick-start) - Create your first API in minutes
-  - [Server Configuration](https://docs-deserve.neabyte.com/en/getting-started/server-configuration) - Server setup and shutdown
-  - [Routes Configuration](https://docs-deserve.neabyte.com/en/getting-started/routes-configuration) - Configure router options
+Create a routes directory and export HTTP method handlers. Start the server.
 
-- **Core Concepts**
-  - [Philosophy](https://docs-deserve.neabyte.com/en/core-concepts/philosophy) - Framework design principles
-  - [File-based Routing](https://docs-deserve.neabyte.com/en/core-concepts/file-based-routing) - How file structure becomes API endpoints
-  - [Route Patterns](https://docs-deserve.neabyte.com/en/core-concepts/route-patterns) - Dynamic routes and parameter matching
-  - [Context Object](https://docs-deserve.neabyte.com/en/core-concepts/context-object) - Request context wrapper with convenient methods
-  - [Request Handling](https://docs-deserve.neabyte.com/en/core-concepts/request-handling) - Enhanced request object with automatic parsing
+```typescript
+import { Router } from 'jsr:@neabyte/deserve'
 
-- **Middleware**
-  - [Use Global](https://docs-deserve.neabyte.com/en/middleware/global) - Cross-cutting functionality
-  - [Use Route-Specific](https://docs-deserve.neabyte.com/en/middleware/route-specific) - Targeted middleware for specific routes
-  - [Basic Auth](https://docs-deserve.neabyte.com/en/middleware/basic-auth) - HTTP Basic Authentication
-  - [Body Limit](https://docs-deserve.neabyte.com/en/middleware/body-limit) - Enforce maximum request body size
-  - [CORS](https://docs-deserve.neabyte.com/en/middleware/cors) - Cross-origin request handling
-  - [Security Headers](https://docs-deserve.neabyte.com/en/middleware/security-headers) - Set HTTP security headers to protect your application
-  - [WebSocket](https://docs-deserve.neabyte.com/en/middleware/websocket) - Real-time bidirectional communication
+// Create router and point to your routes directory
+const router = new Router({ routesDir: './routes' })
 
-- **Response Utilities**
-  - [JSON Format](https://docs-deserve.neabyte.com/en/response/json) - Create JSON responses easily
-  - [Text Format](https://docs-deserve.neabyte.com/en/response/text) - Plain text responses
-  - [HTML Format](https://docs-deserve.neabyte.com/en/response/html) - HTML content responses
-  - [File Downloads](https://docs-deserve.neabyte.com/en/response/file) - Download files from filesystem
-  - [Data Downloads](https://docs-deserve.neabyte.com/en/response/data) - Download in-memory content
-  - [Redirects](https://docs-deserve.neabyte.com/en/response/redirect) - Redirect responses
-  - [Custom Responses](https://docs-deserve.neabyte.com/en/response/custom) - Full control over response options
+// Start server on port 8000
+await router.serve(8000)
+```
 
-- **Static Files**
-  - [Basic Static Serving](https://docs-deserve.neabyte.com/en/static-file/basic) - Serve static files from directories
-  - [Multiple Directories](https://docs-deserve.neabyte.com/en/static-file/multiple) - Serve from multiple locations
+**Example route** — `routes/hello.ts`:
 
-- **Error Handling**
-  - [Default Behavior](https://docs-deserve.neabyte.com/en/error-handling/default-behavior) - Automatic error handling
-  - [Object Details](https://docs-deserve.neabyte.com/en/error-handling/object-details) - Detailed error information
+```typescript
+import type { Context } from 'jsr:@neabyte/deserve'
+
+// Export GET (or POST, PUT, etc.) — path comes from file location
+export function GET(ctx: Context) {
+  return ctx.send.json({ message: 'Hello from Deserve' })
+}
+```
+
+- [Quick Start (docs)](https://docs-deserve.neabyte.com/en/getting-started/quick-start)
+- [File-Based Routing](https://docs-deserve.neabyte.com/en/core-concepts/file-based-routing)
+
+## Build & Test
+
+From the repo root (requires [Deno](https://deno.com/)).
+
+**Check** — format, lint, and typecheck:
+
+```bash
+# Format, lint, and typecheck source
+deno task check
+```
+
+**Test** — run tests (under `tests/`, uses `--allow-read` for fixtures):
+
+```bash
+# Run tests in tests/ (uses --allow-read for fixtures)
+deno task test
+```
+
+**Benchmark** — performance runs with autocannon; see [benchmark/README.md](benchmark/README.md) for how to run and interpret results.
+
+## Documentation
+
+Full docs (EN / ID): **[docs-deserve.neabyte.com](https://docs-deserve.neabyte.com)**
+
+- **Getting Started** — Installation, Quick Start, Server & Routes configuration
+- **Core Concepts** — Philosophy, file-based routing, route patterns, Context, request handling
+- **Middleware** — Global, route-specific, Basic Auth, Body Limit, CORS, Security Headers, WebSocket
+- **Response** — JSON, text, HTML, file/data download, redirect, custom
+- **Static Files** — Basic and multiple directories
+- **Error Handling** — Default behavior, error object details
 
 ## Contributing
 
-**Help us make Deserve even simpler!** Every contribution helps make building APIs effortless.
-
-### How to Contribute
-
-- **Report Bugs** - Found something broken? Let us know via [GitHub Issues](https://github.com/NeaByteLab/Deserve/issues)
-- **Suggest Features** - Have an idea that aligns with our simplicity-first philosophy? [Create an issue](https://github.com/NeaByteLab/Deserve/issues/new)
-- **Fix & Improve** - Submit [Pull Requests](https://github.com/NeaByteLab/Deserve/pulls) for bug fixes, typos, or code improvements
-- **Build Middleware** - Create and share third-party middleware that extends Deserve's capabilities
-- **Improve Docs** - Help us make the documentation clearer (supports English and Indonesian!)
-- **Use Deserve** - The best contribution? Use it in your projects and share your feedback
+- **Bugs & ideas** — [GitHub Issues](https://github.com/NeaByteLab/Deserve/issues)
+- **Code & docs** — [Pull Requests](https://github.com/NeaByteLab/Deserve/pulls) welcome; docs support English and Indonesian.
+- **Use it** — Try Deserve in your projects and share feedback.
 
 ## License
 
-This project is licensed under the MIT license. See the [LICENSE](LICENSE) file for more info.
+This project is licensed under the MIT license. See [LICENSE](LICENSE) for details.

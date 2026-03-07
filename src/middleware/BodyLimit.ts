@@ -1,41 +1,88 @@
-import type { Middleware } from '@app/index.ts'
+import type { Middleware, Types } from '@app/index.ts'
+import MwareUtils from '@app/middleware/Utils.ts'
 
 /**
- * Body limit configuration options
+ * Request body size limit middleware.
+ * @description Rejects or streams with limit; returns 413 when exceeded.
  */
-export interface BodyLimitOptions {
-  /** Maximum body size in bytes */
-  limit: number
-}
-
-/**
- * Creates a body limit middleware.
- * @param options - Body limit configuration options
- * @returns Middleware function
- */
-export function bodyLimit(options: BodyLimitOptions): Middleware {
-  const maxSize = options.limit ?? 1024 * 1024
-  return async (ctx, next) => {
-    try {
+export default class BodyLimit {
+  /**
+   * Create body limit middleware.
+   * @description Rejects or limits body stream; returns 413 when over.
+   * @param options - Max size in bytes
+   * @returns Middleware that enforces limit
+   */
+  static create(options: Types.BodyLimitOptions): Middleware {
+    const maxSize = options.limit ?? 1024 * 1024
+    return MwareUtils.wrapMiddleware('Body limit error', async (ctx, next) => {
       if (ctx.request.method === 'GET' || ctx.request.method === 'HEAD') {
         return await next()
       }
-      const hasTransferEncoding = ctx.headers.has('transfer-encoding')
       const hasContentLength = ctx.headers.has('content-length')
-      if (hasTransferEncoding && hasContentLength) {
-        return await next()
-      }
+      const hasTransferEncoding = ctx.headers.has('transfer-encoding')
       if (hasContentLength && !hasTransferEncoding) {
         const contentLength = parseInt(ctx.headers.get('content-length') || '0', 10)
         if (contentLength > maxSize) {
-          return ctx.handleError(413, new Error('Request entity too large'))
+          return await ctx.handleError(413, new Error('Request entity too large'))
         }
         return await next()
       }
+      const body = ctx.request.body
+      if (body) {
+        const limited = BodyLimit.createLimitStream(body, maxSize)
+        const newReq = new Request(ctx.request.url, {
+          method: ctx.request.method,
+          headers: ctx.request.headers,
+          body: limited,
+          duplex: 'half'
+        } as RequestInit)
+        ctx.replaceRequest(newReq)
+      }
       return await next()
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-      return ctx.handleError(500, new Error(`Body limit error: ${errorMessage}`))
+    })
+  }
+
+  /**
+   * Wrap stream with byte limit; error when over.
+   * @description Reads stream and enqueues until limit; then errors.
+   * @param stream - Request body stream
+   * @param maxBytes - Max bytes before error
+   * @returns Limited stream or null
+   */
+  private static createLimitStream(
+    stream: ReadableStream<Uint8Array> | null,
+    maxBytes: number
+  ): ReadableStream<Uint8Array> | null {
+    if (!stream) {
+      return null
     }
+    let total = 0
+    return new ReadableStream({
+      async start(controller) {
+        const reader = stream.getReader()
+        try {
+          while (true) {
+            const { done, value } = await reader.read()
+            if (done) {
+              break
+            }
+            total += value.length
+            if (total > maxBytes) {
+              reader.cancel()
+              const sizeError = new Error('Request entity too large') as Error & {
+                statusCode?: number
+              }
+              sizeError.statusCode = 413
+              controller.error(sizeError)
+              return
+            }
+            controller.enqueue(value)
+          }
+          controller.close()
+        } catch (readError) {
+          controller.error(readError)
+        }
+      }
+    })
   }
 }

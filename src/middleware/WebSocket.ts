@@ -1,41 +1,31 @@
-import type { Context, Middleware } from '@app/index.ts'
+import type { Context, Middleware, Types } from '@app/index.ts'
+import MwareUtils from '@app/middleware/Utils.ts'
 
 /**
- * WebSocket middleware configuration options.
+ * WebSocket upgrade middleware.
+ * @description Upgrades request on path; calls connect/message/close/error.
  */
-export interface WebSocketOptions {
-  /** Specific path to listen for WebSocket upgrades */
-  listener?: string
-  /** WebSocket connection handler */
-  onConnect?: (socket: WebSocket, ctx: Context) => void
-  /** WebSocket message handler */
-  onMessage?: (socket: WebSocket, event: MessageEvent, ctx: Context) => void
-  /** WebSocket disconnect handler */
-  onDisconnect?: (socket: WebSocket, ctx: Context) => void
-  /** WebSocket error handler */
-  onError?: (socket: WebSocket, event: Event, ctx: Context) => void
-}
-
-/**
- * Creates a WebSocket middleware.
- * @param options - WebSocket configuration options
- * @returns Middleware function that handles WebSocket upgrades
- */
-export function websocket(options: WebSocketOptions = {}): Middleware {
-  const listener = options.listener ?? ''
-  return async (ctx: Context, next) => {
-    if (!listener) {
-      return await next()
-    }
-    const upgradeHeader = ctx.header('upgrade')
-    const upgradeValue = typeof upgradeHeader === 'string' ? upgradeHeader : undefined
-    if (upgradeValue?.toLowerCase() !== 'websocket') {
-      return await next()
-    }
-    if (!ctx.pathname.startsWith(listener)) {
-      return await next()
-    }
-    try {
+export default class WebSocket {
+  /**
+   * Create WebSocket upgrade middleware.
+   * @description Upgrades request on path; runs connect/message/close/error.
+   * @param options - Listener path and lifecycle callbacks
+   * @returns Middleware that upgrades matching requests
+   */
+  static create(options: Types.WebSocketOptions = {}): Middleware {
+    const listener = options.listener ?? ''
+    return MwareUtils.wrapMiddleware('WebSocket upgrade failed', async (ctx: Context, next) => {
+      if (!listener) {
+        return await next()
+      }
+      const upgradeHeader = ctx.header('upgrade')
+      const upgradeValue = typeof upgradeHeader === 'string' ? upgradeHeader : undefined
+      if (upgradeValue?.toLowerCase() !== 'websocket') {
+        return await next()
+      }
+      if (!ctx.pathname.startsWith(listener)) {
+        return await next()
+      }
       const { socket, response } = Deno.upgradeWebSocket(ctx.request)
       socket.addEventListener('open', () => {
         options.onConnect?.(socket, ctx)
@@ -50,9 +40,6 @@ export function websocket(options: WebSocketOptions = {}): Middleware {
         options.onError?.(socket, event, ctx)
       })
       return response
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-      return ctx.handleError(500, new Error(`WebSocket upgrade failed: ${errorMessage}`))
-    }
+    })
   }
 }

@@ -1,42 +1,29 @@
-import type { Middleware } from '@app/index.ts'
-import { httpMethods } from '@app/Constant.ts'
+import { Constant, type Middleware, type Types } from '@app/index.ts'
+import MwareUtils from '@app/middleware/Utils.ts'
 
 /**
- * CORS configuration options
+ * CORS middleware for cross-origin requests.
+ * @description Handles preflight and sets Allow-Origin and related headers.
  */
-export interface CorsOptions {
-  /** Allowed origins (use '*' for all origins) */
-  origin?: string | string[]
-  /** Allowed HTTP methods */
-  methods?: string[]
-  /** Allowed headers */
-  allowedHeaders?: string[]
-  /** Exposed headers */
-  exposedHeaders?: string[]
-  /** Allow credentials */
-  credentials?: boolean
-  /** Max age for preflight requests */
-  maxAge?: number
-}
-
-/**
- * Creates a CORS middleware.
- * @param options - CORS configuration options
- * @returns Middleware function
- */
-export function cors(options: CorsOptions = {}): Middleware {
-  const origin = options.origin ?? '*'
-  const methods = options.methods ?? httpMethods
-  const allowedHeaders = options.allowedHeaders ?? [
-    'Content-Type',
-    'Authorization',
-    'X-Requested-With'
-  ]
-  const exposedHeaders = options.exposedHeaders ?? []
-  const credentials = options.credentials ?? false
-  const maxAge = options.maxAge ?? 86400
-  return async (ctx, next) => {
-    try {
+export default class Cors {
+  /**
+   * Create CORS middleware with options.
+   * @description Handles preflight; sets Allow-Origin and related headers.
+   * @param options - Origin, methods, headers, credentials, maxAge
+   * @returns Middleware function
+   */
+  static create(options: Types.CorsOptions = {}): Middleware {
+    const origin = options.origin ?? '*'
+    const methods = options.methods ?? Constant.httpMethods
+    const allowedHeaders = options.allowedHeaders ?? [
+      'Content-Type',
+      'Authorization',
+      'X-Requested-With'
+    ]
+    const exposedHeaders = options.exposedHeaders ?? []
+    const credentials = options.credentials ?? false
+    const maxAge = options.maxAge ?? 86400
+    return MwareUtils.wrapMiddleware('CORS error', async (ctx, next) => {
       const requestOrigin = ctx.header('origin') as string | undefined
       if (!requestOrigin) {
         return await next()
@@ -63,9 +50,9 @@ export function cors(options: CorsOptions = {}): Middleware {
           if (exposedHeaders.length > 0) {
             ctx.setHeader('Access-Control-Expose-Headers', exposedHeaders.join(', '))
           }
-          return ctx.handleError(204, new Error('No Content'))
+          return await ctx.handleError(204, new Error('No Content'))
         }
-        return ctx.handleError(403, new Error('Forbidden'))
+        return await ctx.handleError(403, new Error('Forbidden'))
       }
       if (allowedOrigin) {
         ctx.setHeader('Access-Control-Allow-Origin', allowedOrigin)
@@ -77,9 +64,6 @@ export function cors(options: CorsOptions = {}): Middleware {
         }
       }
       return await next()
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-      return ctx.handleError(500, new Error(`CORS error: ${errorMessage}`))
-    }
+    })
   }
 }
