@@ -7,31 +7,30 @@ Serve static files from multiple directories with different configurations per p
 Configure multiple static directories:
 
 ```typescript
+// 1. Import Router
 import { Router } from '@neabyte/deserve'
 
+// 2. Create router
 const router = new Router()
 
-// Admin panel static files
+// 3. Mount multiple directories: URL prefix → path, etag, cache
 router.static('/admin', {
   path: './admin/dist',
   etag: true,
   cacheControl: 86400
 })
-
-// User uploads
 router.static('/uploads', {
   path: './uploads',
   etag: false,
   cacheControl: 0
 })
-
-// API documentation
 router.static('/docs', {
   path: './docs/build',
   etag: true,
   cacheControl: 3600
 })
 
+// 4. Start server
 await router.serve(8000)
 ```
 

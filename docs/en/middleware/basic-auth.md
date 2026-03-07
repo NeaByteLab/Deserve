@@ -9,10 +9,13 @@ HTTP Basic Authentication middleware for protecting routes with username and pas
 Protect routes with Basic Auth using `Mware.basicAuth()`:
 
 ```typescript
+// 1. Import Router and Mware
 import { Router, Mware } from '@neabyte/deserve'
 
+// 2. Create router
 const router = new Router()
 
+// 3. Apply Basic Auth with user list (username + password)
 router.use(
   Mware.basicAuth({
     users: [
@@ -22,7 +25,8 @@ router.use(
   })
 )
 
-router.serve(8000)
+// 4. Start server
+await router.serve(8000)
 ```
 
 ## Route-Specific Protection

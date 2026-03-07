@@ -105,6 +105,7 @@ export default withMermaid(
                   { text: 'Body Limit', link: '/en/middleware/body-limit' },
                   { text: 'CORS', link: '/en/middleware/cors' },
                   { text: 'Security Headers', link: '/en/middleware/security-headers' },
+                  { text: 'Session', link: '/en/middleware/session' },
                   { text: 'WebSocket', link: '/en/middleware/websocket' }
                 ]
               },
@@ -125,6 +126,7 @@ export default withMermaid(
                   { text: 'HTML Format', link: '/en/response/html' },
                   { text: 'File Downloads', link: '/en/response/file' },
                   { text: 'Data Downloads', link: '/en/response/data' },
+                  { text: 'Stream', link: '/en/response/stream' },
                   { text: 'Redirects', link: '/en/response/redirect' },
                   { text: 'Custom Responses', link: '/en/response/custom' }
                 ]
@@ -176,6 +178,7 @@ export default withMermaid(
                   { text: 'Body Limit', link: '/en/middleware/body-limit' },
                   { text: 'CORS', link: '/en/middleware/cors' },
                   { text: 'Security Headers', link: '/en/middleware/security-headers' },
+                  { text: 'Session', link: '/en/middleware/session' },
                   { text: 'WebSocket', link: '/en/middleware/websocket' }
                 ]
               },
@@ -196,6 +199,7 @@ export default withMermaid(
                   { text: 'HTML Format', link: '/en/response/html' },
                   { text: 'File Downloads', link: '/en/response/file' },
                   { text: 'Data Downloads', link: '/en/response/data' },
+                  { text: 'Stream', link: '/en/response/stream' },
                   { text: 'Redirects', link: '/en/response/redirect' },
                   { text: 'Custom Responses', link: '/en/response/custom' }
                 ]
@@ -238,6 +242,21 @@ export default withMermaid(
         ],
         themeConfig: {
           logo: '/icon.svg',
+          outline: { label: 'Pada halaman ini' },
+          docFooter: {
+            prev: 'Halaman sebelumnya',
+            next: 'Halaman berikutnya'
+          },
+          lastUpdated: {
+            text: 'Terakhir diperbarui'
+          },
+          darkModeSwitchLabel: 'Tampilan',
+          lightModeSwitchTitle: 'Beralih ke tema terang',
+          darkModeSwitchTitle: 'Beralih ke tema gelap',
+          sidebarMenuLabel: 'Menu',
+          returnToTopLabel: 'Kembali ke atas',
+          langMenuLabel: 'Ganti bahasa',
+          skipToContentLabel: 'Lewati ke konten',
           nav: [
             { text: 'Dokumentasi', link: '/id/getting-started/installation' },
             { text: 'Contoh', link: '/id/examples' }
@@ -284,6 +303,7 @@ export default withMermaid(
                   { text: 'Body Limit', link: '/id/middleware/body-limit' },
                   { text: 'CORS', link: '/id/middleware/cors' },
                   { text: 'Security Headers', link: '/id/middleware/security-headers' },
+                  { text: 'Session', link: '/id/middleware/session' },
                   { text: 'WebSocket', link: '/id/middleware/websocket' }
                 ]
               },
@@ -304,6 +324,7 @@ export default withMermaid(
                   { text: 'Format HTML', link: '/id/response/html' },
                   { text: 'Unduhan File', link: '/id/response/file' },
                   { text: 'Unduhan Data', link: '/id/response/data' },
+                  { text: 'Stream', link: '/id/response/stream' },
                   { text: 'Pengalihan', link: '/id/response/redirect' },
                   { text: 'Respon Khusus', link: '/id/response/custom' }
                 ]

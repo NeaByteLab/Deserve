@@ -21,27 +21,32 @@ routes/
 
 ## Aturan Inti
 
-### 1. Nama File Menjadi Routes
+### 1. Nama File Menjadi Rute
+
 - `index.ts`, `index.js`, `index.mjs` → `/` (root)
 - `about.ts`, `about.js`, `about.mjs` → `/about`
 - `users.ts`, `users.js`, `users.cjs` → `/users`
 
 Semua ekstensi yang didukung (`.ts`, `.js`, `.tsx`, `.jsx`, `.mjs`, `.cjs`) bekerja identik.
 
-### 2. Folder Membuat Nested Routes
+### 2. Folder Membuat Rute Bersarang
+
 - `users/[id].ts` → `/users/:id`
 - `users/[id]/posts.ts` → `/users/:id/posts`
 
 ### 3. Parameter Dinamis Menggunakan Sintaks `[param]`
+
 - `[id].ts` → parameter `:id`
 - `[userId].ts` → parameter `:userId`
 - `[postId].ts` → parameter `:postId`
 
-### 4. HTTP Methods Adalah Fungsi yang Diekspor
+### 4. HTTP Methods Adalah Fungsi Yang Diekspor
 
 ```typescript
+// 1. Import tipe Context
 import type { Context } from '@neabyte/deserve'
 
+// 2. Export GET → route GET /; POST → POST /
 export function GET(ctx: Context): Response {
   return ctx.send.json({ users: [] })
 }
@@ -51,27 +56,27 @@ export async function POST(ctx: Context): Promise<Response> {
   return ctx.send.json({ message: 'User created', data })
 }
 
-// export function [method](ctx: Context): Response {
-// ... code here ...
-// }
+// 3. Method lain: PUT, PATCH, DELETE, dll. — export dengan nama yang sama
+// export function [method](ctx: Context): Response { ... }
 ```
 
-### 5. URL Case-Sensitive
+### 5. URL Case-Sensitive (Huruf Besar/Kecil Diperhitungkan)
 
 URL bersifat case-sensitive sesuai standar HTTP:
 
 - `/Users/John` ≠ `/users/john`
 - `/API/v1` ≠ `/api/v1`
 
-### 6. Karakter Nama File yang Valid
+### 6. Karakter Nama File Yang Valid
 
 File dapat berisi aturan spesifik:
 
 - `a-z`, `A-Z`, `0-9` - Karakter alfanumerik
-- `_` - Underscore
+- `_` - Underscore (jangan awali segmen path — lihat bawah)
 - `-` - Dash
 - `.` - Dot
 - `~` - Tilde
 - `+` - Tanda plus
 - `[` `]` - Bracket untuk parameter dinamis
 
+**Segmen yang di-skip:** Folder atau nama file yang **diawali** `_` atau `@` tidak didaftar sebagai route (mis. `_layout.ts`, `@middleware.ts`, folder `_components/`). Berguna untuk file pendukung yang bukan endpoint.

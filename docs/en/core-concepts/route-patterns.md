@@ -2,7 +2,7 @@
 
 > **Reference**: [Fast Router GitHub Repository](https://github.com/NeaByteLab/Fast-Router)
 
-Deserve uses **Fast Router** - a high-performance radix tree-based router for fast route matching and parameter extraction.
+Deserve uses **Fast Router** (radix tree) for route matching and parameter extraction. File paths in the `routes` folder are turned into patterns; dynamic segments use `[param]`, which becomes `:param` at the router level.
 
 ## Pattern Matching
 
@@ -21,11 +21,13 @@ Deserve converts file paths to route patterns. **FastRouter** handles pattern ma
 Use `[param]` syntax for dynamic route segments:
 
 ### Single Parameter
+
 ```typescript
 // File: routes/users/[id].ts
+// 1. Import Context
 import type { Context } from '@neabyte/deserve'
 
-// GET /users/:id
+// 2. GET /users/:id — get param from ctx.param('id')
 export function GET(ctx: Context): Response {
   const id = ctx.param('id')
   return ctx.send.json({ userId: id })
@@ -33,11 +35,12 @@ export function GET(ctx: Context): Response {
 ```
 
 ### Multiple Parameters
+
 ```typescript
 // File: routes/users/[id]/posts/[postId].ts
+// 1. One ctx.param per dynamic segment
 import type { Context } from '@neabyte/deserve'
 
-// GET /users/:id/posts/:postId
 export function GET(ctx: Context): Response {
   const id = ctx.param('id')
   const postId = ctx.param('postId')
@@ -46,11 +49,12 @@ export function GET(ctx: Context): Response {
 ```
 
 ### Nested Parameters
+
 ```typescript
 // File: routes/api/v1/users/[userId]/posts/[postId]/comments/[commentId].ts
+// 1. Each [param] in path → ctx.param('param')
 import type { Context } from '@neabyte/deserve'
 
-// GET /api/v1/users/:userId/posts/:postId/comments/:commentId
 export function GET(ctx: Context): Response {
   const userId = ctx.param('userId')
   const postId = ctx.param('postId')
@@ -62,6 +66,7 @@ export function GET(ctx: Context): Response {
 ## Pattern Examples
 
 ### User Management
+
 ```
 routes/
 ├── users.ts                       → /users
@@ -72,6 +77,7 @@ routes/
 ```
 
 ### API Versioning
+
 ```
 routes/
 ├── api/
@@ -82,6 +88,7 @@ routes/
 ```
 
 ### Blog System
+
 ```
 routes/
 ├── blog/
@@ -98,6 +105,7 @@ Extract and validate parameters in your route handlers:
 
 ```typescript
 // File: routes/users/[id].ts
+// 1. Get param then validate; if invalid → 400
 import type { Context } from '@neabyte/deserve'
 
 // GET /users/:id

@@ -2,13 +2,15 @@
 
 Konfigurasi direktori routes Deserve agar sesuai dengan struktur proyek Anda.
 
-## Router Options
+## Opsi Router
 
-Konstruktor `Router` menerima opsi konfigurasi:
+Konstruktor `Router` menerima opsi konfigurasi. Opsi utama yang sering dipakai adalah `routesDir` (direktori tempat file route Anda):
 
 ```typescript
+// 1. Import Router
 import { Router } from '@neabyte/deserve'
 
+// 2. Beri routesDir custom (default: ./routes)
 const router = new Router({
   routesDir: 'src/routes'
 })
@@ -21,16 +23,16 @@ const router = new Router({
 Direktori yang berisi file route Anda:
 
 ```typescript
-// Default - menggunakan './routes'
+// 1. Default: routes dari ./routes
 const router = new Router()
 
-// Direktori custom - Menggunakan './src/api'
+// 2. Custom: routes dari ./src/api
 const router = new Router({
   routesDir: 'src/api'
 })
 ```
 
-## Ekstensi File yang Didukung
+## Ekstensi File Yang Didukung
 
 Deserve secara otomatis mendeteksi dan mendukung ekstensi file ini:
 
@@ -43,10 +45,12 @@ Deserve secara otomatis mendeteksi dan mendukung ekstensi file ini:
 
 Anda tidak perlu mengonfigurasi ekstensi - Deserve secara otomatis mendeteksinya.
 
-## Absolute vs Relative Paths
+## Path Absolut Dan Relatif
 
 ### Relative Paths
+
 ```typescript
+// 1. Path relatif terhadap CWD
 const router = new Router({
   routesDir: 'routes'
 })
@@ -55,14 +59,15 @@ const router = new Router({
 ### Absolute Paths
 
 ```typescript
+// 1. Pakai Deno.cwd() untuk base absolut
 const router = new Router({
   routesDir: `${Deno.cwd()}/routes`
 })
 ```
 
 ```typescript
+// 2. Atau path absolut literal
 const router = new Router({
   routesDir: '/absolute/path/to/routes'
 })
 ```
-

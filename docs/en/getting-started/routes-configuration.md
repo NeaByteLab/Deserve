@@ -4,11 +4,13 @@ Configure Deserve routes directory to match your project structure.
 
 ## Router Options
 
-The `Router` constructor accepts a configuration option:
+The `Router` constructor accepts configuration options. The main one is `routesDir` (directory for your route files):
 
 ```typescript
+// 1. Import Router
 import { Router } from '@neabyte/deserve'
 
+// 2. Set custom routesDir (default: ./routes)
 const router = new Router({
   routesDir: 'src/routes'
 })
@@ -21,10 +23,10 @@ const router = new Router({
 The directory containing your route files:
 
 ```typescript
-// Default - uses './routes'
+// 1. Default: routes from ./routes
 const router = new Router()
 
-// Custom directory - Uses './src/api'
+// 2. Custom: routes from ./src/api
 const router = new Router({
   routesDir: 'src/api'
 })
@@ -46,6 +48,7 @@ You don't need to configure extensions - Deserve automatically detects them.
 ## Absolute vs Relative Paths
 
 ### Relative Paths
+
 ```typescript
 const router = new Router({
   routesDir: 'routes'

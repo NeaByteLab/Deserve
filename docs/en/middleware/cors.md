@@ -9,13 +9,16 @@ CORS (Cross-Origin Resource Sharing) middleware handles cross-origin requests by
 Apply CORS middleware using Deserve's built-in middleware:
 
 ```typescript
+// 1. Import Router and Mware
 import { Router, Mware } from '@neabyte/deserve'
 
+// 2. Create router
 const router = new Router()
 
-// Apply CORS with default settings (allows all origins)
+// 3. CORS default (all origins); handle preflight OPTIONS
 router.use(Mware.cors())
 
+// 4. Start server
 await router.serve(8000)
 ```
 
@@ -24,10 +27,13 @@ await router.serve(8000)
 Configure CORS with custom options:
 
 ```typescript
+// 1. Import Router and Mware
 import { Router, Mware } from '@neabyte/deserve'
 
+// 2. Create router
 const router = new Router()
 
+// 3. Custom CORS: origin, methods, headers, credentials, maxAge
 router.use(
   Mware.cors({
     origin: ['http://localhost:3000', 'https://example.com'],
@@ -38,12 +44,14 @@ router.use(
   })
 )
 
+// 4. Start server
 await router.serve(8000)
 ```
 
 ## CORS Options
 
 ### `origin`
+
 Specify allowed origins:
 
 ```typescript
@@ -58,6 +66,7 @@ origin: '*'
 ```
 
 ### `methods`
+
 Specify allowed HTTP methods:
 
 ```typescript
@@ -65,6 +74,7 @@ methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS']
 ```
 
 ### `allowedHeaders`
+
 Specify allowed headers:
 
 ```typescript
@@ -72,6 +82,7 @@ allowedHeaders: ['Content-Type', 'Authorization', 'X-Custom-Header']
 ```
 
 ### `exposedHeaders`
+
 Specify headers exposed to client:
 
 ```typescript
@@ -79,6 +90,7 @@ exposedHeaders: ['X-Total-Count', 'X-Page-Count']
 ```
 
 ### `credentials`
+
 Allow credentials in requests:
 
 ```typescript
@@ -86,6 +98,7 @@ credentials: true // Allow cookies and authorization headers
 ```
 
 ### `maxAge`
+
 Set preflight cache duration in seconds:
 
 ```typescript
@@ -95,11 +108,13 @@ maxAge: 3600 // Cache preflight requests for 1 hour
 ## Complete Example
 
 ```typescript
+// 1. Import Router and Mware
 import { Router, Mware } from '@neabyte/deserve'
 
+// 2. Create router
 const router = new Router({ routesDir: './routes' })
 
-// Apply CORS middleware with production-ready configuration
+// 3. CORS production-ready: origin, methods, headers, credentials, maxAge
 router.use(
   Mware.cors({
     origin: ['http://localhost:3000', 'http://localhost:5173', 'https://yourdomain.com'],
@@ -111,17 +126,20 @@ router.use(
   })
 )
 
+// 4. Start server
 await router.serve(8000)
 ```
 
 ## Common CORS Headers
 
 ### Request Headers
+
 - `Origin` - The origin making the request
 - `Access-Control-Request-Method` - Method for preflight requests
 - `Access-Control-Request-Headers` - Headers for preflight requests
 
 ### Response Headers
+
 - `Access-Control-Allow-Origin` - Allowed origins
 - `Access-Control-Allow-Methods` - Allowed HTTP methods
 - `Access-Control-Allow-Headers` - Allowed request headers

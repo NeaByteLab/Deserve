@@ -2,15 +2,17 @@
 
 > **Referensi**: [Deno Request API Documentation](https://docs.deno.com/deploy/classic/api/runtime-request/)
 
-Deserve menyediakan objek `Context` yang membungkus `Request` native dengan method untuk mengakses query parameter, route parameter, header, cookie, dan data body.
+Deserve menyediakan objek `Context` yang membungkus `Request` native. Melalui Context Anda mengakses query, param route, header, cookie, dan body tanpa mengurus parsing manual.
 
 ## Penggunaan Dasar
 
 Import tipe `Context` dan gunakan di route handler Anda:
 
 ```typescript
+// 1. Import tipe Context
 import type { Context } from '@neabyte/deserve'
 
+// 2. ctx.query() = semua query params (object)
 export function GET(ctx: Context): Response {
   const query = ctx.query()
   return ctx.send.json({ query })
@@ -22,10 +24,12 @@ export function GET(ctx: Context): Response {
 Akses URL query parameters dengan parsing otomatis:
 
 ### Query Parameter Tunggal
+
 ```typescript
 // URL: /search?q=deno&limit=10
+// 1. ctx.query() mengembalikan object; duplikat key = nilai terakhir
 export function GET(ctx: Context): Response {
-  const query = ctx.query() // { q: 'deno', limit: '10' }
+  const query = ctx.query()
   return ctx.send.json({
     search: query.q,
     limit: parseInt(query.limit || '10')
@@ -40,27 +44,31 @@ export function GET(ctx: Context): Response {
 const query = ctx.query() // { tag: 'typescript' } ← mengembalikan nilai terakhir
 ```
 
-### Beberapa Nilai untuk Kunci yang Sama
+### Beberapa Nilai Untuk Kunci Yang Sama
 
 Gunakan `queries()` ketika Anda membutuhkan **semua nilai** untuk kunci spesifik:
 
 ```typescript
 // URL: /search?tags=deno&tags=typescript&tags=javascript
+// 1. ctx.queries('key') = array semua nilai untuk key itu
 export function GET(ctx: Context): Response {
-  const tags = ctx.queries('tags') // ['deno', 'typescript', 'javascript']
+  const tags = ctx.queries('tags')
   return ctx.send.json({ tags })
 }
 ```
 
-**Use cases:**
-- **`query()`** - Ambil nilai tunggal atau nilai terakhir saat ada duplikat
-- **`queries()`** - Ambil semua nilai untuk array/multi-select parameter
+**Kapan memakai apa:**
+
+- **`query()`** — Ambil nilai tunggal atau nilai terakhir saat ada duplikat
+- **`queries()`** — Ambil semua nilai untuk array atau parameter multi-select
 
 ### Objek Query Lengkap
+
 ```typescript
 // URL: /api/users?page=1&limit=20&sort=name&order=asc
+// 1. Parse query lalu beri default jika kosong
 export function GET(ctx: Context): Response {
-  const query = ctx.query() // { page: '1', limit: '20', sort: 'name', order: 'asc' }
+  const query = ctx.query()
   return ctx.send.json({
     page: parseInt(query.page || '1'),
     limit: parseInt(query.limit || '10'),
@@ -75,39 +83,43 @@ export function GET(ctx: Context): Response {
 Akses dynamic route parameters dari file-based routing:
 
 ### Parameter Tunggal
+
 ```typescript
-// routes/users/[id].ts
-// URL: /users/123
+// routes/users/[id].ts — URL: /users/123
+// 1. ctx.param('id') = nilai segmen dinamis
 export function GET(ctx: Context): Response {
-  const id = ctx.param('id') // '123'
+  const id = ctx.param('id')
   return ctx.send.json({ userId: id })
 }
 ```
 
 ### Parameter Ganda
+
 ```typescript
-// routes/users/[id]/posts/[postId].ts
-// URL: /users/123/posts/456
+// routes/users/[id]/posts/[postId].ts — URL: /users/123/posts/456
+// 1. Satu ctx.param per segmen dinamis
 export function GET(ctx: Context): Response {
   const id = ctx.param('id')
-  const postId = ctx.param('postId') // id='123', postId='456'
+  const postId = ctx.param('postId')
   return ctx.send.json({ userId: id, postId })
 }
 ```
 
 ### Semua Parameter
+
 ```typescript
-// routes/api/v1/users/[userId]/posts/[postId]/comments/[commentId].ts
-// URL: /api/v1/users/123/posts/456/comments/789
+// routes/.../comments/[commentId].ts — URL: .../123/posts/456/comments/789
+// 1. ctx.params() = object semua param route
 export function GET(ctx: Context): Response {
-  const params = ctx.params() // { userId: '123', postId: '456', commentId: '789' }
+  const params = ctx.params()
   return ctx.send.json(params)
 }
 ```
 
-## Referensi Method
+## Referensi Method Context
 
 #### `ctx.query(key?)`
+
 Mengembalikan semua query parameters sebagai objek. **Mengembalikan nilai terakhir untuk kunci duplikat.**
 
 ```typescript
@@ -122,6 +134,7 @@ const q = ctx.query('q') // Mengembalikan: 'deno'
 ```
 
 #### `ctx.queries(key)`
+
 Mengembalikan **semua nilai** untuk kunci query parameter spesifik sebagai array.
 
 ```typescript
@@ -134,6 +147,7 @@ const tags = ctx.queries('tags') // ['deno', 'typescript'] ← semua nilai
 ```
 
 #### `ctx.param(key)`
+
 Mengembalikan nilai route parameter tunggal.
 
 ```typescript
@@ -143,6 +157,7 @@ const id = ctx.param('id') // '123'
 ```
 
 #### `ctx.params()`
+
 Mengembalikan semua route parameters sebagai objek.
 
 ```typescript
@@ -152,6 +167,7 @@ const params = ctx.params() // { id: '123', postId: '456' }
 ```
 
 #### `ctx.body()`
+
 Parse request body secara otomatis (JSON, form-data, atau text).
 
 ```typescript
@@ -163,6 +179,7 @@ export async function POST(ctx: Context): Promise<Response> {
 ```
 
 #### `ctx.json()`
+
 Parse request body sebagai JSON.
 
 ```typescript
@@ -174,6 +191,7 @@ export async function POST(ctx: Context): Promise<Response> {
 ```
 
 #### `ctx.formData()`
+
 Parse request body sebagai form data. Mengembalikan objek `FormData`.
 
 ```typescript
@@ -186,6 +204,7 @@ export async function POST(ctx: Context): Promise<Response> {
 ```
 
 #### `ctx.text()`
+
 Ambil request body sebagai text mentah.
 
 ```typescript
@@ -197,6 +216,7 @@ export async function POST(ctx: Context): Promise<Response> {
 ```
 
 #### `ctx.arrayBuffer()`
+
 Baca request body sebagai ArrayBuffer. Berguna untuk pemrosesan data biner.
 
 ```typescript
@@ -209,6 +229,7 @@ export async function POST(ctx: Context): Promise<Response> {
 ```
 
 #### `ctx.blob()`
+
 Baca request body sebagai Blob. Berguna untuk upload file dan penanganan data biner.
 
 ```typescript
@@ -224,6 +245,7 @@ export async function POST(ctx: Context): Promise<Response> {
 ```
 
 #### `ctx.header(key?)`
+
 Ambil nilai header berdasarkan kunci atau semua header (case-insensitive).
 
 ```typescript
@@ -237,6 +259,7 @@ const headers = ctx.header()
 ```
 
 #### `ctx.headers`
+
 Ambil objek Headers mentah untuk akses langsung.
 
 ```typescript
@@ -245,6 +268,7 @@ const contentType = ctx.headers.get('Content-Type')
 ```
 
 #### `ctx.cookie(key?)`
+
 Ambil nilai cookie berdasarkan kunci atau semua cookies.
 
 ```typescript
@@ -254,4 +278,3 @@ const sessionId = ctx.cookie('sessionId')
 // Ambil semua cookies
 const cookies = ctx.cookie() // { sessionId: 'abc123', theme: 'dark' }
 ```
-

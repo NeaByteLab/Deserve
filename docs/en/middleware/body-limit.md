@@ -9,14 +9,20 @@ Body Limit middleware enforces maximum request body size by checking the `Conten
 Apply body limit middleware using Deserve's built-in middleware:
 
 ```typescript
+// 1. Import Router and Mware
 import { Router, Mware } from '@neabyte/deserve'
 
+// 2. Create router
 const router = new Router()
 
-router.use(Mware.bodyLimit({
-  limit: 1024 * 1024 // 1MB limit
-}))
+// 3. Limit request body to 1MB max; if larger → 413
+router.use(
+  Mware.bodyLimit({
+    limit: 1024 * 1024
+  })
+)
 
+// 4. Start server
 await router.serve(8000)
 ```
 
@@ -64,6 +70,7 @@ The middleware checks the `Content-Length` header before the body is read:
 ### RFC 7230 Compliance
 
 The middleware follows RFC 7230:
+
 - If both `Transfer-Encoding` and `Content-Length` are present, `Transfer-Encoding` takes precedence and body size is not validated
 - Only validates `Content-Length` when `Transfer-Encoding` is absent
 - Handles chunked encoding by passing through (can't check size upfront)
@@ -71,19 +78,20 @@ The middleware follows RFC 7230:
 ## Complete Example
 
 ```typescript
+// 1. Import Router and Mware
 import { Router, Mware } from '@neabyte/deserve'
 
+// 2. Create router
 const router = new Router({ routesDir: './routes' })
 
-// Global 1MB limit
+// 3. Global 1MB limit
 router.use(Mware.bodyLimit({ limit: 1024 * 1024 }))
 
-// 5MB for file uploads
+// 4. Per-path: /uploads 5MB, /api 10MB
 router.use('/uploads', Mware.bodyLimit({ limit: 5 * 1024 * 1024 }))
-
-// 10MB for API routes
 router.use('/api', Mware.bodyLimit({ limit: 10 * 1024 * 1024 }))
 
+// 5. Start server
 await router.serve(8000)
 ```
 
@@ -99,9 +107,12 @@ router.catch((ctx, { statusCode, error }) => {
       { status: 413 }
     )
   }
-  return ctx.send.json({
-    error: error?.message ?? 'Unknown error'
-  }, { status: statusCode })
+  return ctx.send.json(
+    {
+      error: error?.message ?? 'Unknown error'
+    },
+    { status: statusCode }
+  )
 })
 
 router.use(Mware.bodyLimit({ limit: 1024 * 1024 }))

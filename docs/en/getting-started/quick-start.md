@@ -18,10 +18,13 @@ By the end of this guide, you'll have this project structure:
 Create `main.ts`:
 
 ```typescript
+// 1. Import Router
 import { Router } from '@neabyte/deserve'
 
+// 2. Create router instance (default routesDir: ./routes)
 const router = new Router()
 
+// 3. Start server on port 8000
 await router.serve(8000)
 ```
 
@@ -30,9 +33,12 @@ await router.serve(8000)
 Create a `routes` folder and add `index.ts`:
 
 ```typescript
+// 1. Import Context type
 import type { Context } from '@neabyte/deserve'
 
+// 2. Export handler named after HTTP method (GET) — file-based routing
 export function GET(ctx: Context): Response {
+  // 3. Send JSON response
   return ctx.send.json({
     message: 'Hello from Deserve!',
     timestamp: new Date().toISOString()
@@ -53,6 +59,7 @@ curl http://localhost:8000
 ```
 
 You should see:
+
 ```json
 {
   "message": "Hello from Deserve!",

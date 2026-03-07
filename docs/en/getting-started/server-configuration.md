@@ -9,10 +9,13 @@ Configure your Deserve server with hostname binding and graceful shutdown.
 The simplest way to start a server:
 
 ```typescript
+// 1. Import Router
 import { Router } from '@neabyte/deserve'
 
+// 2. Create router
 const router = new Router()
 
+// 3. Start server on port 8000 (bind 0.0.0.0)
 await router.serve(8000)
 ```
 
@@ -72,23 +75,23 @@ ac.abort()
 ### Process Signal Handling
 
 ```typescript
+// 1. Create router and AbortController
 import { Router } from '@neabyte/deserve'
 
 const router = new Router()
 const ac = new AbortController()
 
-// Handle SIGINT (Ctrl+C)
+// 2. Register signal handlers
 Deno.addSignalListener('SIGINT', async () => {
   ac.abort()
   Deno.exit(0)
 })
-
-// Handle SIGTERM (Kill Signal)
 Deno.addSignalListener('SIGTERM', async () => {
   ac.abort()
   Deno.exit(0)
 })
 
+// 3. Start server with signal; call ac.abort() to shutdown
 await router.serve(8000, '127.0.0.1', ac.signal)
 ```
 

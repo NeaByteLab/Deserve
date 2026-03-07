@@ -9,29 +9,35 @@ Middleware Body Limit menegakkan ukuran body request maksimum dengan memeriksa h
 Terapkan middleware body limit menggunakan middleware built-in Deserve:
 
 ```typescript
+// 1. Import Router dan Mware
 import { Router, Mware } from '@neabyte/deserve'
 
+// 2. Buat router
 const router = new Router()
 
-router.use(Mware.bodyLimit({
-  limit: 1024 * 1024 // 1MB limit
-}))
+// 3. Batasi body request maks 1MB; jika lebih → 413
+router.use(
+  Mware.bodyLimit({
+    limit: 1024 * 1024
+  })
+)
 
+// 4. Jalankan server
 await router.serve(8000)
 ```
 
-## Limit Spesifik Rute
+## Limit Per Rute
 
 Terapkan limit body berbeda pada route tertentu:
 
 ```typescript
-// Limit 1MB untuk route umum
+// 1. Global: max 1MB
 router.use(Mware.bodyLimit({ limit: 1024 * 1024 }))
 
-// Limit 5MB untuk route upload
+// 2. Hanya /uploads: max 5MB
 router.use('/uploads', Mware.bodyLimit({ limit: 5 * 1024 * 1024 }))
 
-// Limit 10MB untuk route API
+// 3. Hanya /api: max 10MB
 router.use('/api', Mware.bodyLimit({ limit: 10 * 1024 * 1024 }))
 ```
 
@@ -52,7 +58,7 @@ limit: 5 * 1024 * 1024
 limit: 10 * 1024 * 1024
 ```
 
-## Cara Kerja
+## Cara Kerja Body Limit
 
 Middleware memeriksa header `Content-Length` sebelum body dibaca:
 
@@ -64,6 +70,7 @@ Middleware memeriksa header `Content-Length` sebelum body dibaca:
 ### Kepatuhan RFC 7230
 
 Middleware mengikuti RFC 7230:
+
 - Jika `Transfer-Encoding` dan `Content-Length` keduanya ada, `Transfer-Encoding` memiliki prioritas dan ukuran body tidak divalidasi
 - Hanya memvalidasi `Content-Length` ketika `Transfer-Encoding` tidak ada
 - Menangani chunked encoding dengan melewati (tidak dapat memeriksa ukuran sebelumnya)
@@ -71,19 +78,20 @@ Middleware mengikuti RFC 7230:
 ## Contoh Lengkap
 
 ```typescript
+// 1. Import Router dan Mware
 import { Router, Mware } from '@neabyte/deserve'
 
+// 2. Buat router
 const router = new Router({ routesDir: './routes' })
 
-// Limit global 1MB
+// 3. Limit global 1MB
 router.use(Mware.bodyLimit({ limit: 1024 * 1024 }))
 
-// 5MB untuk upload file
+// 4. Per-path: /uploads 5MB, /api 10MB
 router.use('/uploads', Mware.bodyLimit({ limit: 5 * 1024 * 1024 }))
-
-// 10MB untuk route API
 router.use('/api', Mware.bodyLimit({ limit: 10 * 1024 * 1024 }))
 
+// 5. Jalankan server
 await router.serve(8000)
 ```
 
@@ -92,6 +100,7 @@ await router.serve(8000)
 Body Limit secara otomatis menggunakan `router.catch()` jika didefinisikan:
 
 ```typescript
+// 1. Tangkap 413 (payload too large) dan error lain
 router.catch((ctx, { statusCode, error }) => {
   if (statusCode === 413) {
     return ctx.send.json(
@@ -99,11 +108,15 @@ router.catch((ctx, { statusCode, error }) => {
       { status: 413 }
     )
   }
-  return ctx.send.json({
-    error: error?.message ?? 'Error tidak diketahui'
-  }, { status: statusCode })
+  return ctx.send.json(
+    {
+      error: error?.message ?? 'Error tidak diketahui'
+    },
+    { status: statusCode }
+  )
 })
 
+// 2. Pasang body limit (akan pakai router.catch di atas)
 router.use(Mware.bodyLimit({ limit: 1024 * 1024 }))
 ```
 

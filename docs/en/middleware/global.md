@@ -7,16 +7,20 @@ Global middleware executes for every request before route handlers, providing cr
 Add global middleware using the `use()` method:
 
 ```typescript
+// 1. Import Router
 import { Router } from '@neabyte/deserve'
 
+// 2. Create router
 const router = new Router()
 
+// 3. Add global middleware: log each request, then continue
 router.use(async (ctx, next) => {
   console.log(`${ctx.request.method} ${ctx.url}`)
-  return await next() // Continue to next middleware/route
+  return await next()
 })
 
-router.serve(8000)
+// 4. Start server
+await router.serve(8000)
 ```
 
 ## Middleware Function Signature
@@ -32,6 +36,7 @@ type Middleware = (ctx: Context, next: () => Promise<Response>) => Response | Pr
 ## Common Global Middleware Patterns
 
 ### Request Logging
+
 ```typescript
 router.use(async (ctx, next) => {
   const start = Date.now()
@@ -44,6 +49,7 @@ router.use(async (ctx, next) => {
 ```
 
 ### Authentication
+
 ```typescript
 router.use(async (ctx, next) => {
   const authHeader = ctx.header('authorization')
@@ -55,24 +61,55 @@ router.use(async (ctx, next) => {
   if (!isValidToken(token)) {
     return ctx.send.text('Invalid token', { status: 401 })
   }
-  // Context not modified, Handler automatically calls next()
+  return await next()
 })
 ```
+
+## Wrapping Middleware With Error Handling
+
+Custom middleware that throws can be wrapped with `wrapMiddleware` so errors are caught and passed to `router.catch()` (if defined):
+
+```typescript
+// 1. Import Router, wrapMiddleware (and Mware if needed)
+import { Router, wrapMiddleware, Mware } from '@neabyte/deserve'
+
+// 2. Create router
+const router = new Router()
+
+// 3. Wrap middleware with label; errors go to router.catch
+const myAuth = wrapMiddleware('Auth', async (ctx, next) => {
+  if (!ctx.header('x-api-key')) {
+    throw new Error('Missing API key')
+  }
+  return await next()
+})
+
+// 4. Apply middleware and error handler
+router.use(myAuth)
+router.catch((ctx, err) => ctx.send.json({ error: err.error?.message }, { status: 500 }))
+
+// 5. Start server
+await router.serve(8000)
+```
+
+**Signature:** `wrapMiddleware(label: string, middleware: Middleware): Middleware`. If the middleware throws, the error is processed via `ctx.handleError()` so `router.catch()` is invoked.
 
 ## Path-Specific Middleware
 
 You can apply middleware to specific paths:
 
 ```typescript
-// Middleware only for /api routes
+// 1. Middleware only for paths starting with /api
 router.use('/api', async (ctx, next) => {
   console.log('API request:', ctx.url)
+  return await next()
 })
 
-// Middleware for all routes starting with /admin
+// 2. Middleware for /admin paths: check auth first
 router.use('/admin', async (ctx, next) => {
   if (!isAuthenticated(ctx)) {
     return ctx.send.text('Unauthorized', { status: 401 })
   }
+  return await next()
 })
 ```

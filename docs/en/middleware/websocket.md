@@ -9,10 +9,13 @@ WebSocket middleware handles WebSocket connection upgrades, allowing real-time b
 Apply WebSocket middleware using Deserve's built-in middleware:
 
 ```typescript
+// 1. Import Router and Mware
 import { Router, Mware } from '@neabyte/deserve'
 
+// 2. Create router
 const router = new Router()
 
+// 3. Upgrade requests to WebSocket at path /ws; onConnect sends welcome
 router.use(
   Mware.websocket({
     listener: '/ws',
@@ -23,6 +26,7 @@ router.use(
   })
 )
 
+// 4. Start server
 await router.serve(8000)
 ```
 
@@ -33,11 +37,12 @@ await router.serve(8000)
 Specify the path prefix for WebSocket upgrades:
 
 ```typescript
-listener: '/ws'      // Matches /ws, /ws/chat, /ws/room/123, etc.
-listener: '/api/ws'  // Matches /api/ws, /api/ws/data, etc.
+listener: '/ws' // Matches /ws, /ws/chat, /ws/room/123, etc.
+listener: '/api/ws' // Matches /api/ws, /api/ws/data, etc.
 ```
 
 **Important:** The middleware only upgrades requests that:
+
 - Have `Upgrade: websocket` header
 - Path starts with the `listener` value
 
@@ -113,22 +118,28 @@ router.use(
       try {
         const data = JSON.parse(event.data as string)
         if (data.type === 'ping') {
-          socket.send(JSON.stringify({
-            type: 'pong',
-            timestamp: Date.now()
-          }))
+          socket.send(
+            JSON.stringify({
+              type: 'pong',
+              timestamp: Date.now()
+            })
+          )
         } else {
-          socket.send(JSON.stringify({
-            type: 'echo',
-            original: data,
-            timestamp: Date.now()
-          }))
+          socket.send(
+            JSON.stringify({
+              type: 'echo',
+              original: data,
+              timestamp: Date.now()
+            })
+          )
         }
       } catch {
-        socket.send(JSON.stringify({
-          type: 'error',
-          message: 'Invalid JSON'
-        }))
+        socket.send(
+          JSON.stringify({
+            type: 'error',
+            message: 'Invalid JSON'
+          })
+        )
       }
     },
     onDisconnect: (socket, ctx) => {
@@ -140,6 +151,7 @@ router.use(
   })
 )
 
+// 4. Start server
 await router.serve(8000)
 ```
 
@@ -152,13 +164,15 @@ const socket = new WebSocket('ws://localhost:8000/ws')
 
 socket.addEventListener('open', () => {
   console.log('Connected!')
-  socket.send(JSON.stringify({
-    type: 'message',
-    text: 'Hello!'
-  }))
+  socket.send(
+    JSON.stringify({
+      type: 'message',
+      text: 'Hello!'
+    })
+  )
 })
 
-socket.addEventListener('message', (event) => {
+socket.addEventListener('message', event => {
   const data = JSON.parse(event.data)
   console.log('Received:', data)
 })
@@ -167,7 +181,7 @@ socket.addEventListener('close', () => {
   console.log('Disconnected')
 })
 
-socket.addEventListener('error', (error) => {
+socket.addEventListener('error', error => {
   console.error('Error:', error)
 })
 ```
@@ -202,15 +216,18 @@ try {
 When using WebSocket with CORS-enabled clients:
 
 ```typescript
+// 1. Import Router and Mware
 import { Router, Mware } from '@neabyte/deserve'
 
+// 2. Create router
 const router = new Router()
 
+// 3. CORS first (preflight), then WebSocket
 router.use(Mware.cors({ origin: '*' }))
 router.use(Mware.websocket({ listener: '/ws' }))
 
+// 4. Start server
 await router.serve(8000)
 ```
 
 CORS middleware handles HTTP requests, while WebSocket middleware handles WebSocket upgrades. Both work together seamlessly.
-

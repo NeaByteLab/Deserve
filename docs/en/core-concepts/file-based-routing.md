@@ -22,6 +22,7 @@ routes/
 ## Core Rules
 
 ### 1. File Names Become Routes
+
 - `index.ts`, `index.js`, `index.mjs` → `/` (root)
 - `about.ts`, `about.js`, `about.mjs` → `/about`
 - `users.ts`, `users.js`, `users.cjs` → `/users`
@@ -29,10 +30,12 @@ routes/
 All supported extensions (`.ts`, `.js`, `.tsx`, `.jsx`, `.mjs`, `.cjs`) work identically.
 
 ### 2. Folders Create Nested Routes
+
 - `users/[id].ts` → `/users/:id`
 - `users/[id]/posts.ts` → `/users/:id/posts`
 
 ### 3. Dynamic Parameters Use `[param]` Syntax
+
 - `[id].ts` → `:id` parameter
 - `[userId].ts` → `:userId` parameter
 - `[postId].ts` → `:postId` parameter
@@ -40,8 +43,10 @@ All supported extensions (`.ts`, `.js`, `.tsx`, `.jsx`, `.mjs`, `.cjs`) work ide
 ### 4. HTTP Methods Are Exported Functions
 
 ```typescript
+// 1. Import Context type
 import type { Context } from '@neabyte/deserve'
 
+// 2. Export GET → route GET /; POST → POST /
 export function GET(ctx: Context): Response {
   return ctx.send.json({ users: [] })
 }
@@ -51,9 +56,8 @@ export async function POST(ctx: Context): Promise<Response> {
   return ctx.send.json({ message: 'User created', data })
 }
 
-// export function [method](ctx: Context): Response {
-// ... code here ...
-// }
+// 3. Other methods: PUT, PATCH, DELETE, etc. — export with same name
+// export function [method](ctx: Context): Response { ... }
 ```
 
 ### 5. Case-Sensitive URLs
@@ -68,9 +72,11 @@ URLs are case-sensitive following HTTP standards:
 Files can contain specific rules:
 
 - `a-z`, `A-Z`, `0-9` - Alphanumeric characters
-- `_` - Underscore
+- `_` - Underscore (do not prefix path segment — see below)
 - `-` - Dash
 - `.` - Dot
 - `~` - Tilde
 - `+` - Plus sign
 - `[` `]` - Brackets for dynamic parameters
+
+**Skipped segments:** Folders or file names that **start with** `_` or `@` are not registered as routes (e.g. `_layout.ts`, `@middleware.ts`, folder `_components/`). Useful for support files that are not endpoints.

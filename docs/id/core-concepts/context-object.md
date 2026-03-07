@@ -2,9 +2,9 @@
 
 Objek `Context` membungkus `Request` native dan menyediakan method yang nyaman untuk mengakses data request, mengatur response header, dan mengirim response.
 
-## Apa itu Context?
+## Apa Itu Context?
 
-Context adalah wrapper di sekitar objek `Request` native Deno. Alih-alih bekerja langsung dengan `Request` mentah, Anda menggunakan `Context` yang memberi Anda:
+Context adalah wrapper di sekitar objek `Request` native Deno. Setiap request yang masuk akan dibungkus menjadi satu objek Context yang sama dari middleware hingga route handler. Alih-alih bekerja langsung dengan `Request` mentah, Anda menggunakan `Context` yang memberi Anda:
 
 - **Lazy parsing** - Data di-parse hanya saat Anda mengaksesnya
 - **Method yang nyaman** - API sederhana untuk operasi umum
@@ -20,8 +20,10 @@ Context menghindari multiple parsing dan pemrosesan berulang selama lifecycle re
 Deserve membuat Context secara otomatis saat request datang:
 
 ```typescript
+// 1. Import tipe Context
 import type { Context } from '@neabyte/deserve'
 
+// 2. Handler menerima ctx (Deserve membuat otomatis per request)
 export function GET(ctx: Context): Response {
   return ctx.send.json({ message: 'Hello' })
 }
@@ -38,18 +40,18 @@ Context membungkus beberapa bagian kunci:
 
 ## Lazy Parsing
 
-Context menggunakan lazy parsing untuk performa:
+Context menggunakan lazy parsing untuk performa: data (query, body, cookie, header) hanya di-parse saat Anda memanggil method yang menggunakannya, lalu hasilnya di-cache untuk pemanggilan berikutnya.
 
 ```typescript
 export function GET(ctx: Context): Response {
-  // Query params belum di-parse
+  // 1. Query belum di-parse sampai ctx.query() dipanggil
+  const query = ctx.query()
+  // 2. Hasil di-cache; panggilan berikutnya pakai cache
 
-  const query = ctx.query() // Di-parse pada akses pertama
-  // Sekarang di-cache, panggilan selanjutnya mengembalikan nilai cache
+  // 3. Body di-parse pada akses pertama (berdasarkan Content-Type)
+  const body = await ctx.body()
 
-  const body = await ctx.body() // Di-parse pada akses pertama
-  // Di-parse berdasarkan Content-Type
-
+  // 4. Kirim gabungan query + body
   return ctx.send.json({ query, body })
 }
 ```
@@ -74,6 +76,7 @@ Kirim response menggunakan `ctx.send`:
 - `ctx.send.html()` - Konten HTML
 - `ctx.send.file()` - Unduhan file
 - `ctx.send.data()` - Unduhan data in-memory
+- `ctx.send.stream()` - Response stream (ReadableStream)
 - `ctx.send.redirect()` - Redirect
 - `ctx.send.custom()` - Response custom
 - `ctx.handleError()` - Error handling
@@ -82,8 +85,8 @@ Anda juga dapat menggunakan `ctx.redirect()` secara langsung sebagai method conv
 
 ```typescript
 export function GET(ctx: Context): Response {
+  // 1. Redirect 301 ke path baru (shorthand untuk ctx.send.redirect)
   return ctx.redirect('/new-location', 301)
-  // Setara dengan: ctx.send.redirect('/new-location', 301)
 }
 ```
 
@@ -93,18 +96,21 @@ Atur response header sebelum mengirim:
 
 ```typescript
 export function GET(ctx: Context): Response {
+  // 1. Atur header satu per satu
   ctx.setHeader('X-Custom', 'value')
   ctx.setHeader('Cache-Control', 'no-cache')
+  // 2. Kirim response (header ikut terkirim)
   return ctx.send.json({ data: 'test' })
 }
 ```
 
-### Mengatur Multiple Headers
+### Mengatur Banyak Header Sekaligus
 
 Gunakan `setHeaders()` untuk mengatur multiple headers sekaligus:
 
 ```typescript
 export function GET(ctx: Context): Response {
+  // 1. Atur banyak header sekaligus (object)
   ctx.setHeaders({
     'X-Custom': 'value',
     'Cache-Control': 'no-cache',
@@ -114,20 +120,22 @@ export function GET(ctx: Context): Response {
 }
 ```
 
-### Membaca Response Headers
+### Membaca Header Response
 
 Akses semua response headers yang telah diatur:
 
 ```typescript
 export function GET(ctx: Context): Response {
+  // 1. Set header
   ctx.setHeader('X-Custom', 'value')
   ctx.setHeader('Cache-Control', 'no-cache')
-  const headers = ctx.responseHeadersMap // { 'X-Custom': 'value', 'Cache-Control': 'no-cache' }
+  // 2. Baca map header yang sudah diatur
+  const headers = ctx.responseHeadersMap
   return ctx.send.json({ data: 'test' })
 }
 ```
 
-### URL dan Pathname
+### URL Dan Pathname
 
 Dapatkan informasi URL langsung:
 
@@ -136,8 +144,10 @@ Dapatkan informasi URL langsung:
 
 ```typescript
 export function GET(ctx: Context): Response {
-  const fullUrl = ctx.url // 'http://localhost:8000/api/users/123?sort=name'
-  const path = ctx.pathname // '/api/users/123'
+  // 1. URL lengkap (termasuk query string)
+  const fullUrl = ctx.url
+  // 2. Hanya pathname (tanpa origin + query)
+  const path = ctx.pathname
   return ctx.send.json({ path, fullUrl })
 }
 ```
@@ -149,32 +159,35 @@ Tangani error secara konsisten menggunakan `ctx.handleError()`:
 ```typescript
 export function GET(ctx: Context): Response {
   try {
+    // 1. Cek auth; jika gagal, trigger error handler (router.catch atau default)
     if (!isAuthorized) {
       return ctx.handleError(401, new Error('Unauthorized'))
     }
     return ctx.send.json({ data: 'success' })
   } catch (error) {
+    // 2. Tangkap error lain → kirim ke error handler
     return ctx.handleError(500, error as Error)
   }
 }
 ```
 
-### Cara Kerja
+### Cara Kerja handleError
 
 `ctx.handleError()` menghormati error handler global yang diatur dengan `router.catch()`:
 
 - **Jika `router.catch()` didefinisikan** - Menggunakan error handler kustom Anda
 - **Jika tidak ada error handler** - Mengembalikan response sederhana dengan status code
 
-### Gunakan di Middleware
+### Penggunaan Di Middleware
 
 Middleware dapat menggunakan `ctx.handleError()` untuk memicu error handling:
 
 ```typescript
+// 1. Di middleware, validasi request
 router.use(async (ctx, next) => {
   if (!isValid) {
+    // 2. Trigger error handling (router.catch dipanggil jika ada)
     return ctx.handleError(401, new Error('Unauthorized'))
-    // Ini akan menggunakan router.catch() jika didefinisikan
   }
   return await next()
 })
@@ -187,4 +200,3 @@ router.use(async (ctx, next) => {
 3. **Eksekusi middleware** - Context dilewatkan melalui middleware chain
 4. **Route handler** - Handler Anda menerima Context
 5. **Response dikirim** - Method Context digunakan untuk membangun Response
-

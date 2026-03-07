@@ -1,53 +1,50 @@
-# Beberapa Direktori
+# Beberapa Direktori Static
 
-Sajikan file statis dari beberapa direktori dengan konfigurasi berbeda per path.
+Anda bisa memanggil `router.static()` lebih dari sekali untuk menyajikan file dari beberapa folder. Setiap panggilan memetakan satu prefix URL ke satu folder dengan opsi (etag, cache) sendiri.
 
 ## Penggunaan Dasar
 
 Konfigurasi beberapa direktori statis:
 
 ```typescript
+// 1. Import Router
 import { Router } from '@neabyte/deserve'
 
+// 2. Buat router
 const router = new Router()
 
-// File statis admin panel
+// 3. Mount beberapa direktori: URL prefix → path, etag, cache
 router.static('/admin', {
   path: './admin/dist',
   etag: true,
   cacheControl: 86400
 })
-
-// Upload user
 router.static('/uploads', {
   path: './uploads',
   etag: false,
   cacheControl: 0
 })
-
-// Dokumentasi API
 router.static('/docs', {
   path: './docs/build',
   etag: true,
   cacheControl: 3600
 })
 
+// 4. Jalankan server
 await router.serve(8000)
 ```
 
 ## Pola Umum
 
-### Website + Admin Panel
+### Website Dan Admin Panel
 
 ```typescript
-// Website utama
+// 1. Root: public; 2. /admin: admin/dist
 router.static('/', {
   path: './public',
   etag: true,
   cacheControl: 86400
 })
-
-// Admin panel
 router.static('/admin', {
   path: './admin/dist',
   etag: true,
@@ -55,39 +52,39 @@ router.static('/admin', {
 })
 ```
 
-### Assets + Uploads
+### Assets Dan Uploads
 
 ```typescript
-// Static assets dengan cache jangka panjang
+// 1. Assets: cache panjang (1 tahun)
 router.static('/assets', {
   path: './public/assets',
   etag: true,
-  cacheControl: 31536000 // 1 tahun
+  cacheControl: 31536000
 })
 
-// User uploads tanpa cache
+// 2. Uploads: no cache
 router.static('/uploads', {
   path: './uploads',
   etag: false,
-  cacheControl: 0 // No cache
+  cacheControl: 0
 })
 ```
 
-### Development + Production
+### Development Dan Production
 
 ```typescript
-// File development - cache pendek
+// 1. Dev: no cache
 router.static('/dev', {
   path: './dev',
   etag: true,
-  cacheControl: 0 // No cache untuk dev
+  cacheControl: 0
 })
 
-// Production build - cache panjang
+// 2. Production: cache 1 tahun
 router.static('/', {
   path: './dist',
   etag: true,
-  cacheControl: 31536000 // 1 tahun
+  cacheControl: 31536000
 })
 ```
 
@@ -135,21 +132,21 @@ router.static('/', {
 ### Strategi Caching Berbeda
 
 ```typescript
-// Assets dengan cache jangka panjang (1 tahun)
+// 1. Assets: cache 1 tahun
 router.static('/assets', {
   path: './public/assets',
   etag: true,
   cacheControl: 31536000
 })
 
-// Cache menengah (1 hari)
+// 2. Images: cache 1 hari
 router.static('/images', {
   path: './public/images',
   etag: true,
   cacheControl: 86400
 })
 
-// No caching untuk upload dinamis
+// 3. Uploads: no cache
 router.static('/uploads', {
   path: './uploads',
   etag: false,
@@ -160,14 +157,14 @@ router.static('/uploads', {
 ### Pengaturan ETag Berbeda
 
 ```typescript
-// Aktifkan ETag untuk caching efisien
+// 1. ETag on: cocok untuk file jarang berubah
 router.static('/static', {
   path: './public',
   etag: true,
   cacheControl: 86400
 })
 
-// Nonaktifkan ETag untuk file yang sering berubah
+// 2. ETag off: file sering berubah
 router.static('/reports', {
   path: './reports',
   etag: false,
@@ -175,13 +172,14 @@ router.static('/reports', {
 })
 ```
 
-## Troubleshooting
+## Pemecahan Masalah
 
 ### Konflik Route
 
 Routes diregistrasi untuk semua HTTP methods (`GET`, `POST`, dll.). Pastikan static routes tidak konflik dengan dynamic routes:
 
 ```typescript
+// 1. Urutan mount: pastikan tidak konflik dengan dynamic routes
 router.static('/', { path: './public' })
 router.static('/admin', { path: './admin/dist' })
 ```
@@ -199,4 +197,3 @@ router.static('/admin', { path: './admin/dist' })
 - Set nilai `cacheControl` yang sesuai berdasarkan tipe konten
 - Static assets: cache panjang (31536000 = 1 tahun)
 - Konten dinamis: cache pendek atau no cache (0 atau 3600)
-

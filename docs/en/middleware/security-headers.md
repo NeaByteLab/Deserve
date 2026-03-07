@@ -9,16 +9,22 @@ Security Headers middleware sets HTTP security headers to protect your applicati
 Apply security headers middleware using Deserve's built-in middleware:
 
 ```typescript
+// 1. Import Router and Mware
 import { Router, Mware } from '@neabyte/deserve'
 
+// 2. Create router
 const router = new Router()
 
-router.use(Mware.securityHeaders({
-  xContentTypeOptions: 'nosniff',
-  xFrameOptions: 'DENY',
-  referrerPolicy: 'no-referrer'
-}))
+// 3. Apply security headers (per-header options)
+router.use(
+  Mware.securityHeaders({
+    xContentTypeOptions: 'nosniff',
+    xFrameOptions: 'DENY',
+    referrerPolicy: 'no-referrer'
+  })
+)
 
+// 4. Start server
 await router.serve(8000)
 ```
 
@@ -28,18 +34,24 @@ Apply different security headers to specific routes:
 
 ```typescript
 // Strict headers for admin routes
-router.use('/admin', Mware.securityHeaders({
-  xContentTypeOptions: 'nosniff',
-  xFrameOptions: 'DENY',
-  referrerPolicy: 'no-referrer',
-  strictTransportSecurity: 'max-age=31536000; includeSubDomains'
-}))
+router.use(
+  '/admin',
+  Mware.securityHeaders({
+    xContentTypeOptions: 'nosniff',
+    xFrameOptions: 'DENY',
+    referrerPolicy: 'no-referrer',
+    strictTransportSecurity: 'max-age=31536000; includeSubDomains'
+  })
+)
 
 // Less strict for public routes
-router.use('/api/public', Mware.securityHeaders({
-  xContentTypeOptions: 'nosniff',
-  xFrameOptions: 'SAMEORIGIN'
-}))
+router.use(
+  '/api/public',
+  Mware.securityHeaders({
+    xContentTypeOptions: 'nosniff',
+    xFrameOptions: 'SAMEORIGIN'
+  })
+)
 ```
 
 ## Configuration Options
@@ -59,7 +71,7 @@ contentSecurityPolicy: "default-src 'self'; script-src 'self' 'unsafe-inline'"
 Cross-Origin Embedder Policy (COEP):
 
 ```typescript
-crossOriginEmbedderPolicy: 'require-corp'  // or 'unsafe-none', 'credentialless'
+crossOriginEmbedderPolicy: 'require-corp' // or 'unsafe-none', 'credentialless'
 ```
 
 ### `crossOriginOpenerPolicy`
@@ -67,7 +79,7 @@ crossOriginEmbedderPolicy: 'require-corp'  // or 'unsafe-none', 'credentialless'
 Cross-Origin Opener Policy (COOP):
 
 ```typescript
-crossOriginOpenerPolicy: 'same-origin'  // or 'same-origin-allow-popups', 'unsafe-none'
+crossOriginOpenerPolicy: 'same-origin' // or 'same-origin-allow-popups', 'unsafe-none'
 ```
 
 ### `crossOriginResourcePolicy`
@@ -75,7 +87,7 @@ crossOriginOpenerPolicy: 'same-origin'  // or 'same-origin-allow-popups', 'unsaf
 Cross-Origin Resource Policy (CORP):
 
 ```typescript
-crossOriginResourcePolicy: 'same-origin'  // or 'same-site', 'cross-origin'
+crossOriginResourcePolicy: 'same-origin' // or 'same-site', 'cross-origin'
 ```
 
 ### `originAgentCluster`
@@ -91,7 +103,7 @@ originAgentCluster: '?1'
 Referrer Policy to control referrer information:
 
 ```typescript
-referrerPolicy: 'no-referrer'  // or 'strict-origin-when-cross-origin', etc.
+referrerPolicy: 'no-referrer' // or 'strict-origin-when-cross-origin', etc.
 ```
 
 ### `strictTransportSecurity`
@@ -115,7 +127,7 @@ xContentTypeOptions: 'nosniff'
 Controls DNS prefetching:
 
 ```typescript
-xDnsPrefetchControl: 'off'  // or 'on'
+xDnsPrefetchControl: 'off' // or 'on'
 ```
 
 ### `xDownloadOptions`
@@ -131,7 +143,7 @@ xDownloadOptions: 'noopen'
 Prevents clickjacking attacks:
 
 ```typescript
-xFrameOptions: 'DENY'  // or 'SAMEORIGIN', 'ALLOW-FROM uri'
+xFrameOptions: 'DENY' // or 'SAMEORIGIN', 'ALLOW-FROM uri'
 ```
 
 ### `xPermittedCrossDomainPolicies`
@@ -139,7 +151,7 @@ xFrameOptions: 'DENY'  // or 'SAMEORIGIN', 'ALLOW-FROM uri'
 Cross-domain policy for Flash:
 
 ```typescript
-xPermittedCrossDomainPolicies: 'none'  // or 'master-only', 'all'
+xPermittedCrossDomainPolicies: 'none' // or 'master-only', 'all'
 ```
 
 ### `xPoweredBy`
@@ -147,28 +159,34 @@ xPermittedCrossDomainPolicies: 'none'  // or 'master-only', 'all'
 Remove or customize X-Powered-By header:
 
 ```typescript
-xPoweredBy: false  // Remove header
-xPoweredBy: 'Custom'  // Set custom value
+xPoweredBy: false // Remove header
+xPoweredBy: 'Custom' // Set custom value
 ```
 
 ## Complete Example
 
 ```typescript
+// 1. Import Router and Mware
 import { Router, Mware } from '@neabyte/deserve'
 
+// 2. Create router
 const router = new Router({ routesDir: './routes' })
 
-router.use(Mware.securityHeaders({
-  xContentTypeOptions: 'nosniff',
-  xFrameOptions: 'DENY',
-  referrerPolicy: 'no-referrer',
-  xDnsPrefetchControl: 'off',
-  strictTransportSecurity: 'max-age=31536000; includeSubDomains',
-  contentSecurityPolicy: "default-src 'self'",
-  crossOriginOpenerPolicy: 'same-origin',
-  crossOriginResourcePolicy: 'same-origin'
-}))
+// 3. Apply security headers (all options)
+router.use(
+  Mware.securityHeaders({
+    xContentTypeOptions: 'nosniff',
+    xFrameOptions: 'DENY',
+    referrerPolicy: 'no-referrer',
+    xDnsPrefetchControl: 'off',
+    strictTransportSecurity: 'max-age=31536000; includeSubDomains',
+    contentSecurityPolicy: "default-src 'self'",
+    crossOriginOpenerPolicy: 'same-origin',
+    crossOriginResourcePolicy: 'same-origin'
+  })
+)
 
+// 4. Start server
 await router.serve(8000)
 ```
 

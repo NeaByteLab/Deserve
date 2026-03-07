@@ -2,44 +2,56 @@
 
 > **Referensi**: [OWASP Secure Headers Project](https://owasp.org/www-project-secure-headers/)
 
-Middleware Security Headers mengatur header keamanan HTTP untuk melindungi aplikasi Anda dari kerentanan umum seperti clickjacking, MIME type sniffing, dan serangan XSS.
+Middleware Security Headers menambah atau mengatur header HTTP yang disarankan untuk keamanan (mis. X-Frame-Options, CSP, HSTS). Berguna untuk mengurangi risiko clickjacking, MIME sniffing, dan serangan berbasis browser.
 
 ## Penggunaan Dasar
 
 Terapkan middleware security headers menggunakan middleware built-in Deserve:
 
 ```typescript
+// 1. Import Router dan Mware
 import { Router, Mware } from '@neabyte/deserve'
 
+// 2. Buat router
 const router = new Router()
 
-router.use(Mware.securityHeaders({
-  xContentTypeOptions: 'nosniff',
-  xFrameOptions: 'DENY',
-  referrerPolicy: 'no-referrer'
-}))
+// 3. Pasang security headers (opsi per-header)
+router.use(
+  Mware.securityHeaders({
+    xContentTypeOptions: 'nosniff',
+    xFrameOptions: 'DENY',
+    referrerPolicy: 'no-referrer'
+  })
+)
 
+// 4. Jalankan server
 await router.serve(8000)
 ```
 
-## Security Headers Spesifik Rute
+## Security Headers Per Rute
 
 Terapkan security headers berbeda pada route tertentu:
 
 ```typescript
-// Header ketat untuk route admin
-router.use('/admin', Mware.securityHeaders({
-  xContentTypeOptions: 'nosniff',
-  xFrameOptions: 'DENY',
-  referrerPolicy: 'no-referrer',
-  strictTransportSecurity: 'max-age=31536000; includeSubDomains'
-}))
+// 1. Admin: header ketat + HSTS
+router.use(
+  '/admin',
+  Mware.securityHeaders({
+    xContentTypeOptions: 'nosniff',
+    xFrameOptions: 'DENY',
+    referrerPolicy: 'no-referrer',
+    strictTransportSecurity: 'max-age=31536000; includeSubDomains'
+  })
+)
 
-// Kurang ketat untuk route publik
-router.use('/api/public', Mware.securityHeaders({
-  xContentTypeOptions: 'nosniff',
-  xFrameOptions: 'SAMEORIGIN'
-}))
+// 2. Route publik: lebih longgar
+router.use(
+  '/api/public',
+  Mware.securityHeaders({
+    xContentTypeOptions: 'nosniff',
+    xFrameOptions: 'SAMEORIGIN'
+  })
+)
 ```
 
 ## Opsi Konfigurasi
@@ -59,7 +71,7 @@ contentSecurityPolicy: "default-src 'self'; script-src 'self' 'unsafe-inline'"
 Cross-Origin Embedder Policy (COEP):
 
 ```typescript
-crossOriginEmbedderPolicy: 'require-corp'  // atau 'unsafe-none', 'credentialless'
+crossOriginEmbedderPolicy: 'require-corp' // atau 'unsafe-none', 'credentialless'
 ```
 
 ### `crossOriginOpenerPolicy`
@@ -67,7 +79,7 @@ crossOriginEmbedderPolicy: 'require-corp'  // atau 'unsafe-none', 'credentialles
 Cross-Origin Opener Policy (COOP):
 
 ```typescript
-crossOriginOpenerPolicy: 'same-origin'  // atau 'same-origin-allow-popups', 'unsafe-none'
+crossOriginOpenerPolicy: 'same-origin' // atau 'same-origin-allow-popups', 'unsafe-none'
 ```
 
 ### `crossOriginResourcePolicy`
@@ -75,7 +87,7 @@ crossOriginOpenerPolicy: 'same-origin'  // atau 'same-origin-allow-popups', 'uns
 Cross-Origin Resource Policy (CORP):
 
 ```typescript
-crossOriginResourcePolicy: 'same-origin'  // atau 'same-site', 'cross-origin'
+crossOriginResourcePolicy: 'same-origin' // atau 'same-site', 'cross-origin'
 ```
 
 ### `originAgentCluster`
@@ -91,7 +103,7 @@ originAgentCluster: '?1'
 Referrer Policy untuk mengontrol informasi referrer:
 
 ```typescript
-referrerPolicy: 'no-referrer'  // atau 'strict-origin-when-cross-origin', dll.
+referrerPolicy: 'no-referrer' // atau 'strict-origin-when-cross-origin', dll.
 ```
 
 ### `strictTransportSecurity`
@@ -115,7 +127,7 @@ xContentTypeOptions: 'nosniff'
 Mengontrol DNS prefetching:
 
 ```typescript
-xDnsPrefetchControl: 'off'  // atau 'on'
+xDnsPrefetchControl: 'off' // atau 'on'
 ```
 
 ### `xDownloadOptions`
@@ -131,7 +143,7 @@ xDownloadOptions: 'noopen'
 Mencegah serangan clickjacking:
 
 ```typescript
-xFrameOptions: 'DENY'  // atau 'SAMEORIGIN', 'ALLOW-FROM uri'
+xFrameOptions: 'DENY' // atau 'SAMEORIGIN', 'ALLOW-FROM uri'
 ```
 
 ### `xPermittedCrossDomainPolicies`
@@ -139,7 +151,7 @@ xFrameOptions: 'DENY'  // atau 'SAMEORIGIN', 'ALLOW-FROM uri'
 Kebijakan cross-domain untuk Flash:
 
 ```typescript
-xPermittedCrossDomainPolicies: 'none'  // atau 'master-only', 'all'
+xPermittedCrossDomainPolicies: 'none' // atau 'master-only', 'all'
 ```
 
 ### `xPoweredBy`
@@ -147,28 +159,34 @@ xPermittedCrossDomainPolicies: 'none'  // atau 'master-only', 'all'
 Hapus atau kustomisasi header X-Powered-By:
 
 ```typescript
-xPoweredBy: false  // Hapus header
-xPoweredBy: 'Custom'  // Atur nilai kustom
+xPoweredBy: false // Hapus header
+xPoweredBy: 'Custom' // Atur nilai kustom
 ```
 
 ## Contoh Lengkap
 
 ```typescript
+// 1. Import Router dan Mware
 import { Router, Mware } from '@neabyte/deserve'
 
+// 2. Buat router
 const router = new Router({ routesDir: './routes' })
 
-router.use(Mware.securityHeaders({
-  xContentTypeOptions: 'nosniff',
-  xFrameOptions: 'DENY',
-  referrerPolicy: 'no-referrer',
-  xDnsPrefetchControl: 'off',
-  strictTransportSecurity: 'max-age=31536000; includeSubDomains',
-  contentSecurityPolicy: "default-src 'self'",
-  crossOriginOpenerPolicy: 'same-origin',
-  crossOriginResourcePolicy: 'same-origin'
-}))
+// 3. Pasang security headers (semua opsi)
+router.use(
+  Mware.securityHeaders({
+    xContentTypeOptions: 'nosniff',
+    xFrameOptions: 'DENY',
+    referrerPolicy: 'no-referrer',
+    xDnsPrefetchControl: 'off',
+    strictTransportSecurity: 'max-age=31536000; includeSubDomains',
+    contentSecurityPolicy: "default-src 'self'",
+    crossOriginOpenerPolicy: 'same-origin',
+    crossOriginResourcePolicy: 'same-origin'
+  })
+)
 
+// 4. Jalankan server
 await router.serve(8000)
 ```
 
@@ -180,4 +198,3 @@ await router.serve(8000)
 - **X-Powered-By**: Set ke `false` untuk menghapus, string untuk menyesuaikan
 - **HSTS**: Hanya gunakan `strictTransportSecurity` pada server HTTPS
 - **CSP**: Content Security Policy bisa kompleks - uji dengan teliti
-

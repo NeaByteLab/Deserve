@@ -6,14 +6,15 @@
 
 ## Install Deserve
 
-Tambahkan Deserve ke proyek Anda menggunakan package manager Deno:
+Tambahkan Deserve ke proyek Anda menggunakan package manager Deno. Perintah ini menambah dependensi ke `deno.json` dan menghasilkan `deno.lock`:
 
 ```bash
+# 1. Tambah dependensi Deserve (update deno.json + deno.lock)
 deno add jsr:@neabyte/deserve
 ```
 
 Ini akan:
+
 - Menambahkan Deserve ke `deno.json` imports Anda
 - Membuat/memperbarui file `deno.lock`
 - Membuat Deserve tersedia untuk import
-

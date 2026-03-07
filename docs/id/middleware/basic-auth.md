@@ -9,10 +9,13 @@ Middleware HTTP Basic Authentication untuk melindungi route dengan autentikasi u
 Lindungi route dengan Basic Auth menggunakan `Mware.basicAuth()`:
 
 ```typescript
+// 1. Import Router dan Mware
 import { Router, Mware } from '@neabyte/deserve'
 
+// 2. Buat router
 const router = new Router()
 
+// 3. Pasang Basic Auth dengan daftar user (username + password)
 router.use(
   Mware.basicAuth({
     users: [
@@ -22,15 +25,16 @@ router.use(
   })
 )
 
-router.serve(8000)
+// 4. Jalankan server
+await router.serve(8000)
 ```
 
-## Proteksi Route-Spesifik
+## Proteksi Route Spesifik
 
 Terapkan Basic Auth hanya pada route tertentu:
 
 ```typescript
-// Lindungi hanya route /api
+// 1. Basic Auth hanya untuk path /api
 router.use(
   '/api',
   Mware.basicAuth({
@@ -38,7 +42,7 @@ router.use(
   })
 )
 
-// Lindungi route admin dengan kredensial berbeda
+// 2. Path /admin dengan user berbeda
 router.use(
   '/admin',
   Mware.basicAuth({
@@ -47,11 +51,12 @@ router.use(
 )
 ```
 
-## Multiple Users
+## Beberapa Pengguna
 
 Mendukung beberapa akun pengguna:
 
 ```typescript
+// 1. Array users: tiap item { username, password }
 router.use(
   Mware.basicAuth({
     users: [
@@ -68,6 +73,7 @@ router.use(
 Basic Auth secara otomatis menggunakan `router.catch()` jika didefinisikan:
 
 ```typescript
+// 1. Tangkap 401 (unauthorized) dari Basic Auth
 router.catch((ctx, { statusCode, error }) => {
   if (statusCode === 401) {
     return ctx.send.json(
@@ -80,10 +86,11 @@ router.catch((ctx, { statusCode, error }) => {
   }, { status: statusCode })
 })
 
+// 2. Pasang Basic Auth (401 akan masuk router.catch)
 router.use(Mware.basicAuth({ users: [...] }))
 ```
 
-## Autentikasi Browser
+## Autentikasi Di Browser
 
 Browser akan secara otomatis meminta kredensial saat mengakses route yang dilindungi:
 
@@ -91,4 +98,3 @@ Browser akan secara otomatis meminta kredensial saat mengakses route yang dilind
 Username: admin
 Password: ******
 ```
-

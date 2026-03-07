@@ -2,15 +2,17 @@
 
 > **Reference**: [Deno Request API Documentation](https://docs.deno.com/deploy/classic/api/runtime-request/)
 
-Deserve provides a `Context` object that wraps native `Request` with methods for accessing query parameters, route parameters, headers, cookies, and body data.
+Deserve provides a `Context` object that wraps native `Request`. Through Context you access query, route params, headers, cookies, and body without manual parsing.
 
 ## Basic Usage
 
-Import `Context` type and use it in your route handlers:
+Import the `Context` type and use it in your route handlers:
 
 ```typescript
+// 1. Import Context type
 import type { Context } from '@neabyte/deserve'
 
+// 2. ctx.query() = all query params (object)
 export function GET(ctx: Context): Response {
   const query = ctx.query()
   return ctx.send.json({ query })
@@ -22,10 +24,12 @@ export function GET(ctx: Context): Response {
 Access URL query parameters with automatic parsing:
 
 ### Single Query Parameters
+
 ```typescript
 // URL: /search?q=deno&limit=10
+// 1. ctx.query() returns object; duplicate key = last value
 export function GET(ctx: Context): Response {
-  const query = ctx.query() // { q: 'deno', limit: '10' }
+  const query = ctx.query()
   return ctx.send.json({
     search: query.q,
     limit: parseInt(query.limit || '10')
@@ -46,21 +50,25 @@ Use `queries()` when you need **all values** for a specific key:
 
 ```typescript
 // URL: /search?tags=deno&tags=typescript&tags=javascript
+// 1. ctx.queries('key') = array of all values for that key
 export function GET(ctx: Context): Response {
-  const tags = ctx.queries('tags') // ['deno', 'typescript', 'javascript']
+  const tags = ctx.queries('tags')
   return ctx.send.json({ tags })
 }
 ```
 
-**Use cases:**
-- **`query()`** - Get single values or last value when duplicates exist
-- **`queries()`** - Get all values for arrays/multi-select parameters
+**When to use which:**
+
+- **`query()`** — Get single value or last value when duplicates exist
+- **`queries()`** — Get all values for array or multi-select parameters
 
 ### Complete Query Object
+
 ```typescript
 // URL: /api/users?page=1&limit=20&sort=name&order=asc
+// 1. Parse query then apply defaults if empty
 export function GET(ctx: Context): Response {
-  const query = ctx.query() // { page: '1', limit: '20', sort: 'name', order: 'asc' }
+  const query = ctx.query()
   return ctx.send.json({
     page: parseInt(query.page || '1'),
     limit: parseInt(query.limit || '10'),
@@ -75,32 +83,35 @@ export function GET(ctx: Context): Response {
 Access dynamic route parameters from file-based routing:
 
 ### Single Parameter
+
 ```typescript
-// routes/users/[id].ts
-// URL: /users/123
+// routes/users/[id].ts — URL: /users/123
+// 1. ctx.param('id') = dynamic segment value
 export function GET(ctx: Context): Response {
-  const id = ctx.param('id') // '123'
+  const id = ctx.param('id')
   return ctx.send.json({ userId: id })
 }
 ```
 
 ### Multiple Parameters
+
 ```typescript
-// routes/users/[id]/posts/[postId].ts
-// URL: /users/123/posts/456
+// routes/users/[id]/posts/[postId].ts — URL: /users/123/posts/456
+// 1. One ctx.param per dynamic segment
 export function GET(ctx: Context): Response {
   const id = ctx.param('id')
-  const postId = ctx.param('postId') // id='123', postId='456'
+  const postId = ctx.param('postId')
   return ctx.send.json({ userId: id, postId })
 }
 ```
 
 ### All Parameters
+
 ```typescript
-// routes/api/v1/users/[userId]/posts/[postId]/comments/[commentId].ts
-// URL: /api/v1/users/123/posts/456/comments/789
+// routes/.../comments/[commentId].ts — URL: .../123/posts/456/comments/789
+// 1. ctx.params() = object of all route params
 export function GET(ctx: Context): Response {
-  const params = ctx.params() // { userId: '123', postId: '456', commentId: '789' }
+  const params = ctx.params()
   return ctx.send.json(params)
 }
 ```
@@ -108,6 +119,7 @@ export function GET(ctx: Context): Response {
 ## Method Reference
 
 #### `ctx.query(key?)`
+
 Returns all query parameters as an object. **Returns the last value for duplicate keys.**
 
 ```typescript
@@ -122,6 +134,7 @@ const q = ctx.query('q') // Returns: 'deno'
 ```
 
 #### `ctx.queries(key)`
+
 Returns **all values** for a specific query parameter key as an array.
 
 ```typescript
@@ -134,6 +147,7 @@ const tags = ctx.queries('tags') // ['deno', 'typescript'] ← all values
 ```
 
 #### `ctx.param(key)`
+
 Returns a single route parameter value.
 
 ```typescript
@@ -143,6 +157,7 @@ const id = ctx.param('id') // '123'
 ```
 
 #### `ctx.params()`
+
 Returns all route parameters as an object.
 
 ```typescript
@@ -152,6 +167,7 @@ const params = ctx.params() // { id: '123', postId: '456' }
 ```
 
 #### `ctx.body()`
+
 Parse request body automatically (JSON, form-data, or text).
 
 ```typescript
@@ -163,6 +179,7 @@ export async function POST(ctx: Context): Promise<Response> {
 ```
 
 #### `ctx.json()`
+
 Parse request body as JSON.
 
 ```typescript
@@ -174,6 +191,7 @@ export async function POST(ctx: Context): Promise<Response> {
 ```
 
 #### `ctx.formData()`
+
 Parse request body as form data. Returns a `FormData` object.
 
 ```typescript
@@ -186,6 +204,7 @@ export async function POST(ctx: Context): Promise<Response> {
 ```
 
 #### `ctx.text()`
+
 Get request body as raw text.
 
 ```typescript
@@ -197,6 +216,7 @@ export async function POST(ctx: Context): Promise<Response> {
 ```
 
 #### `ctx.arrayBuffer()`
+
 Read request body as ArrayBuffer. Useful for binary data processing.
 
 ```typescript
@@ -209,6 +229,7 @@ export async function POST(ctx: Context): Promise<Response> {
 ```
 
 #### `ctx.blob()`
+
 Read request body as Blob. Useful for file uploads and binary data handling.
 
 ```typescript
@@ -224,6 +245,7 @@ export async function POST(ctx: Context): Promise<Response> {
 ```
 
 #### `ctx.header(key?)`
+
 Get header value by key or all headers (case-insensitive).
 
 ```typescript
@@ -237,6 +259,7 @@ const headers = ctx.header()
 ```
 
 #### `ctx.headers`
+
 Get raw Headers object for direct access.
 
 ```typescript
@@ -245,6 +268,7 @@ const contentType = ctx.headers.get('Content-Type')
 ```
 
 #### `ctx.cookie(key?)`
+
 Get cookie value by key or all cookies.
 
 ```typescript

@@ -9,16 +9,19 @@ Konfigurasi server Deserve Anda dengan hostname binding dan graceful shutdown.
 Cara paling sederhana untuk memulai server:
 
 ```typescript
+// 1. Import Router
 import { Router } from '@neabyte/deserve'
 
+// 2. Buat router
 const router = new Router()
 
+// 3. Jalankan server di port 8000 (bind 0.0.0.0)
 await router.serve(8000)
 ```
 
 Ini memulai server Anda di `0.0.0.0:8000` (semua interface).
 
-## Method Serve yang Diperluas
+## Method Serve Yang Diperluas
 
 Method `serve` Deserve yang diperluas mendukung tiga parameter:
 
@@ -31,26 +34,26 @@ async serve(port: number, hostname?: string, signal?: AbortSignal): Promise<void
 
 ## Hostname Binding
 
-### Bind ke Interface Spesifik
+### Bind Ke Interface Spesifik
 
 ```typescript
-// Bind ke localhost saja
+// 1. Localhost saja (development)
 await router.serve(8000, '127.0.0.1')
 
-// Bind ke semua interface (default)
+// 2. Semua interface (default)
 await router.serve(8000, '0.0.0.0')
 
-// Bind ke network interface spesifik
+// 3. IP spesifik
 await router.serve(8000, '192.168.1.100')
 ```
 
-### Development vs Production
+### Development Vs Production
 
 ```typescript
-// Development - localhost saja
+// 1. Development: hanya localhost
 await router.serve(8000, '127.0.0.1')
 
-// Production - semua interface
+// 2. Production: listen di semua interface
 await router.serve(8000, '0.0.0.0')
 ```
 
@@ -59,42 +62,44 @@ await router.serve(8000, '0.0.0.0')
 Gunakan `AbortSignal` untuk graceful server shutdown:
 
 ```typescript
+// 1. Buat router dan AbortController
 import { Router } from '@neabyte/deserve'
 
 const router = new Router()
 const ac = new AbortController()
 
+// 2. Serve dengan signal; panggil ac.abort() untuk shutdown
 await router.serve(8000, '127.0.0.1', ac.signal)
 
 ac.abort()
 ```
 
-### Penanganan Process Signal
+### Penanganan Sinyal Process
 
 ```typescript
+// 1. Buat router dan AbortController
 import { Router } from '@neabyte/deserve'
 
 const router = new Router()
 const ac = new AbortController()
 
-// Handle SIGINT (Ctrl+C)
+// 2. Daftarkan signal handlers
 Deno.addSignalListener('SIGINT', async () => {
   ac.abort()
   Deno.exit(0)
 })
-
-// Handle SIGTERM (Kill Signal)
 Deno.addSignalListener('SIGTERM', async () => {
   ac.abort()
   Deno.exit(0)
 })
 
+// 3. Jalankan server dengan signal; panggil ac.abort() untuk shutdown
 await router.serve(8000, '127.0.0.1', ac.signal)
 ```
 
-## Testing Configuration
+## Pengujian Konfigurasi
 
-### Test Basic Server
+### Uji Server Dasar
 
 ```bash
 # Start server
@@ -104,7 +109,7 @@ deno run --allow-net --allow-read main.ts
 curl http://localhost:8000
 ```
 
-### Test Hostname Binding
+### Uji Hostname Binding
 
 ```bash
 # Bind ke localhost saja
@@ -117,7 +122,7 @@ curl http://127.0.0.1:8000
 curl http://0.0.0.0:8000
 ```
 
-### Test Graceful Shutdown
+### Uji Graceful Shutdown
 
 ```bash
 # Start server
@@ -126,4 +131,3 @@ deno run --allow-net --allow-read main.ts
 # Kirim SIGINT (Ctrl+C)
 # Server seharusnya shutdown dengan graceful
 ```
-

@@ -7,20 +7,25 @@ Serve static files (HTML, CSS, JS, images) using the `static()` method.
 Serve static files from a directory:
 
 ```typescript
+// 1. Import Router
 import { Router } from '@neabyte/deserve'
 
+// 2. Create router
 const router = new Router()
 
+// 3. Mount static: URL /static → folder ./public, plus ETag and cache
 router.static('/static', {
   path: './public',
   etag: true,
   cacheControl: 86400
 })
 
+// 4. Start server
 await router.serve(8000)
 ```
 
 This serves files from the `public/` directory at the `/static` URL path:
+
 - `GET /static/index.html` → serves `public/index.html`
 - `GET /static/css/style.css` → serves `public/css/style.css`
 - `GET /static/js/app.js` → serves `public/js/app.js`
@@ -42,6 +47,7 @@ When `urlPath` is `/`, Deserve creates a `/**` pattern. For path resolution, Des
 - To serve nested files correctly, Deserve extracts the full path from `ctx.pathname` and removes the leading `/` to get the relative file path
 
 **Example:**
+
 - Request: `GET /styles/ui.css`
 - Pattern: `/**` matches from configurable path
 - File path: Extracted from `ctx.pathname` → `"styles/ui.css"`
@@ -52,6 +58,7 @@ When `urlPath` is `/`, Deserve creates a `/**` pattern. For path resolution, Des
 The `static()` method accepts a `ServeOptions` object:
 
 ### `path`
+
 File system directory path to serve files from:
 
 ```typescript
@@ -65,6 +72,7 @@ router.static('/assets', {
 ```
 
 ### `etag`
+
 Enable ETag generation for caching. Uses SHA-256 algorithm:
 
 ```typescript
@@ -77,6 +85,7 @@ router.static('/static', {
 When enabled, Deserve generates ETag headers from content hash. If the client sends an `If-None-Match` header matching ETag, a `304 Not Modified` response is returned.
 
 ### `cacheControl`
+
 Set Cache-Control header max-age in seconds:
 
 ```typescript
@@ -94,17 +103,20 @@ router.static('/assets', {
 ## Troubleshooting
 
 ### Files Not Found
+
 - Check `path` is correct (relative to current working directory or absolute)
 - Verify file permissions
 - Ensure files exist in the directory
 - Check that the URL path matches the route pattern (`/static/file.css` for `router.static('/static', ...)`)
 
 ### 404 Errors
+
 - Verify the static route is registered before calling `router.serve()`
 - Check that file paths match the URL structure
 - Ensure the file exists at the resolved path
 
 ### Caching Issues
+
 - Verify `etag` and `cacheControl` are set correctly
 - Check browser DevTools Network tab for ETag and Cache-Control headers
 - Clear browser cache for testing

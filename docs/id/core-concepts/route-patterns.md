@@ -2,7 +2,7 @@
 
 > **Referensi**: [Fast Router GitHub Repository](https://github.com/NeaByteLab/Fast-Router)
 
-Deserve menggunakan **Fast Router** - router berbasis radix tree berperforma tinggi untuk pencocokan rute dan ekstraksi parameter yang cepat.
+Deserve menggunakan **Fast Router** (radix tree) untuk pencocokan rute dan ekstraksi parameter. Path file di folder `routes` diubah menjadi pola; segmen dinamis memakai `[param]` yang menjadi `:param` di level router.
 
 ## Pencocokan Pola
 
@@ -21,11 +21,13 @@ Deserve mengonversi path file menjadi pola rute. **FastRouter** menangani pencoc
 Gunakan sintaks `[param]` untuk segmen rute dinamis:
 
 ### Parameter Tunggal
+
 ```typescript
 // File: routes/users/[id].ts
+// 1. Import Context
 import type { Context } from '@neabyte/deserve'
 
-// GET /users/:id
+// 2. GET /users/:id — ambil param dari ctx.param('id')
 export function GET(ctx: Context): Response {
   const id = ctx.param('id')
   return ctx.send.json({ userId: id })
@@ -33,11 +35,12 @@ export function GET(ctx: Context): Response {
 ```
 
 ### Parameter Ganda
+
 ```typescript
 // File: routes/users/[id]/posts/[postId].ts
+// 1. Satu segmen satu ctx.param('nama')
 import type { Context } from '@neabyte/deserve'
 
-// GET /users/:id/posts/:postId
 export function GET(ctx: Context): Response {
   const id = ctx.param('id')
   const postId = ctx.param('postId')
@@ -46,11 +49,12 @@ export function GET(ctx: Context): Response {
 ```
 
 ### Parameter Bersarang
+
 ```typescript
 // File: routes/api/v1/users/[userId]/posts/[postId]/comments/[commentId].ts
+// 1. Setiap [param] di path → ctx.param('param')
 import type { Context } from '@neabyte/deserve'
 
-// GET /api/v1/users/:userId/posts/:postId/comments/:commentId
 export function GET(ctx: Context): Response {
   const userId = ctx.param('userId')
   const postId = ctx.param('postId')
@@ -62,6 +66,7 @@ export function GET(ctx: Context): Response {
 ## Contoh Pola
 
 ### Manajemen Pengguna
+
 ```
 routes/
 ├── users.ts                       → /users
@@ -72,6 +77,7 @@ routes/
 ```
 
 ### API Versioning
+
 ```
 routes/
 ├── api/
@@ -82,6 +88,7 @@ routes/
 ```
 
 ### Sistem Blog
+
 ```
 routes/
 ├── blog/
@@ -98,9 +105,9 @@ Ekstrak dan validasi parameter di route handler Anda:
 
 ```typescript
 // File: routes/users/[id].ts
+// 1. Ambil param lalu validasi; jika invalid → 400
 import type { Context } from '@neabyte/deserve'
 
-// GET /users/:id
 export function GET(ctx: Context): Response {
   const id = ctx.param('id')
   if (!id || !/^\d+$/.test(id)) {
@@ -109,4 +116,3 @@ export function GET(ctx: Context): Response {
   return ctx.send.json({ userId: parseInt(id) })
 }
 ```
-

@@ -5,9 +5,11 @@ The `ctx.send.json()` method creates JSON responses.
 ## Basic Usage
 
 ```typescript
+// 1. Import Context type
 import type { Context } from '@neabyte/deserve'
 
 export function GET(ctx: Context): Response {
+  // 2. Send object as JSON (Content-Type auto application/json)
   return ctx.send.json({ message: 'Hello World' })
 }
 ```
@@ -16,10 +18,13 @@ export function GET(ctx: Context): Response {
 
 ```typescript
 export async function POST(ctx: Context): Promise<Response> {
+  // 1. Read request body
   const data = await ctx.body()
-  return ctx.send.json({
-    message: 'Created successfully', data
-  }, { status: 201 })
+  // 2. Send JSON with status 201 (Created)
+  return ctx.send.json(
+    { message: 'Created successfully', data },
+    { status: 201 }
+  )
 }
 ```
 
@@ -27,7 +32,9 @@ export async function POST(ctx: Context): Promise<Response> {
 
 ```typescript
 export function GET(ctx: Context): Response {
+  // 1. Set header before send
   ctx.setHeader('Cache-Control', 'no-cache')
+  // 2. Send JSON (header sent with response)
   return ctx.send.json({ data: 'sensitive' })
 }
 ```
@@ -36,6 +43,7 @@ export function GET(ctx: Context): Response {
 
 ```typescript
 export function GET(ctx: Context): Response {
+  // 1. Prepare data (from DB, API, etc.)
   const data = {
     users: [
       { id: 1, name: 'Alice', email: 'alice@example.com' },
@@ -48,6 +56,7 @@ export function GET(ctx: Context): Response {
     },
     timestamp: new Date().toISOString()
   }
+  // 2. Send as JSON
   return ctx.send.json(data)
 }
 ```
@@ -56,8 +65,10 @@ export function GET(ctx: Context): Response {
 
 ```typescript
 export function GET(ctx: Context): Response {
-  return ctx.send.json({
-    error: 'User not found'
-  }, { status: 404 })
+  // 1. Send error message with status 404
+  return ctx.send.json(
+    { error: 'User not found' },
+    { status: 404 }
+  )
 }
 ```

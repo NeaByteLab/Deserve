@@ -4,7 +4,7 @@ The `Context` object wraps the native `Request` and provides convenient methods 
 
 ## What is Context?
 
-Context is a wrapper around Deno's native `Request` object. Instead of working with raw `Request` directly, you use `Context` which gives you:
+Context is a wrapper around Deno's native `Request` object. Every incoming request is wrapped in one Context that flows from middleware to route handler. Instead of working with raw `Request` directly, you use `Context` which gives you:
 
 - **Lazy parsing** - Data is parsed only when you access it
 - **Convenient methods** - Simple APIs for common operations
@@ -20,8 +20,10 @@ Context avoids multiple parsing and repeated processing during the request lifec
 Deserve creates Context automatically when requests arrive:
 
 ```typescript
+// 1. Import Context type
 import type { Context } from '@neabyte/deserve'
 
+// 2. Handler receives ctx (Deserve creates it per request)
 export function GET(ctx: Context): Response {
   return ctx.send.json({ message: 'Hello' })
 }
@@ -38,18 +40,18 @@ Context wraps several key pieces:
 
 ## Lazy Parsing
 
-Context uses lazy parsing for performance:
+Context uses lazy parsing for performance: data (query, body, cookie, header) is parsed only when you call the method that uses it, then the result is cached for later calls.
 
 ```typescript
 export function GET(ctx: Context): Response {
-  // Query params aren't parsed yet
+  // 1. Query not parsed until ctx.query() is called
+  const query = ctx.query()
+  // 2. Result cached; next call uses cache
 
-  const query = ctx.query() // Parsed on first access
-  // Now cached, subsequent calls return cached value
+  // 3. Body parsed on first access (based on Content-Type)
+  const body = await ctx.body()
 
-  const body = await ctx.body() // Parsed on first access
-  // Parsed based on Content-Type
-
+  // 4. Send combined query + body
   return ctx.send.json({ query, body })
 }
 ```
@@ -69,21 +71,22 @@ Access request data through Context methods:
 
 Send responses using `ctx.send`:
 
-- `ctx.send.json()` - JSON responses
+- `ctx.send.json()` - JSON response
 - `ctx.send.text()` - Plain text
 - `ctx.send.html()` - HTML content
-- `ctx.send.file()` - File downloads
-- `ctx.send.data()` - In-memory data downloads
-- `ctx.send.redirect()` - Redirects
-- `ctx.send.custom()` - Custom responses
+- `ctx.send.file()` - File download
+- `ctx.send.data()` - In-memory data download
+- `ctx.send.stream()` - Stream response (ReadableStream)
+- `ctx.send.redirect()` - Redirect
+- `ctx.send.custom()` - Custom response
 - `ctx.handleError()` - Error handling
 
 You can also use `ctx.redirect()` directly as a convenience method:
 
 ```typescript
 export function GET(ctx: Context): Response {
+  // 1. Redirect 301 to new path (shorthand for ctx.send.redirect)
   return ctx.redirect('/new-location', 301)
-  // Equivalent to: ctx.send.redirect('/new-location', 301)
 }
 ```
 
@@ -187,4 +190,3 @@ router.use(async (ctx, next) => {
 3. **Middleware execution** - Context passed through middleware chain
 4. **Route handler** - Your handler receives Context
 5. **Response sent** - Context methods used to build Response
-
