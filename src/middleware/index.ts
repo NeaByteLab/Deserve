@@ -3,8 +3,8 @@ import * as Loader from '@app/middleware/Loaders.ts'
 import MwareUtils from '@app/middleware/Utils.ts'
 
 /** Middleware wrapper with try/catch and label. */
-export const wrapMiddleware: (label: string, middleware: Middleware) => Middleware =
-  MwareUtils.wrapMiddleware.bind(MwareUtils)
+export const wrapMiddleware: (label: string, middleware: Middleware) => Middleware = MwareUtils
+  .wrapMiddleware.bind(MwareUtils)
 
 /** Prebuilt middleware factories for common use. */
 export const Mware = {
