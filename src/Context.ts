@@ -263,8 +263,10 @@ export class Context {
 
   /** Helpers to send JSON, HTML, file, redirect, etc. */
   get send(): Types.SendHelpers {
-    return ResponseHelpers.create(this.responseHeaders, (url, status, extraHeaders) =>
-      Redirect.buildResponse(this.req.url, this.responseHeaders, url, status, extraHeaders)
+    return ResponseHelpers.create(
+      this.responseHeaders,
+      (url, status, extraHeaders) =>
+        Redirect.buildResponse(this.req.url, this.responseHeaders, url, status, extraHeaders)
     )
   }
 
@@ -337,7 +339,7 @@ export class Context {
     const result: Record<string, string> = {}
     const cookieHeader = this.req.headers.get('cookie')
     if (cookieHeader) {
-      cookieHeader.split(';').forEach(cookiePart => {
+      cookieHeader.split(';').forEach((cookiePart) => {
         const [key, ...valueParts] = cookiePart.trim().split('=')
         if (key) {
           result[key] = valueParts.join('=')

@@ -202,7 +202,7 @@ export class Handler {
    * @returns Response from middleware or undefined to continue
    */
   private async executeMiddlewares(ctx: Context, pathname: string): Promise<Response | undefined> {
-    const applicableMiddlewares = this.entryMiddleware.filter(middlewareEntry => {
+    const applicableMiddlewares = this.entryMiddleware.filter((middlewareEntry) => {
       if (middlewareEntry.path === '' || middlewareEntry.path === '*') {
         return true
       }
@@ -210,7 +210,7 @@ export class Handler {
         const pathPrefix = middlewareEntry.path.slice(0, -3)
         return pathname.startsWith(pathPrefix)
       }
-      return pathname === middlewareEntry.path
+      return pathname === middlewareEntry.path || pathname.startsWith(middlewareEntry.path + '/')
     })
     let middlewareIndex = 0
     const next = async (): Promise<Response | undefined> => {
