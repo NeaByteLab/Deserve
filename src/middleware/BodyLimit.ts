@@ -25,7 +25,6 @@ export default class BodyLimit {
         if (contentLength > maxSize) {
           return await ctx.handleError(413, new Error('Request entity too large'))
         }
-        return await next()
       }
       const body = ctx.request.body
       if (body) {

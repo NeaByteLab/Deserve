@@ -4,15 +4,16 @@ Konfigurasi direktori routes Deserve agar sesuai dengan struktur proyek Anda.
 
 ## Opsi Router
 
-Konstruktor `Router` menerima opsi konfigurasi. Opsi utama yang sering dipakai adalah `routesDir` (direktori tempat file route Anda):
+Konstruktor `Router` menerima opsi konfigurasi. Opsi utama: `routesDir` (direktori file route), `requestTimeoutMs` (timeout request), serta opsional `errorResponseBuilder` / `staticHandler`.
 
 ```typescript
 // 1. Import Router
 import { Router } from '@neabyte/deserve'
 
-// 2. Beri routesDir custom (default: ./routes)
+// 2. routesDir custom dan opsional request timeout (default: ./routes, tanpa timeout)
 const router = new Router({
-  routesDir: 'src/routes'
+  routesDir: 'src/routes',
+  requestTimeoutMs: 30_000
 })
 ```
 
@@ -29,6 +30,17 @@ const router = new Router()
 // 2. Custom: routes dari ./src/api
 const router = new Router({
   routesDir: 'src/api'
+})
+```
+
+### `requestTimeoutMs`
+
+Opsi timeout dalam milidetik untuk seluruh request (middleware + route handler). Jika terlampaui, server merespons **503 Service Unavailable**. Omit atau biarkan undefined untuk tanpa timeout.
+
+```typescript
+const router = new Router({
+  routesDir: 'routes',
+  requestTimeoutMs: 30_000
 })
 ```
 

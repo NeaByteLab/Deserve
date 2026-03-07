@@ -4,15 +4,16 @@ Configure Deserve routes directory to match your project structure.
 
 ## Router Options
 
-The `Router` constructor accepts configuration options. The main one is `routesDir` (directory for your route files):
+The `Router` constructor accepts configuration options. Main options: `routesDir` (directory for route files), `requestTimeoutMs` (request timeout), and optional `errorResponseBuilder` / `staticHandler`.
 
 ```typescript
 // 1. Import Router
 import { Router } from '@neabyte/deserve'
 
-// 2. Set custom routesDir (default: ./routes)
+// 2. Set custom routesDir and optional request timeout (default: ./routes, no timeout)
 const router = new Router({
-  routesDir: 'src/routes'
+  routesDir: 'src/routes',
+  requestTimeoutMs: 30_000
 })
 ```
 
@@ -29,6 +30,17 @@ const router = new Router()
 // 2. Custom: routes from ./src/api
 const router = new Router({
   routesDir: 'src/api'
+})
+```
+
+### `requestTimeoutMs`
+
+Optional timeout in milliseconds for the full request (middleware + route handler). If exceeded, the server responds with **503 Service Unavailable**. Omit or leave undefined for no timeout.
+
+```typescript
+const router = new Router({
+  routesDir: 'routes',
+  requestTimeoutMs: 30_000
 })
 ```
 

@@ -2,7 +2,7 @@
 
 > **Referensi**: [RFC 7230 HTTP/1.1 Message Syntax and Routing](https://datatracker.ietf.org/doc/html/rfc7230#section-3.3.1)
 
-Middleware Body Limit menegakkan ukuran body request maksimum dengan memeriksa header `Content-Length`. Mencegah payload besar yang dapat membebani server Anda.
+Middleware Body Limit menegakkan ukuran body request maksimum. Jika body ada, stream body selalu dibungkus dengan limiter sehingga ukuran ditegakkan terlepas dari header. Mencegah payload besar yang dapat membebani server Anda.
 
 ## Penggunaan Dasar
 
@@ -60,20 +60,16 @@ limit: 10 * 1024 * 1024
 
 ## Cara Kerja Body Limit
 
-Middleware memeriksa header `Content-Length` sebelum body dibaca:
+Jika request punya body, middleware membungkus stream body dengan byte limiter sehingga ukuran ditegakkan saat body dibaca (bukan hanya lewat header):
 
-1. **Request GET/HEAD** - Secara otomatis dilewati (tidak ada body)
-2. **Content-Length ada** - Memvalidasi terhadap limit
-3. **Transfer-Encoding ada** - Melewati (chunked encoding)
-4. **Tidak ada header** - Melewati (ukuran tidak diketahui)
+1. **GET/HEAD atau tanpa body** - Tidak dibungkus; request dilewati.
+2. **Body ada** - Stream body selalu dibungkus dengan limiter. Jika klien mengirim byte lebih dari `limit`, pembacaan dihentikan dan middleware merespons **413 Request Entity Too Large**.
+3. **Content-Length** - Jika ada dan di atas `limit`, middleware bisa menolak request sebelum membaca body (early reject).
 
-### Kepatuhan RFC 7230
+### RFC 7230
 
-Middleware mengikuti RFC 7230:
-
-- Jika `Transfer-Encoding` dan `Content-Length` keduanya ada, `Transfer-Encoding` memiliki prioritas dan ukuran body tidak divalidasi
-- Hanya memvalidasi `Content-Length` ketika `Transfer-Encoding` tidak ada
-- Menangani chunked encoding dengan melewati (tidak dapat memeriksa ukuran sebelumnya)
+- Jika `Transfer-Encoding` dan `Content-Length` keduanya ada, `Transfer-Encoding` diutamakan.
+- Body chunked atau ukuran tidak diketahui tetap dibatasi oleh stream yang dibungkus; hanya byte yang dibaca yang dihitung ke limit.
 
 ## Contoh Lengkap
 

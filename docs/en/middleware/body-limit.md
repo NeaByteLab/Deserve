@@ -2,7 +2,7 @@
 
 > **Reference**: [RFC 7230 HTTP/1.1 Message Syntax and Routing](https://datatracker.ietf.org/doc/html/rfc7230#section-3.3.1)
 
-Body Limit middleware enforces maximum request body size by checking the `Content-Length` header. Prevents large payloads from overwhelming your server.
+Body Limit middleware enforces maximum request body size. When a body is present, the body stream is always wrapped with a limiter so size is enforced regardless of headers. Prevents large payloads from overwhelming your server.
 
 ## Basic Usage
 
@@ -60,20 +60,16 @@ limit: 10 * 1024 * 1024
 
 ## How It Works
 
-The middleware checks the `Content-Length` header before the body is read:
+When a request has a body, the middleware wraps the body stream with a byte limiter so the size is enforced as the body is read (not only via headers):
 
-1. **GET/HEAD requests** - Automatically skipped (no body)
-2. **Content-Length present** - Validates against limit
-3. **Transfer-Encoding present** - Passes through (chunked encoding)
-4. **No headers** - Passes through (size unknown)
+1. **GET/HEAD or no body** - No wrapping; request passes through.
+2. **Body present** - Body stream is always wrapped with the limiter. If the client sends more bytes than `limit`, reading stops and the middleware responds with **413 Request Entity Too Large**.
+3. **Content-Length** - When present and above `limit`, the middleware may reject the request before reading the body (early reject).
 
-### RFC 7230 Compliance
+### RFC 7230
 
-The middleware follows RFC 7230:
-
-- If both `Transfer-Encoding` and `Content-Length` are present, `Transfer-Encoding` takes precedence and body size is not validated
-- Only validates `Content-Length` when `Transfer-Encoding` is absent
-- Handles chunked encoding by passing through (can't check size upfront)
+- If both `Transfer-Encoding` and `Content-Length` are present, `Transfer-Encoding` takes precedence.
+- Chunked or unknown-length bodies are still limited by the wrapped stream; only the bytes read count toward the limit.
 
 ## Complete Example
 

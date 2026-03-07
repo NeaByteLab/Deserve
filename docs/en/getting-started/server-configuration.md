@@ -57,6 +57,19 @@ await router.serve(8000, '127.0.0.1')
 await router.serve(8000, '0.0.0.0')
 ```
 
+## Request Timeout
+
+You can set a request timeout when creating the router. If middleware and route handler do not finish within that time, the server responds with **503 Service Unavailable**:
+
+```typescript
+const router = new Router({
+  requestTimeoutMs: 30_000
+})
+await router.serve(8000)
+```
+
+Omit `requestTimeoutMs` for no timeout (default).
+
 ## Graceful Shutdown
 
 Use `AbortSignal` for graceful server shutdown:

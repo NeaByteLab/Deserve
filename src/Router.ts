@@ -22,6 +22,9 @@ export class Router {
     if (options?.staticHandler !== undefined) {
       handlerOptions.staticHandler = options.staticHandler
     }
+    if (options?.requestTimeoutMs !== undefined) {
+      handlerOptions.requestTimeoutMs = options.requestTimeoutMs
+    }
     this.handler = new Handler(Object.keys(handlerOptions).length > 0 ? handlerOptions : undefined)
     this.routesDir = options?.routesDir ?? './routes'
   }

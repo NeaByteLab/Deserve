@@ -74,15 +74,20 @@ export interface ErrorResponseBuilder {
   ): Promise<Response>
 }
 
-/** Handler options: error and static. */
+/** Handler options: error, static, request timeout. */
 export interface HandlerOptions {
   /** Custom error response builder */
   errorResponseBuilder?: ErrorResponseBuilder
   /** Custom static file handler */
   staticHandler?: StaticHandler
+  /** Request timeout in ms; 503 on timeout when set */
+  requestTimeoutMs?: number
 }
 
-/** Middleware function with context and next. */
+/**
+ * Middleware function with context and next.
+ * @description Must call next() or return Response; otherwise the request may hang.
+ */
 export type Middleware = (
   ctx: Context,
   next: () => Promise<Response | undefined>
@@ -115,6 +120,8 @@ export interface RouterOptions {
   errorResponseBuilder?: ErrorResponseBuilder
   /** Custom static file handler */
   staticHandler?: StaticHandler
+  /** Request timeout in ms; 503 on timeout when set */
+  requestTimeoutMs?: number
 }
 
 /** Maps option key to header name. */
@@ -198,8 +205,13 @@ export type SessionCookieOpts = Required<
 /** Session payload stored in cookie. */
 export type SessionData = Record<string, unknown>
 
-/** Session middleware cookie options. */
+/**
+ * Session middleware cookie options.
+ * @description Cookie name, lifetime, path, and signing secret.
+ */
 export interface SessionOptions {
+  /** Signing secret for cookie payload, required (HMAC-SHA256) */
+  cookieSecret: string
   /** Cookie name */
   cookieName?: string
   /** Max age in seconds */

@@ -24,17 +24,20 @@ export class Handler {
   private errorResponseBuilder: Types.ErrorResponseBuilder
   /** Fast router for route matching. */
   private routerInstance = new FastRouter<Types.RouteMetadata>()
+  /** Request timeout in ms; 503 when exceeded when set. */
+  private requestTimeoutMs: number | undefined
   /** Static file handler; default or custom. */
   private staticHandler: Types.StaticHandler
 
   /**
    * Create handler with optional overrides.
    * @description Uses default builder and static handler when omitted.
-   * @param options - Error builder and static handler
+   * @param options - Error builder, static handler, request timeout
    */
   constructor(options?: Types.HandlerOptions) {
     this.errorResponseBuilder = options?.errorResponseBuilder ?? Handler.defaultErrorResponseBuilder
     this.staticHandler = options?.staticHandler ?? Handler.defaultStaticHandler
+    this.requestTimeoutMs = options?.requestTimeoutMs
   }
 
   /**
@@ -77,7 +80,7 @@ export class Handler {
    * @returns Async function from Request to Response
    */
   createHandler(): (req: Request) => Promise<Response> {
-    return async (req: Request) => {
+    const run = async (req: Request): Promise<Response> => {
       const url = new URL(req.url)
       const ctx = new Context(req, url, {}, this.handleResponse.bind(this))
       try {
@@ -116,6 +119,19 @@ export class Handler {
         const thrownError = handlerError as Error & { statusCode?: number }
         return await ctx.handleError(thrownError.statusCode ?? 500, thrownError)
       }
+    }
+    const timeoutMs = this.requestTimeoutMs
+    return async (req: Request) => {
+      if (timeoutMs !== undefined && timeoutMs > 0) {
+        const timeoutResponse = new Promise<Response>((resolve) => {
+          setTimeout(
+            () => resolve(new Response(null, { status: 503, statusText: 'Service Unavailable' })),
+            timeoutMs
+          )
+        })
+        return await Promise.race([run(req), timeoutResponse])
+      }
+      return await run(req)
     }
   }
 

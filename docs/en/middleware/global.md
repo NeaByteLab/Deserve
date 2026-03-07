@@ -26,12 +26,17 @@ await router.serve(8000)
 ## Middleware Function Signature
 
 ```typescript
-type Middleware = (ctx: Context, next: () => Promise<Response>) => Response | Promise<Response>
+type Middleware = (
+  ctx: Context,
+  next: () => Promise<Response | undefined>
+) => Response | Promise<Response | undefined>
 ```
 
-- **Return `await next()`** - Always called to continue to next middleware or route handler, allows response modification and inspection
-- **Return `Response`** - Stop processing and return response immediately
-- **Return `undefined`** - Pass through middleware (automatically calls `next()`)
+- **Return `await next()`** - Continue to next middleware or route handler; allows response modification and inspection.
+- **Return `Response`** - Stop processing and return that response immediately.
+- **Return `undefined`** - Treated as pass-through (chain continues as if `next()` were called).
+
+Middleware must either call `next()` and use its result or return a `Response`. If it does neither (e.g. never calls `next()` and returns nothing), the request can hang; use `requestTimeoutMs` in `Router` to cap request duration and get a 503 instead.
 
 ## Common Global Middleware Patterns
 

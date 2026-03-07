@@ -1,10 +1,10 @@
 # Middleware Session
 
-Middleware Session menyimpan data session di cookie dan mengeksposnya lewat `ctx.state`, cocok untuk login, preferensi, atau state per-user tanpa database session.
+Middleware Session menyimpan data session di cookie yang ditandatangani dan mengeksposnya lewat `ctx.state`, cocok untuk login, preferensi, atau state per-user tanpa database session. Payload cookie ditandatangani dengan HMAC-SHA256; **`cookieSecret` wajib**.
 
 ## Penggunaan Dasar
 
-Gunakan `Mware.session()` untuk menambahkan session berbasis cookie:
+Gunakan `Mware.session({ cookieSecret })` untuk menambahkan session berbasis cookie:
 
 ```typescript
 // 1. Import Router dan Mware
@@ -13,8 +13,12 @@ import { Router, Mware } from '@neabyte/deserve'
 // 2. Buat router
 const router = new Router()
 
-// 3. Pasang middleware session (cookie-based)
-router.use(Mware.session())
+// 3. Pasang middleware session (cookieSecret wajib untuk signing)
+router.use(
+  Mware.session({
+    cookieSecret: Deno.env.get('SESSION_SECRET') ?? 'rahasia-min-32-karakter'
+  })
+)
 
 // 4. Jalankan server
 await router.serve(8000)
@@ -22,8 +26,8 @@ await router.serve(8000)
 
 Setelah itu, di route handler atau middleware:
 
-- **`ctx.state.session`** - Data session (object atau `null` jika belum ada)
-- **`ctx.state.setSession(data)`** - Menyimpan data ke session (mengatur cookie)
+- **`ctx.state.session`** - Data session (object atau `null` jika belum ada atau signature invalid)
+- **`ctx.state.setSession(data)`** - Async; menyimpan data ke session (mengatur cookie). Gunakan `await ctx.state.setSession(data)`.
 - **`ctx.state.clearSession()`** - Menghapus session (clear cookie)
 
 ## Contoh: Login Dan Logout
@@ -35,9 +39,10 @@ import type { Context } from '@neabyte/deserve'
 export async function POST(ctx: Context): Promise<Response> {
   // 1. Baca body JSON (username, password)
   const body = await ctx.json()
-  // 2. Cek kredensial; jika valid, simpan ke session
+  // 2. Cek kredensial; jika valid, simpan ke session (setSession async)
   if (body?.username === 'admin' && body?.password === 'secret') {
-    ctx.state.setSession({ userId: '1', username: 'admin' })
+    const setSession = ctx.state.setSession as (data: Record<string, unknown>) => Promise<void>
+    await setSession({ userId: '1', username: 'admin' })
     return ctx.send.json({ ok: true })
   }
   // 3. Salah → 401
@@ -65,14 +70,15 @@ export function DELETE(ctx: Context): Response {
 
 ## Opsi Session
 
-Anda bisa mengubah nama cookie, umur, path, dan atribut keamanan:
+**`cookieSecret`** wajib (untuk signing HMAC-SHA256). Anda juga bisa mengatur nama cookie, umur, path, dan atribut keamanan:
 
 ```typescript
-// 1. Pasang session dengan opsi kustom
+// 1. Pasang session dengan cookieSecret dan opsi kustom
 router.use(
   Mware.session({
-    cookieName: 'sid', // nama cookie
-    maxAge: 3600, // 1 jam (detik)
+    cookieSecret: Deno.env.get('SESSION_SECRET') ?? 'rahasia-min-32-karakter',
+    cookieName: 'sid',
+    maxAge: 3600,
     path: '/',
     sameSite: 'Lax',
     httpOnly: true
@@ -80,15 +86,16 @@ router.use(
 )
 ```
 
-| Opsi         | Default     | Keterangan                           |
-| ------------ | ----------- | ------------------------------------ |
-| `cookieName` | `'session'` | Nama cookie                          |
-| `maxAge`     | `86400`     | Umur cookie dalam detik (24 jam)     |
-| `path`       | `'/'`       | Path cookie                          |
-| `sameSite`   | `'Lax'`     | `'Strict' \| 'Lax' \| 'None'`        |
-| `httpOnly`   | `true`      | Cookie tidak diakses dari JavaScript |
+| Opsi           | Default     | Keterangan                                      |
+| -------------- | ----------- | ----------------------------------------------- |
+| `cookieSecret` | —           | **Wajib.** Rahasia untuk menandatangani cookie. |
+| `cookieName`   | `'session'` | Nama cookie                                     |
+| `maxAge`       | `86400`     | Umur cookie dalam detik (24 jam)                |
+| `path`         | `'/'`       | Path cookie                                     |
+| `sameSite`     | `'Lax'`     | `'Strict' \| 'Lax' \| 'None'`                   |
+| `httpOnly`     | `true`      | Cookie tidak diakses dari JavaScript            |
 
 ## Batasan
 
-- Data session disimpan di cookie (base64 + JSON). Jangan simpan data sensitif besar; gunakan hanya untuk identifier atau data kecil.
+- Data session disimpan di cookie dan ditandatangani dengan HMAC-SHA256. Jangan simpan data sensitif besar; gunakan hanya untuk identifier atau data kecil.
 - Untuk session server-side atau token-based, gunakan mekanisme lain (JWT, Redis, dll.) di luar middleware ini.

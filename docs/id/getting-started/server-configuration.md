@@ -57,6 +57,19 @@ await router.serve(8000, '127.0.0.1')
 await router.serve(8000, '0.0.0.0')
 ```
 
+## Request Timeout
+
+Anda bisa mengatur timeout request saat membuat router. Jika middleware dan route handler tidak selesai dalam waktu tersebut, server merespons **503 Service Unavailable**:
+
+```typescript
+const router = new Router({
+  requestTimeoutMs: 30_000
+})
+await router.serve(8000)
+```
+
+Omit `requestTimeoutMs` untuk tanpa timeout (default).
+
 ## Graceful Shutdown
 
 Gunakan `AbortSignal` untuk graceful server shutdown:

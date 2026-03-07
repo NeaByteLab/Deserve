@@ -17,8 +17,8 @@ export const Mware = {
   /** Security headers middleware factory */
   securityHeaders: (options?: Types.SecurityHeadersOptions): Middleware =>
     Loader.SecHeaders.create(options),
-  /** Session middleware factory */
-  session: (options?: Types.SessionOptions): Middleware => Loader.Session.create(options),
+  /** Session middleware factory (cookieSecret required) */
+  session: (options: Types.SessionOptions): Middleware => Loader.Session.create(options),
   /** WebSocket upgrade middleware factory */
   websocket: (options?: Types.WebSocketOptions): Middleware => Loader.WebSocket.create(options)
 }

@@ -26,12 +26,17 @@ await router.serve(8000)
 ## Signature Fungsi Middleware
 
 ```typescript
-type Middleware = (ctx: Context, next: () => Promise<Response>) => Response | Promise<Response>
+type Middleware = (
+  ctx: Context,
+  next: () => Promise<Response | undefined>
+) => Response | Promise<Response | undefined>
 ```
 
-- **Return `await next()`** - Selalu dipanggil untuk melanjutkan ke middleware atau route handler berikutnya, memungkinkan modifikasi dan inspeksi response
-- **Return `Response`** - Hentikan pemrosesan dan kembalikan response segera
-- **Return `undefined`** - Lewati middleware (otomatis memanggil `next()`)
+- **Return `await next()`** - Lanjut ke middleware atau route handler berikutnya; memungkinkan modifikasi dan inspeksi response.
+- **Return `Response`** - Hentikan pemrosesan dan kembalikan response tersebut.
+- **Return `undefined`** - Dianggap pass-through (rantai berlanjut seperti `next()` dipanggil).
+
+Middleware harus memanggil `next()` dan memakai hasilnya atau mengembalikan `Response`. Jika tidak (mis. tidak pernah memanggil `next()` dan tidak return apa-apa), request bisa hang; gunakan `requestTimeoutMs` di `Router` untuk membatasi durasi request dan mendapat 503.
 
 ## Pola Middleware Global Umum
 
@@ -67,7 +72,8 @@ router.use(async (ctx, next) => {
   if (!isValidToken(token)) {
     return ctx.send.text('Invalid token', { status: 401 })
   }
-  // 4. Valid → lanjut ke next (return await next())
+  // 4. Valid → lanjut
+  return await next()
 })
 ```
 
