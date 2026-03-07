@@ -10,13 +10,13 @@ Build HTTP server effortlessly with zero configuration for productivity.
 
 ## Features
 
-- **Zero config** — No build step for the server. Point to a routes directory and serve.
+- **Zero Config** — No build step for the server. Point to a routes directory and serve.
 - **File-Based Routing** — Drop files in `routes/`; export `GET`, `POST`, etc. File structure is your API.
 - **Context** — Request wrapper: body (JSON/form/text), query, params, cookies, headers, `ctx.send`.
 - **Middleware** — Global, path-specific. CORS, SecHeaders, Body Limit, Basic Auth, Session, WebSocket.
-- **Static files** — `router.static(urlPath, options)` with optional etag and cache-control.
-- **Error handling** — Pluggable error response builder and error middleware; default HTML/JSON by `Accept`.
-- **Frontend optional** — Use any stack (Vite, React, etc.); Deserve stays the server.
+- **Static Files** — `router.static(urlPath, options)` with optional etag and cache-control.
+- **Error Handling** — Pluggable error response builder and error middleware; default HTML/JSON by `Accept`.
+- **Frontend Optional** — Use any stack (Vite, React, etc.); Deserve stays the server.
 
 ## Installation
 
@@ -55,8 +55,9 @@ export function GET(ctx: Context) {
 }
 ```
 
-- [Quick Start (docs)](https://docs-deserve.neabyte.com/en/getting-started/quick-start)
+- [Quick Start (Docs)](https://docs-deserve.neabyte.com/en/getting-started/quick-start)
 - [File-Based Routing](https://docs-deserve.neabyte.com/en/core-concepts/file-based-routing)
+- [Example Implementation](example/README.md)
 
 ## Build & Test
 

@@ -8,21 +8,25 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+(Nothing yet.)
+
+---
+
+## [0.8.0] - 2026-03-07
+
 ### 2026-03-07
 
-**Committed**
+- `a3c8317` feat(deserve): request timeout, session HMAC signing, and docs alignment
+- `f492ef5` docs(docs): update VitePress config and en/id content
+- `8e0f338` fix(handler): extend middleware to nested paths and tidy formatting
+- `ce1c8c0` docs(core): add JSDoc for private members and tidy formatting
+- `2e198e5` style(src): apply Deno format to Context and middleware index
+- `2e15097` refactor(deserve): extract response/static/error, pluggable handler, middleware classes
+
+### 2025-12-31
 
 - `4d4dcdb` style(handler): enforce braces for control statements
 - `1c80c4e` feat(deserve): optimize framework for streaming and error handling
-
-**Uncommitted (working tree)**
-
-- **Config:** .gitignore, deno.json
-- **Core / refactor:** Constant, Context, Handler, Router, Types, index — cleanup and consolidation
-- **New modules:** Error (error response builder, escapeHtml), Redirect, Response (Send helpers), Scanner (file-based routing), Static (static file serving)
-- **Middleware:** BasicAuth, BodyLimit, CORS, WebSocket, index — refactor; SecurityHeaders removed → SecHeaders (new); Loaders, Session, Utils (wrapMiddleware) added
-- **Docs / meta:** CHANGELOG.md (full commit history)
-- **Tests:** context, handler, middleware, router test files
 
 ---
 
@@ -97,4 +101,5 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
-[Unreleased]: https://github.com/neabytelab/deserve/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/neabytelab/deserve/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/neabytelab/deserve/compare/v0.7.0...v0.8.0
