@@ -4,6 +4,7 @@ This folder is reserved for **implementation examples** using [Deserve](https://
 
 ## Showcase
 
+- **[Deserve-React](https://github.com/NeaByteLab/Deserve-React)** — Deserve + React with Vite SSR. File-based routes, cookie session, in-memory CRUD demo. Clone, `deno install`, `deno task build`, then `deno task start`; open http://localhost:8000.
 - **[Restful-API](https://github.com/NeaByteLab/Restful-API)** — RESTful API built with Deno, Deserve, and [Jsonary](https://jsr.io/@neabyte/jsonary) (file-based JSON DB). Full CRUD (users resource), quick setup under 5 minutes. Clone, `deno task start`, then hit `GET/POST/PUT/DELETE /users` and `/users/:id`.
 
 ## Where to Start
