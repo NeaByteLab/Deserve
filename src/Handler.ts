@@ -7,19 +7,24 @@ import { Constant, Context, ErrorHelpers, Scanner, Static } from '@app/index.ts'
  * @description Scans routes, runs middleware chain, dispatches to route or static.
  */
 export class Handler {
+  /** Default error response builder using ErrorHelpers. */
   private static readonly defaultErrorResponseBuilder: Types.ErrorResponseBuilder = {
     build: (ctx, statusCode, error, errorMiddleware) =>
       ErrorHelpers.buildResponse(ctx, statusCode, error, errorMiddleware)
   }
-
+  /** Default static file handler using Static.serveStaticFile. */
   private static readonly defaultStaticHandler: Types.StaticHandler = {
     serve: (ctx, options, urlPath) => Static.serveStaticFile(ctx, options, urlPath)
   }
-
+  /** Middleware list with optional path prefix. */
   private entryMiddleware: Types.MiddlewareEntry[] = []
+  /** Custom error handler or null when unset. */
   private errorMiddleware: Types.ErrorMiddleware | null = null
+  /** Error response builder (default or custom). */
   private errorResponseBuilder: Types.ErrorResponseBuilder
+  /** Fast router for route matching. */
   private routerInstance = new FastRouter<Types.RouteMetadata>()
+  /** Static file handler; default or custom. */
   private staticHandler: Types.StaticHandler
 
   /**
@@ -197,7 +202,7 @@ export class Handler {
    * @returns Response from middleware or undefined to continue
    */
   private async executeMiddlewares(ctx: Context, pathname: string): Promise<Response | undefined> {
-    const applicableMiddlewares = this.entryMiddleware.filter((middlewareEntry) => {
+    const applicableMiddlewares = this.entryMiddleware.filter(middlewareEntry => {
       if (middlewareEntry.path === '' || middlewareEntry.path === '*') {
         return true
       }

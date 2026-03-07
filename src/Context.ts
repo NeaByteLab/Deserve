@@ -6,16 +6,27 @@ import { Redirect, ResponseHelpers } from '@app/index.ts'
  * @description Parses body once; exposes headers, cookies, state.
  */
 export class Context {
+  /** Parsed body; undefined until parsed. */
   private bodyData: unknown = undefined
+  /** Format body was parsed as. */
   private bodyParsedAs: 'arraybuffer' | 'blob' | 'form' | 'json' | 'text' | null = null
+  /** Parsed cookie name-to-value map; lazy. */
   private cookieMap: Record<string, string> | undefined = undefined
+  /** Custom error handler when set. */
   private errorHandler: Types.ErrorHandler | undefined = undefined
+  /** Lowercased request header map; lazy. */
   private headerMap: Record<string, string> | undefined = undefined
+  /** Parsed query string params; lazy. */
   private queryParams: Record<string, string> | undefined = undefined
+  /** Arbitrary state for middleware/handlers. */
   private requestState: Record<string, unknown> = {}
+  /** Incoming fetch Request. */
   private req: Request
+  /** Response headers to send. */
   private responseHeaders: Record<string, string> = {}
+  /** Matched route path params. */
   private routeParams: Record<string, string>
+  /** Parsed request URL. */
   private urlObj: URL
 
   /**
@@ -252,10 +263,8 @@ export class Context {
 
   /** Helpers to send JSON, HTML, file, redirect, etc. */
   get send(): Types.SendHelpers {
-    return ResponseHelpers.create(
-      this.responseHeaders,
-      (url, status, extraHeaders) =>
-        Redirect.buildResponse(this.req.url, this.responseHeaders, url, status, extraHeaders)
+    return ResponseHelpers.create(this.responseHeaders, (url, status, extraHeaders) =>
+      Redirect.buildResponse(this.req.url, this.responseHeaders, url, status, extraHeaders)
     )
   }
 
@@ -328,7 +337,7 @@ export class Context {
     const result: Record<string, string> = {}
     const cookieHeader = this.req.headers.get('cookie')
     if (cookieHeader) {
-      cookieHeader.split(';').forEach((cookiePart) => {
+      cookieHeader.split(';').forEach(cookiePart => {
         const [key, ...valueParts] = cookiePart.trim().split('=')
         if (key) {
           result[key] = valueParts.join('=')

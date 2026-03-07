@@ -5,7 +5,6 @@
 export class Constant {
   /** File extensions allowed for route modules */
   static readonly allowedExtensions = ['cjs', 'js', 'jsx', 'mjs', 'ts', 'tsx']
-
   /** Extension to MIME type map for static files */
   static readonly contentTypes: Record<string, string> = {
     html: 'text/html',
@@ -90,7 +89,6 @@ export class Constant {
     manifest: 'application/manifest+json',
     serviceworker: 'application/javascript'
   }
-
   /** HTTP methods used for route registration */
   static readonly httpMethods = ['DELETE', 'GET', 'HEAD', 'OPTIONS', 'PATCH', 'POST', 'PUT']
 }
