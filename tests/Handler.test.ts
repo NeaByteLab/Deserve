@@ -1,10 +1,32 @@
 import { assertEquals } from 'jsr:@std/assert'
 import { Context, Handler } from '@app/index.ts'
 
+const echoWorkerUrl = new URL('fixtures/echo_worker.ts', import.meta.url).href
+
 function createTestContext(url: string, requestInit?: RequestInit): Context {
   const request = new Request(url, requestInit)
   return new Context(request, new URL(url), {})
 }
+
+Deno.test('Handler#createHandler with worker option sets ctx.state.worker', async () => {
+  const handler = new Handler({
+    worker: { scriptURL: echoWorkerUrl, poolSize: 1 }
+  })
+  handler.addMiddleware('', async (ctx, next) => {
+    if (
+      ctx.state['worker'] &&
+      typeof (ctx.state['worker'] as { run?: unknown }).run === 'function'
+    ) {
+      return new Response('ok', { headers: { 'X-Worker': 'set' } })
+    }
+    return await next()
+  })
+  const handle = handler.createHandler()
+  const res = await handle(new Request('http://localhost/'))
+  assertEquals(res.status, 200)
+  assertEquals(res.headers.get('X-Worker'), 'set')
+  assertEquals(await res.text(), 'ok')
+})
 
 Deno.test('Handler#createPattern [id] -> :id', () => {
   const handler = new Handler()
@@ -95,18 +117,6 @@ Deno.test(
   }
 )
 
-Deno.test('Handler#validateModule throws when no HTTP method exported', () => {
-  const handler = new Handler()
-  let thrown = false
-  try {
-    handler.validateModule({ default: () => {} }, 'routes/foo.ts')
-  } catch (e) {
-    thrown = true
-    assertEquals((e as Error).message.includes('Must export at least one HTTP method'), true)
-  }
-  assertEquals(thrown, true)
-})
-
 Deno.test('Handler#validateModule throws when method is not function', () => {
   const handler = new Handler()
   let thrown = false
@@ -115,6 +125,18 @@ Deno.test('Handler#validateModule throws when method is not function', () => {
   } catch (e) {
     thrown = true
     assertEquals((e as Error).message.includes('must be a function'), true)
+  }
+  assertEquals(thrown, true)
+})
+
+Deno.test('Handler#validateModule throws when no HTTP method exported', () => {
+  const handler = new Handler()
+  let thrown = false
+  try {
+    handler.validateModule({ default: () => {} }, 'routes/foo.ts')
+  } catch (e) {
+    thrown = true
+    assertEquals((e as Error).message.includes('Must export at least one HTTP method'), true)
   }
   assertEquals(thrown, true)
 })

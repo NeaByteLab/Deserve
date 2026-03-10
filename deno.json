@@ -58,7 +58,6 @@
   "lock": true,
   "nodeModulesDir": "auto",
   "tasks": {
-    "bench": "deno run --allow-net --allow-read benchmark/main.ts",
     "check": "deno fmt src/ && deno lint src/ && deno check src/",
     "test": "deno test tests/ --allow-read"
   },

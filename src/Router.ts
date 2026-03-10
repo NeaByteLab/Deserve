@@ -12,7 +12,7 @@ export class Router {
   /**
    * Create router with routes dir and options.
    * @description Sets Handler options and routes directory.
-   * @param options - Routes dir, error builder, static handler
+   * @param options - Routes dir, error builder, static handler, worker pool
    */
   constructor(options?: Types.RouterOptions) {
     const handlerOptions: Types.HandlerOptions = {}
@@ -24,6 +24,9 @@ export class Router {
     }
     if (options?.requestTimeoutMs !== undefined) {
       handlerOptions.requestTimeoutMs = options.requestTimeoutMs
+    }
+    if (options?.worker !== undefined) {
+      handlerOptions.worker = options.worker
     }
     this.handler = new Handler(Object.keys(handlerOptions).length > 0 ? handlerOptions : undefined)
     this.routesDir = options?.routesDir ?? './routes'

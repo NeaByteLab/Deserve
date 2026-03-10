@@ -22,18 +22,18 @@ export interface BodyLimitOptions {
 
 /** CORS middleware options. */
 export interface CorsOptions {
-  /** Allowed origin(s) or '*' */
-  origin?: string | string[]
-  /** Allowed methods */
-  methods?: string[]
   /** Allowed request headers */
   allowedHeaders?: string[]
-  /** Headers exposed to client */
-  exposedHeaders?: string[]
   /** Allow credentials */
   credentials?: boolean
+  /** Headers exposed to client */
+  exposedHeaders?: string[]
   /** Preflight cache max-age in seconds */
   maxAge?: number
+  /** Allowed methods */
+  methods?: string[]
+  /** Allowed origin(s) or '*' */
+  origin?: string | string[]
 }
 
 /** Handler for route or middleware errors. */
@@ -74,20 +74,19 @@ export interface ErrorResponseBuilder {
   ): Promise<Response>
 }
 
-/** Handler options: error, static, request timeout. */
+/** Handler options: error, static, request timeout, worker pool. */
 export interface HandlerOptions {
   /** Custom error response builder */
   errorResponseBuilder?: ErrorResponseBuilder
-  /** Custom static file handler */
-  staticHandler?: StaticHandler
   /** Request timeout in ms; 503 on timeout when set */
   requestTimeoutMs?: number
+  /** Custom static file handler */
+  staticHandler?: StaticHandler
+  /** Optional worker pool for CPU-bound work */
+  worker?: WorkerPoolOptions
 }
 
-/**
- * Middleware function with context and next.
- * @description Must call next() or return Response; otherwise the request may hang.
- */
+/** Middleware function with context and next. */
 export type Middleware = (
   ctx: Context,
   next: () => Promise<Response | undefined>
@@ -100,6 +99,9 @@ export interface MiddlewareEntry {
   /** Path prefix or exact; '' or '*' for all */
   path: string
 }
+
+/** Middleware result: Response or undefined. */
+type MiddlewareResult = Response | undefined
 
 /** Route handler receiving context and returning Response. */
 export type RouteHandler = (context: Context) => Response | Promise<Response>
@@ -114,14 +116,16 @@ export interface RouteMetadata {
 
 /** Router constructor and serve options. */
 export interface RouterOptions {
-  /** Directory path for file-based routes */
-  routesDir?: string
   /** Custom error response builder */
   errorResponseBuilder?: ErrorResponseBuilder
-  /** Custom static file handler */
-  staticHandler?: StaticHandler
   /** Request timeout in ms; 503 on timeout when set */
   requestTimeoutMs?: number
+  /** Directory path for file-based routes */
+  routesDir?: string
+  /** Custom static file handler */
+  staticHandler?: StaticHandler
+  /** Optional worker pool for CPU-bound work; when set, ctx.state.worker is available in routes */
+  worker?: WorkerPoolOptions
 }
 
 /** Maps option key to header name. */
@@ -189,12 +193,12 @@ export type SendHelpers = {
 
 /** Options for static file serving. */
 export interface ServeOptions {
-  /** File system path for static root */
-  path: string
-  /** Enable ETag generation and 304 */
-  etag?: boolean
   /** Max-age in seconds for Cache-Control */
   cacheControl?: number
+  /** Enable ETag generation and 304 */
+  etag?: boolean
+  /** File system path for static root */
+  path: string
 }
 
 /** Session cookie options, all required. */
@@ -210,28 +214,28 @@ export type SessionData = Record<string, unknown>
  * @description Cookie name, lifetime, path, and signing secret.
  */
 export interface SessionOptions {
-  /** Signing secret for cookie payload, required (HMAC-SHA256) */
-  cookieSecret: string
   /** Cookie name */
   cookieName?: string
+  /** Signing secret for cookie payload, required (HMAC-SHA256) */
+  cookieSecret: string
+  /** HttpOnly flag */
+  httpOnly?: boolean
   /** Max age in seconds */
   maxAge?: number
   /** Cookie path */
   path?: string
   /** SameSite attribute */
   sameSite?: 'Strict' | 'Lax' | 'None'
-  /** HttpOnly flag */
-  httpOnly?: boolean
 }
 
 /** Static route handler descriptor. */
 export type StaticFileHandler = {
+  /** Executes static serve for the request */
+  execute: (ctx: Context) => Promise<Response>
   /** Marks this as a static route */
   staticRoute: true
   /** URL path prefix for static files */
   urlPath: string
-  /** Executes static serve for the request */
-  execute: (ctx: Context) => Promise<Response>
 }
 
 /**
@@ -247,15 +251,26 @@ export interface StaticHandler {
 export interface WebSocketOptions {
   /** Path prefix that triggers upgrade */
   listener?: string
-  /** Called when socket opens */
-  onConnect?: (socket: WebSocket, ctx: Context) => void
-  /** Called on each message */
-  onMessage?: (socket: WebSocket, event: MessageEvent, ctx: Context) => void
   /** Called when socket closes */
   onDisconnect?: (socket: WebSocket, ctx: Context) => void
   /** Called on socket error */
   onError?: (socket: WebSocket, event: Event, ctx: Context) => void
+  /** Called when socket opens */
+  onConnect?: (socket: WebSocket, ctx: Context) => void
+  /** Called on each message */
+  onMessage?: (socket: WebSocket, event: MessageEvent, ctx: Context) => void
 }
 
-/** Middleware result: Response or undefined. */
-type MiddlewareResult = Response | undefined
+/** Options to create a worker pool; scriptURL must be module URL. */
+export interface WorkerPoolOptions {
+  /** Number of workers in pool; default 4 */
+  poolSize?: number
+  /** Worker script URL (e.g. import.meta.resolve('./worker.ts')) */
+  scriptURL: string
+}
+
+/** Run a task in the worker pool; payload and result must be structured-clone serializable. */
+export interface WorkerRunHandle {
+  /** Send payload to a worker and resolve with result. */
+  run<T = unknown>(payload: unknown): Promise<T>
+}

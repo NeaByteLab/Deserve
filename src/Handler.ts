@@ -1,6 +1,6 @@
 import type * as Types from '@app/Types.ts'
 import { FastRouter } from '@neabyte/fast-router'
-import { Constant, Context, ErrorHelpers, Scanner, Static } from '@app/index.ts'
+import { Constant, Context, ErrorHelpers, Scanner, Static, WorkerPool } from '@app/index.ts'
 
 /**
  * Core request handler: middleware, routing, static.
@@ -28,16 +28,21 @@ export class Handler {
   private requestTimeoutMs: number | undefined
   /** Static file handler; default or custom. */
   private staticHandler: Types.StaticHandler
+  /** Optional worker pool when worker option is set. */
+  private workerPool: WorkerPool | undefined
 
   /**
    * Create handler with optional overrides.
    * @description Uses default builder and static handler when omitted.
-   * @param options - Error builder, static handler, request timeout
+   * @param options - Error builder, static handler, request timeout, worker pool
    */
   constructor(options?: Types.HandlerOptions) {
     this.errorResponseBuilder = options?.errorResponseBuilder ?? Handler.defaultErrorResponseBuilder
     this.staticHandler = options?.staticHandler ?? Handler.defaultStaticHandler
     this.requestTimeoutMs = options?.requestTimeoutMs
+    this.workerPool = options?.worker !== undefined
+      ? WorkerPool.createPool(options.worker)
+      : undefined
   }
 
   /**
@@ -83,6 +88,11 @@ export class Handler {
     const run = async (req: Request): Promise<Response> => {
       const url = new URL(req.url)
       const ctx = new Context(req, url, {}, this.handleResponse.bind(this))
+      if (this.workerPool) {
+        ctx.state['worker'] = {
+          run: <T>(payload: unknown) => this.workerPool!.run<T>(payload)
+        } as Types.WorkerRunHandle
+      }
       try {
         const middlewareResult = await this.executeMiddlewares(ctx, url.pathname)
         if (middlewareResult !== undefined) {

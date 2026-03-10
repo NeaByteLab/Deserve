@@ -16,6 +16,7 @@ Build HTTP server effortlessly with zero configuration for productivity.
 - **Middleware** — Global, path-specific. CORS, SecHeaders, Body Limit, Basic Auth, Session, WebSocket.
 - **Static Files** — `router.static(urlPath, options)` with optional etag and cache-control.
 - **Error Handling** — Pluggable error response builder and error middleware; default HTML/JSON by `Accept`.
+- **Worker Pool** — Optional worker pool for CPU-bound work; enable via `worker: { scriptURL, poolSize }`.
 - **Frontend Optional** — Use any stack (Vite, React, etc.); Deserve stays the server.
 
 ## Installation
@@ -39,6 +40,12 @@ import { Router } from 'jsr:@neabyte/deserve'
 
 // Create router and point to your routes directory
 const router = new Router({ routesDir: './routes' })
+
+// Optional: enable worker pool for CPU-bound work (ctx.state.worker.run(payload) in routes)
+// const router = new Router({
+//   routesDir: './routes',
+//   worker: { scriptURL: import.meta.resolve('./worker.ts'), poolSize: 4 }
+// })
 
 // Start server on port 8000
 await router.serve(8000)

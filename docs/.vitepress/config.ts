@@ -76,7 +76,8 @@ export default withMermaid(
                   { text: 'File-based Routing', link: '/en/core-concepts/file-based-routing' },
                   { text: 'Route Patterns', link: '/en/core-concepts/route-patterns' },
                   { text: 'Context Object', link: '/en/core-concepts/context-object' },
-                  { text: 'Request Handling', link: '/en/core-concepts/request-handling' }
+                  { text: 'Request Handling', link: '/en/core-concepts/request-handling' },
+                  { text: 'Worker Pool', link: '/en/core-concepts/worker-pool' }
                 ]
               },
               {
@@ -149,7 +150,8 @@ export default withMermaid(
                   { text: 'File-based Routing', link: '/en/core-concepts/file-based-routing' },
                   { text: 'Route Patterns', link: '/en/core-concepts/route-patterns' },
                   { text: 'Context Object', link: '/en/core-concepts/context-object' },
-                  { text: 'Request Handling', link: '/en/core-concepts/request-handling' }
+                  { text: 'Request Handling', link: '/en/core-concepts/request-handling' },
+                  { text: 'Worker Pool', link: '/en/core-concepts/worker-pool' }
                 ]
               },
               {
@@ -274,7 +276,8 @@ export default withMermaid(
                   },
                   { text: 'Pola Rute', link: '/id/core-concepts/route-patterns' },
                   { text: 'Objek Konteks', link: '/id/core-concepts/context-object' },
-                  { text: 'Penanganan Request', link: '/id/core-concepts/request-handling' }
+                  { text: 'Penanganan Request', link: '/id/core-concepts/request-handling' },
+                  { text: 'Worker Pool', link: '/id/core-concepts/worker-pool' }
                 ]
               },
               {

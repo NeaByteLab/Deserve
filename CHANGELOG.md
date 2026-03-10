@@ -8,7 +8,17 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
-(Nothing yet.)
+### Added
+
+- **feat(worker):** Worker pool for CPU-bound tasks; optional `worker` option on Router with `scriptURL` and `poolSize`; `ctx.state.worker.run(payload)` in routes when enabled
+- **docs(worker):** Worker Pool docs (en + id) under Core Concepts, marked Unreleased; VitePress sidebar updated
+- **benchmark(worker):** `main-worker.ts`, `/test-worker` and `/test-cpu` routes, benchmark README in English
+- **test(worker):** Worker pool tests and fixtures (`echo_worker.ts`, `error_worker.ts`)
+
+### Changed
+
+- **refactor(src):** Clear naming and A–Z sort in `Worker.ts`; JSDoc (ts-js-jsdoc) and constructor docs; Types.ts interfaces/properties sorted A–Z
+- **docs(benchmark):** Benchmark README — one Indonesian sentence translated to English
 
 ---
 
