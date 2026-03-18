@@ -1,10 +1,11 @@
-import type { Context, Middleware, Types } from '@app/index.ts'
+import type * as Types from '@interfaces/index.ts'
+import type * as Core from '@core/index.ts'
 
 /**
  * Cookie-based session middleware.
  * @description Session and set/clear in ctx.state; payload signed with HMAC.
  */
-export default class Session {
+export class Session {
   /** Default cookie name, maxAge, path, sameSite, httpOnly */
   private static readonly defaultOptions: Types.SessionCookieOpts = {
     cookieName: 'session',
@@ -92,14 +93,14 @@ export default class Session {
    * @returns Middleware that populates ctx.state.session
    * @throws {Error} When cookieSecret is missing or empty
    */
-  static create(options: Types.SessionOptions): Middleware {
+  static create(options: Types.SessionOptions): Types.Middleware {
     const { cookieSecret, ...rest } = options
     if (!cookieSecret || cookieSecret.length === 0) {
       throw new Error('Session middleware requires cookieSecret (non-empty string)')
     }
     const sessionOptions = { ...Session.defaultOptions, ...rest } as Types.SessionCookieOpts
     return async (
-      ctx: Context,
+      ctx: Core.Context,
       next: () => Promise<Response | undefined>
     ): Promise<Response | undefined> => {
       const rawCookie = ctx.cookie(sessionOptions.cookieName)

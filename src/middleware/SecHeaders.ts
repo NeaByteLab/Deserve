@@ -1,11 +1,11 @@
-import type { Middleware, Types } from '@app/index.ts'
-import MwareUtils from '@app/middleware/Utils.ts'
+import type * as Types from '@interfaces/index.ts'
+import * as Middleware from '@middleware/index.ts'
 
 /**
  * Security headers middleware.
  * @description Sets configurable security headers on response.
  */
-export default class SecHeaders {
+export class SecHeaders {
   /** Option key to HTTP header name mapping. */
   private static readonly headerEntries: Types.SecurityHeaderEntry[] = [
     { key: 'contentSecurityPolicy', name: 'Content-Security-Policy' },
@@ -29,8 +29,8 @@ export default class SecHeaders {
    * @param options - Header values; false to omit
    * @returns Middleware that sets headers
    */
-  static create(options: Types.SecurityHeadersOptions = {}): Middleware {
-    return MwareUtils.wrapMiddleware('Security headers error', async (ctx, next) => {
+  static create(options: Types.SecurityHeadersOptions = {}): Types.Middleware {
+    return Middleware.Utils.wrapMiddleware('Security headers error', async (ctx, next) => {
       for (const { key, name } of SecHeaders.headerEntries) {
         const value = options[key]
         if (value !== false && value !== undefined) {

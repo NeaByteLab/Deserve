@@ -1,10 +1,11 @@
-import type { Context, Middleware, Types } from '@app/index.ts'
+import type * as Types from '@interfaces/index.ts'
+import type * as Core from '@core/index.ts'
 
 /**
  * Basic Auth middleware with user list.
  * @description Validates Authorization header; constant-time compare.
  */
-export default class BasicAuth {
+export class BasicAuth {
   /**
    * Create Basic Auth middleware.
    * @description Validates Authorization header against user list.
@@ -12,13 +13,13 @@ export default class BasicAuth {
    * @returns Middleware that returns 401 when invalid
    * @throws {Error} When users array is empty
    */
-  static create(options: Types.BasicAuthOptions): Middleware {
+  static create(options: Types.BasicAuthOptions): Types.Middleware {
     const { users } = options
     if (!users || users.length === 0) {
       throw new Error('Basic auth: users array cannot be empty')
     }
     return async (
-      ctx: Context,
+      ctx: Core.Context,
       next: () => Promise<Response | undefined>
     ): Promise<Response | undefined> => {
       ctx.setHeader('WWW-Authenticate', 'Basic realm="Secure Area"')

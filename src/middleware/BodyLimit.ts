@@ -1,20 +1,20 @@
-import type { Middleware, Types } from '@app/index.ts'
-import MwareUtils from '@app/middleware/Utils.ts'
+import type * as Types from '@interfaces/index.ts'
+import * as Middleware from '@middleware/index.ts'
 
 /**
  * Request body size limit middleware.
  * @description Rejects or streams with limit; returns 413 when exceeded.
  */
-export default class BodyLimit {
+export class BodyLimit {
   /**
    * Create body limit middleware.
    * @description Rejects or limits body stream; returns 413 when over.
    * @param options - Max size in bytes
    * @returns Middleware that enforces limit
    */
-  static create(options: Types.BodyLimitOptions): Middleware {
+  static create(options: Types.BodyLimitOptions): Types.Middleware {
     const maxSize = options.limit ?? 1024 * 1024
-    return MwareUtils.wrapMiddleware('Body limit error', async (ctx, next) => {
+    return Middleware.Utils.wrapMiddleware('Body limit error', async (ctx, next) => {
       if (ctx.request.method === 'GET' || ctx.request.method === 'HEAD') {
         return await next()
       }

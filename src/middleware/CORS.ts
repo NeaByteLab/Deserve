@@ -1,20 +1,21 @@
-import { Constant, type Middleware, type Types } from '@app/index.ts'
-import MwareUtils from '@app/middleware/Utils.ts'
+import type * as Types from '@interfaces/index.ts'
+import * as Core from '@core/index.ts'
+import * as Middleware from '@middleware/index.ts'
 
 /**
  * CORS middleware for cross-origin requests.
  * @description Handles preflight and sets Allow-Origin and related headers.
  */
-export default class Cors {
+export class Cors {
   /**
    * Create CORS middleware with options.
    * @description Handles preflight; sets Allow-Origin and related headers.
    * @param options - Origin, methods, headers, credentials, maxAge
    * @returns Middleware function
    */
-  static create(options: Types.CorsOptions = {}): Middleware {
+  static create(options: Types.CorsOptions = {}): Types.Middleware {
     const origin = options.origin ?? '*'
-    const methods = options.methods ?? Constant.httpMethods
+    const methods = options.methods ?? Core.Constant.httpMethods
     const allowedHeaders = options.allowedHeaders ?? [
       'Content-Type',
       'Authorization',
@@ -23,7 +24,7 @@ export default class Cors {
     const exposedHeaders = options.exposedHeaders ?? []
     const credentials = options.credentials ?? false
     const maxAge = options.maxAge ?? 86400
-    return MwareUtils.wrapMiddleware('CORS error', async (ctx, next) => {
+    return Middleware.Utils.wrapMiddleware('CORS error', async (ctx, next) => {
       const requestOrigin = ctx.header('origin') as string | undefined
       if (!requestOrigin) {
         return await next()

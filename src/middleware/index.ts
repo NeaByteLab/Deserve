@@ -1,27 +1,39 @@
-import type { Middleware, Types } from '@app/index.ts'
-import * as Loader from '@app/middleware/Loaders.ts'
-import MwareUtils from '@app/middleware/Utils.ts'
+import type * as Types from '@interfaces/index.ts'
+import * as Loader from '@middleware/Loaders.ts'
 
-/** Middleware wrapper with try/catch and label. */
-export const wrapMiddleware: (label: string, middleware: Middleware) => Middleware = MwareUtils
-  .wrapMiddleware.bind(MwareUtils)
+/**
+ * Wrap middleware with try/catch and label.
+ * @description Catches errors and calls ctx.handleError with label.
+ * @param label - Prefix for error message on throw
+ * @param middleware - Middleware to run
+ * @returns Middleware that delegates and catches
+ */
+export const wrapMiddleware: (label: string, middleware: Types.Middleware) => Types.Middleware =
+  Loader.Utils.wrapMiddleware.bind(Loader.Utils)
 
-/** Prebuilt middleware factories for common use. */
+/**
+ * Prebuilt middleware factories.
+ * @description Common middleware creators for auth, CORS, session.
+ */
 export const Mware = {
   /** Basic Auth middleware factory */
-  basicAuth: (options: Types.BasicAuthOptions): Middleware => Loader.BasicAuth.create(options),
+  basicAuth: (options: Types.BasicAuthOptions): Types.Middleware =>
+    Loader.BasicAuth.create(options),
   /** Body size limit middleware factory */
-  bodyLimit: (options: Types.BodyLimitOptions): Middleware => Loader.BodyLimit.create(options),
+  bodyLimit: (options: Types.BodyLimitOptions): Types.Middleware =>
+    Loader.BodyLimit.create(options),
   /** CORS middleware factory */
-  cors: (options?: Types.CorsOptions): Middleware => Loader.Cors.create(options),
+  cors: (options?: Types.CorsOptions): Types.Middleware => Loader.Cors.create(options),
   /** Security headers middleware factory */
-  securityHeaders: (options?: Types.SecurityHeadersOptions): Middleware =>
+  securityHeaders: (options?: Types.SecurityHeadersOptions): Types.Middleware =>
     Loader.SecHeaders.create(options),
-  /** Session middleware factory (cookieSecret required) */
-  session: (options: Types.SessionOptions): Middleware => Loader.Session.create(options),
+  /** Session middleware factory */
+  session: (options: Types.SessionOptions): Types.Middleware => Loader.Session.create(options),
   /** WebSocket upgrade middleware factory */
-  websocket: (options?: Types.WebSocketOptions): Middleware => Loader.WebSocket.create(options)
+  websocket: (options?: Types.WebSocketOptions): Types.Middleware =>
+    Loader.WebSocket.create(options)
 }
 
-/** Utility class for middleware error wrapping. */
-export { default as MwareUtils } from '@app/middleware/Utils.ts'
+/** Re-exports middleware public API. */
+export * from '@middleware/Loaders.ts'
+export * from '@middleware/Utils.ts'

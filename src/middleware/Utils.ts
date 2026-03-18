@@ -1,10 +1,10 @@
-import type { Middleware } from '@app/index.ts'
+import type * as Types from '@interfaces/index.ts'
 
 /**
  * Middleware utility helpers.
  * @description Wraps middleware with error handling and label.
  */
-export default class MwareUtils {
+export class Utils {
   /**
    * Wrap middleware with try/catch and label.
    * @description Catches errors and calls ctx.handleError with label.
@@ -12,7 +12,7 @@ export default class MwareUtils {
    * @param middleware - Middleware to run
    * @returns Middleware that delegates and catches
    */
-  static wrapMiddleware(label: string, middleware: Middleware): Middleware {
+  static wrapMiddleware(label: string, middleware: Types.Middleware): Types.Middleware {
     return async (ctx, next) => {
       try {
         return await middleware(ctx, next)
