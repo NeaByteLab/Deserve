@@ -63,6 +63,11 @@
   },
   "imports": {
     "@app/": "./src/",
+    "@core/": "./src/core/",
+    "@interfaces/": "./src/interfaces/",
+    "@middleware/": "./src/middleware/",
+    "@rendering/": "./src/rendering/",
+    "@routing/": "./src/routing/",
     "@neabyte/fast-router": "jsr:@neabyte/fast-router@^0.1.0"
   },
   "publish": {
