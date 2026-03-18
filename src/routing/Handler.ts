@@ -54,12 +54,12 @@ export class Handler {
     this.maxUrlLength = options?.maxUrlLength ?? Handler.defaultMaxUrlLength
     this.maxRouteParamLength = options?.maxRouteParamLength ?? Handler.defaultMaxRouteParamLength
     this.requestTimeoutMs = options?.requestTimeoutMs
-    this.workerPool =
-      options?.worker !== undefined ? Core.Worker.createPool(options.worker) : undefined
-    this.viewEngine =
-      options?.viewsDir !== undefined
-        ? new Rendering.Engine({ viewsDir: options.viewsDir })
-        : undefined
+    this.workerPool = options?.worker !== undefined
+      ? Core.Worker.createPool(options.worker)
+      : undefined
+    this.viewEngine = options?.viewsDir !== undefined
+      ? new Rendering.Engine({ viewsDir: options.viewsDir })
+      : undefined
   }
 
   /**
@@ -165,7 +165,7 @@ export class Handler {
     const timeoutMs = this.requestTimeoutMs
     return async (req: Request) => {
       if (timeoutMs !== undefined && timeoutMs > 0) {
-        const timeoutResponse = new Promise<Response>(resolve => {
+        const timeoutResponse = new Promise<Response>((resolve) => {
           setTimeout(
             () => resolve(new Response(null, { status: 503, statusText: 'Service Unavailable' })),
             timeoutMs
@@ -285,7 +285,7 @@ export class Handler {
     ctx: Core.Context,
     pathname: string
   ): Promise<Response | undefined> {
-    const applicableMiddlewares = this.entryMiddleware.filter(middlewareEntry => {
+    const applicableMiddlewares = this.entryMiddleware.filter((middlewareEntry) => {
       if (middlewareEntry.path === '' || middlewareEntry.path === '*') {
         return true
       }
