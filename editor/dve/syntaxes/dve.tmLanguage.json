@@ -1,0 +1,136 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "DVE",
+  "scopeName": "source.dve",
+  "fileTypes": ["dve"],
+  "patterns": [{ "include": "#tag-raw" }, { "include": "#tag" }],
+  "repository": {
+    "tag-raw": {
+      "begin": "\\{\\{\\{",
+      "end": "\\}\\}\\}",
+      "name": "meta.tag.raw.dve",
+      "contentName": "meta.expression.dve",
+      "patterns": [{ "include": "#expression" }]
+    },
+    "tag": {
+      "begin": "\\{\\{",
+      "end": "\\}\\}",
+      "name": "meta.tag.dve",
+      "patterns": [
+        { "include": "#include" },
+        { "include": "#each-block" },
+        { "include": "#if-block" },
+        { "include": "#else-keyword" },
+        { "include": "#close-each" },
+        { "include": "#close-if" },
+        { "include": "#expression" }
+      ]
+    },
+    "include": {
+      "begin": "(>)\\s*",
+      "beginCaptures": {
+        "1": { "name": "keyword.control.include.dve" }
+      },
+      "name": "meta.tag.include.dve",
+      "patterns": [{ "include": "#path" }]
+    },
+    "each-block": {
+      "begin": "(#each)\\s+",
+      "beginCaptures": {
+        "1": { "name": "keyword.control.dve" }
+      },
+      "name": "meta.tag.each.dve",
+      "patterns": [
+        { "include": "#expression" },
+        {
+          "match": "\\b(as)\\s+([a-zA-Z_$][a-zA-Z0-9_$]*)",
+          "captures": {
+            "1": { "name": "keyword.operator.as.dve" },
+            "2": { "name": "variable.parameter.dve" }
+          }
+        }
+      ]
+    },
+    "if-block": {
+      "begin": "(#if)\\s+",
+      "beginCaptures": {
+        "1": { "name": "keyword.control.dve" }
+      },
+      "name": "meta.tag.if.dve",
+      "patterns": [{ "include": "#expression" }]
+    },
+    "else-keyword": {
+      "match": "\\b(else)\\b",
+      "captures": {
+        "1": { "name": "keyword.control.dve" }
+      },
+      "name": "meta.tag.else.dve"
+    },
+    "close-each": {
+      "match": "(/each)\\b",
+      "captures": {
+        "1": { "name": "keyword.control.dve" }
+      },
+      "name": "meta.tag.close.each.dve"
+    },
+    "close-if": {
+      "match": "(/if)\\b",
+      "captures": {
+        "1": { "name": "keyword.control.dve" }
+      },
+      "name": "meta.tag.close.if.dve"
+    },
+    "expression": {
+      "patterns": [
+        { "include": "#string-double" },
+        { "include": "#string-single" },
+        { "include": "#number" },
+        { "include": "#literal" },
+        { "include": "#operator" },
+        { "include": "#identifier" }
+      ]
+    },
+    "path": {
+      "match": "[@a-zA-Z0-9_$./\\\\-]+\\.dve|[@a-zA-Z_$][a-zA-Z0-9_$.]*",
+      "name": "string.unquoted.path.dve"
+    },
+    "string-double": {
+      "begin": "\"",
+      "end": "\"",
+      "name": "string.quoted.double.dve",
+      "patterns": [
+        {
+          "match": "\\\\.",
+          "name": "constant.character.escape.dve"
+        }
+      ]
+    },
+    "string-single": {
+      "begin": "'",
+      "end": "'",
+      "name": "string.quoted.single.dve",
+      "patterns": [
+        {
+          "match": "\\\\.",
+          "name": "constant.character.escape.dve"
+        }
+      ]
+    },
+    "number": {
+      "match": "\\b[0-9]+(\\.[0-9]+)?\\b",
+      "name": "constant.numeric.dve"
+    },
+    "literal": {
+      "match": "\\b(true|false|null|undefined)\\b",
+      "name": "constant.language.dve"
+    },
+    "operator": {
+      "match": "\\?\\.|===|!==|==|!=|&&|\\|\\||\\?\\?|>=|<=|[?.!:()+\\-*/%<>]",
+      "name": "keyword.operator.dve"
+    },
+    "identifier": {
+      "match": "\\b([a-zA-Z_$@][a-zA-Z0-9_$]*)\\b",
+      "name": "variable.other.dve"
+    }
+  }
+}

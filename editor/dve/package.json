@@ -1,0 +1,41 @@
+{
+  "name": "dve-language",
+  "displayName": "DVE Template Language",
+  "description": "Syntax highlighting for Deserve (.dve) templates",
+  "version": "0.1.0",
+  "publisher": "neabyte",
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "dve",
+        "aliases": [
+          "DVE",
+          "dve"
+        ],
+        "extensions": [
+          ".dve"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "dve",
+        "path": "./snippets/dve.code-snippets"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "dve",
+        "scopeName": "source.dve",
+        "path": "./syntaxes/dve.tmLanguage.json"
+      }
+    ]
+  }
+}

@@ -90,6 +90,10 @@ deno task test
 
 Full documentation (EN / ID): **[docs-deserve.neabyte.com](https://docs-deserve.neabyte.com)**
 
+### DVE Editor (Syntax Highlighting)
+
+- **Cursor / VS Code extension**: See [editor/README.md](editor/README.md)
+
 ## Contributing
 
 - **Bugs & ideas** — [GitHub Issues](https://github.com/NeaByteLab/Deserve/issues)
