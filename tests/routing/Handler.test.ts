@@ -25,6 +25,49 @@ Deno.test('Handler addMiddleware path prefix only applies to matching routes', a
   assertEquals(await resOther.text(), 'no')
 })
 
+Deno.test('Handler maxRouteParamLength returns 414 when exceeded', async () => {
+  const handler = new Routing.Handler({ maxRouteParamLength: 10 })
+  ;(
+    handler as unknown as { routerInstance: { add: (m: string, p: string, d: unknown) => void } }
+  ).routerInstance.add('GET', '/items/:id', {
+    handler: (ctx: Core.Context) => new Response(ctx.param('id') ?? '')
+  })
+  const longId = 'a'.repeat(50)
+  const res = await handler.createHandler()(new Request(`http://localhost/items/${longId}`))
+  assertEquals(res.status, 414)
+})
+
+Deno.test('Handler maxUrlLength returns 414 when exceeded', async () => {
+  const handler = new Routing.Handler({ maxUrlLength: 50 })
+  const longPath = 'a'.repeat(200)
+  const res = await handler.createHandler()(new Request(`http://localhost/${longPath}`))
+  assertEquals(res.status, 414)
+})
+
+Deno.test('Handler requestTimeoutMs returns 503 when exceeded', async () => {
+  const handler = new Routing.Handler({ requestTimeoutMs: 5 })
+  handler.addMiddleware('', async () => {
+    await new Promise(r => setTimeout(r, 20))
+    return new Response('late')
+  })
+  const res = await handler.createHandler()(new Request('http://localhost/'))
+  assertEquals(res.status, 503)
+  await res.body?.cancel()
+  await new Promise(r => setTimeout(r, 30))
+})
+
+Deno.test('Handler viewsDir sets ctx.state.view and can render', async () => {
+  const viewsDir = new URL('../fixtures/views/', import.meta.url).pathname.replace(/\/$/, '')
+  const handler = new Routing.Handler({ viewsDir })
+  handler.addMiddleware('', async ctx => {
+    const engine = ctx.state['view'] as { render: (p: string, d?: unknown) => Promise<string> }
+    const html = await engine.render('hello.dve', { name: 'DX' } as Record<string, unknown>)
+    return new Response(html)
+  })
+  const res = await handler.createHandler()(new Request('http://localhost/'))
+  assertEquals(await res.text(), 'Hello DX.\n')
+})
+
 Deno.test('Handler#createHandler with worker option sets ctx.state.worker', async () => {
   const handler = new Routing.Handler({
     worker: { scriptURL: echoWorkerUrl, poolSize: 1 }
@@ -134,18 +177,6 @@ Deno.test(
   }
 )
 
-Deno.test('Handler requestTimeoutMs returns 503 when exceeded', async () => {
-  const handler = new Routing.Handler({ requestTimeoutMs: 5 })
-  handler.addMiddleware('', async () => {
-    await new Promise(r => setTimeout(r, 20))
-    return new Response('late')
-  })
-  const res = await handler.createHandler()(new Request('http://localhost/'))
-  assertEquals(res.status, 503)
-  await res.body?.cancel()
-  await new Promise(r => setTimeout(r, 30))
-})
-
 Deno.test('Handler#validateModule throws when method is not function', () => {
   const handler = new Routing.Handler()
   let thrown = false
@@ -168,16 +199,4 @@ Deno.test('Handler#validateModule throws when no HTTP method exported', () => {
     assertEquals((e as Error).message.includes('Must export at least one HTTP method'), true)
   }
   assertEquals(thrown, true)
-})
-
-Deno.test('Handler viewsDir sets ctx.state.view and can render', async () => {
-  const viewsDir = new URL('../fixtures/views/', import.meta.url).pathname.replace(/\/$/, '')
-  const handler = new Routing.Handler({ viewsDir })
-  handler.addMiddleware('', async ctx => {
-    const engine = ctx.state['view'] as { render: (p: string, d?: unknown) => Promise<string> }
-    const html = await engine.render('hello.dve', { name: 'DX' } as Record<string, unknown>)
-    return new Response(html)
-  })
-  const res = await handler.createHandler()(new Request('http://localhost/'))
-  assertEquals(await res.text(), 'Hello DX.\n')
 })
