@@ -14,8 +14,11 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **feat(rendering):** DVE view engine with `.dve` templates, includes, `if` and `each` blocks, escaping by default, and JS-like expressions for lookups
 - **docs(worker):** Worker Pool docs (en + id) under Core Concepts, marked Unreleased; VitePress sidebar updated
 - **benchmark(worker):** `main-worker.ts`, `/test-worker` and `/test-cpu` routes, benchmark README in English
+- **benchmark(rendering):** DVE view rendering benchmark routes (`/test-view*`) and `.dve` templates under `benchmark/views`
+- **docs(editor):** Editor tooling docs plus DVE syntax reference and snippet shortcuts for `.dve` templates
 - **test(worker):** Worker pool tests and fixtures (`echo_worker.ts`, `error_worker.ts`)
 - **test(config):** Add unit tests for misconfiguration covering invalid worker `scriptURL`, poolSize clamping, and negative body limit
+- **test(benchmark):** Add smoke test for benchmark routes scanning and `/test` response
 
 ### Changed
 
@@ -24,6 +27,7 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **test(tests):** Reorganize tests into `tests/core`, `tests/middleware`, `tests/rendering`, and `tests/routing` with new DVE fixtures
 - **refactor(rendering):** Shorten template engine API names and reorder methods for clearer grouping
 - **docs(benchmark):** Benchmark README — one Indonesian sentence translated to English
+- **chore(publish):** Switch `deno.json` publish config to an explicit include list
 
 ---
 
