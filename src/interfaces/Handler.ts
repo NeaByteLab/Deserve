@@ -4,6 +4,10 @@ import type * as Types from '@interfaces/index.ts'
 export interface HandlerOptions {
   /** Custom error response builder */
   errorResponseBuilder?: Types.ErrorResponseBuilder
+  /** Max request URL length; 414 when exceeded */
+  maxUrlLength?: number
+  /** Max length per route param; 414 when exceeded */
+  maxRouteParamLength?: number
   /** Request timeout in ms; 503 on timeout when set */
   requestTimeoutMs?: number
   /** Custom static file handler */
@@ -18,6 +22,10 @@ export interface HandlerOptions {
 export interface RouterOptions {
   /** Custom error response builder */
   errorResponseBuilder?: Types.ErrorResponseBuilder
+  /** Max request URL length; 414 when exceeded */
+  maxUrlLength?: number
+  /** Max length per route param; 414 when exceeded */
+  maxRouteParamLength?: number
   /** Request timeout in ms; 503 on timeout when set */
   requestTimeoutMs?: number
   /** Directory path for file-based routes */

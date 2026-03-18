@@ -19,6 +19,12 @@ export class Router {
     if (options?.errorResponseBuilder !== undefined) {
       handlerOptions.errorResponseBuilder = options.errorResponseBuilder
     }
+    if (options?.maxUrlLength !== undefined) {
+      handlerOptions.maxUrlLength = options.maxUrlLength
+    }
+    if (options?.maxRouteParamLength !== undefined) {
+      handlerOptions.maxRouteParamLength = options.maxRouteParamLength
+    }
     if (options?.staticHandler !== undefined) {
       handlerOptions.staticHandler = options.staticHandler
     }

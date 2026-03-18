@@ -9,6 +9,10 @@ import { FastRouter } from '@neabyte/fast-router'
  * @description Scans routes, runs middleware chain, dispatches to route or static.
  */
 export class Handler {
+  /** Default max route param length */
+  private static readonly defaultMaxRouteParamLength = 1024
+  /** Default max request URL length */
+  private static readonly defaultMaxUrlLength = 8192
   /** Default error response builder using Error. */
   private static readonly defaultErrorResponseBuilder: Types.ErrorResponseBuilder = {
     build: (ctx, statusCode, error, errorMiddleware) =>
@@ -26,6 +30,10 @@ export class Handler {
   private errorResponseBuilder: Types.ErrorResponseBuilder
   /** Fast router for route matching. */
   private routerInstance = new FastRouter<Types.RouteMetadata>()
+  /** Max length per route param; 414 when exceeded */
+  private maxRouteParamLength: number | undefined
+  /** Max request URL length; 414 when exceeded */
+  private maxUrlLength: number | undefined
   /** Request timeout in ms; 503 when exceeded when set. */
   private requestTimeoutMs: number | undefined
   /** Static file handler; default or custom. */
@@ -43,13 +51,15 @@ export class Handler {
   constructor(options?: Types.HandlerOptions) {
     this.errorResponseBuilder = options?.errorResponseBuilder ?? Handler.defaultErrorResponseBuilder
     this.staticHandler = options?.staticHandler ?? Handler.defaultStaticHandler
+    this.maxUrlLength = options?.maxUrlLength ?? Handler.defaultMaxUrlLength
+    this.maxRouteParamLength = options?.maxRouteParamLength ?? Handler.defaultMaxRouteParamLength
     this.requestTimeoutMs = options?.requestTimeoutMs
-    this.workerPool = options?.worker !== undefined
-      ? Core.Worker.createPool(options.worker)
-      : undefined
-    this.viewEngine = options?.viewsDir !== undefined
-      ? new Rendering.Engine({ viewsDir: options.viewsDir })
-      : undefined
+    this.workerPool =
+      options?.worker !== undefined ? Core.Worker.createPool(options.worker) : undefined
+    this.viewEngine =
+      options?.viewsDir !== undefined
+        ? new Rendering.Engine({ viewsDir: options.viewsDir })
+        : undefined
   }
 
   /**
@@ -92,7 +102,12 @@ export class Handler {
    * @returns Async function from Request to Response
    */
   createHandler(): (req: Request) => Promise<Response> {
+    const maxUrlLength = this.maxUrlLength
+    const maxRouteParamLength = this.maxRouteParamLength
     const run = async (req: Request): Promise<Response> => {
+      if (maxUrlLength !== undefined && maxUrlLength > 0 && req.url.length > maxUrlLength) {
+        return Handler.buildUriTooLongResponse(req)
+      }
       const url = new URL(req.url)
       const ctx = new Core.Context(req, url, {}, this.handleResponse.bind(this))
       if (this.workerPool) {
@@ -115,6 +130,13 @@ export class Handler {
             return await ctx.handleError(404, new Error('Route not found'))
           }
           if ('params' in routeResult && routeResult.params) {
+            if (maxRouteParamLength !== undefined && maxRouteParamLength > 0) {
+              for (const paramValue of Object.values(routeResult.params)) {
+                if (paramValue.length > maxRouteParamLength) {
+                  return await ctx.handleError(414, new Error('URI Too Long'))
+                }
+              }
+            }
             ctx.setParams(routeResult.params)
           }
           const { handler } = metadata as Types.RouteMetadata
@@ -143,7 +165,7 @@ export class Handler {
     const timeoutMs = this.requestTimeoutMs
     return async (req: Request) => {
       if (timeoutMs !== undefined && timeoutMs > 0) {
-        const timeoutResponse = new Promise<Response>((resolve) => {
+        const timeoutResponse = new Promise<Response>(resolve => {
           setTimeout(
             () => resolve(new Response(null, { status: 503, statusText: 'Service Unavailable' })),
             timeoutMs
@@ -231,6 +253,28 @@ export class Handler {
   }
 
   /**
+   * Build 414 response from request.
+   * @description Returns JSON or HTML by Accept header.
+   * @param req - Incoming request
+   * @returns 414 Response
+   */
+  private static buildUriTooLongResponse(req: Request): Response {
+    const statusCode = 414
+    const error = 'URI Too Long'
+    const isJson = req.headers.get('accept')?.includes('application/json')
+    if (isJson) {
+      return globalThis.Response.json(
+        { error, path: '', statusCode },
+        { status: statusCode, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
+    return new Response(Core.Error.defaultErrorHtml(statusCode, error), {
+      status: statusCode,
+      headers: { 'Content-Type': 'text/html' }
+    })
+  }
+
+  /**
    * Run middleware chain for pathname.
    * @description Filters by path then runs next chain; returns first response.
    * @param ctx - Request context
@@ -241,7 +285,7 @@ export class Handler {
     ctx: Core.Context,
     pathname: string
   ): Promise<Response | undefined> {
-    const applicableMiddlewares = this.entryMiddleware.filter((middlewareEntry) => {
+    const applicableMiddlewares = this.entryMiddleware.filter(middlewareEntry => {
       if (middlewareEntry.path === '' || middlewareEntry.path === '*') {
         return true
       }
