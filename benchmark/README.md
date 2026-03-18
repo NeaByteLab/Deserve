@@ -1,73 +1,91 @@
 # Performance Benchmarks
 
-## Test Environment
+Benchmarks for the Deserve router + DVE view rendering.
 
-- **Tool:** `autocannon` — [npmjs.com/package/autocannon](https://www.npmjs.com/package/autocannon)
-- **Configuration:** 500 connections, 10 pipelining, 30 seconds (adjust per run)
+## Setup
 
-## How to Run
+- **Load tool**: `autocannon` ([npm](https://www.npmjs.com/package/autocannon))
+- **Default config used in this doc**: 500 connections, pipelining 10, duration 30s
 
-**1. Start the server** (from repo root). Pick one:
+## Quick Start
 
-- **Without worker** — `/test` and `/test-cpu` only; `/test-worker` returns 503:
+Start a server (from repo root), then run `autocannon` from another terminal.
+
+### Start Server
+
+- **Non-worker mode** (view routes + CPU on main thread):
 
   ```bash
   deno run --allow-net --allow-read benchmark/main.ts
   ```
 
-- **With worker** — all routes including `/test-worker`:
+- **Worker mode** (enables `/test-worker`):
+
   ```bash
   deno run --allow-net --allow-read benchmark/main-worker.ts
   ```
 
-**2. Run autocannon** (in another terminal; requires Node/npx):
+Notes:
+
+- In non-worker mode, **`/test-worker` returns 503** (`worker not enabled`).
+- All view routes (`/test-view*`) are available in both modes.
+
+### Run Benchmark
 
 ```bash
 npx autocannon http://localhost:8000/test -c 500 -p 10 -d 30
 ```
 
-## Files
+## Routes
 
-- **`benchmark/main.ts`** — Router without worker. Serves `/test`, `/test-cpu`.
-- **`benchmark/main-worker.ts`** — Router with worker pool (inline CPU loop).
-- **`benchmark/routes/test.ts`** — GET `/test`: baseline, JSON only (no CPU work).
-- **`benchmark/routes/test-cpu.ts`** — GET `/test-cpu`: same CPU work (50k sqrt loop) on **main thread**.
-- **`benchmark/routes/test-worker.ts`** — GET `/test-worker`: same CPU work offloaded to **worker**.
+### JSON + CPU Comparison
 
-## Routes for comparison
+| Route          | What it does                             | Why it exists              |
+| -------------- | ---------------------------------------- | -------------------------- |
+| `/test`        | JSON only (no CPU work)                  | Baseline throughput        |
+| `/test-cpu`    | 50k `sqrt` loop on **main thread**       | Event-loop blocking cost   |
+| `/test-worker` | Same loop offloaded to a **worker pool** | Offload overhead + scaling |
 
-| Route          | Description                  | Use case             |
-| -------------- | ---------------------------- | -------------------- |
-| `/test`        | JSON only, no CPU            | Baseline throughput  |
-| `/test-cpu`    | 50k sqrt loop on main thread | Main-thread CPU cost |
-| `/test-worker` | Same loop in worker pool     | Worker offload cost  |
+### DVE View Engine Routes
 
-Run autocannon against each route (in another terminal):
+| Route                  | What it renders                 | Why it exists                |
+| ---------------------- | ------------------------------- | ---------------------------- |
+| `/test-view`           | Simple variable render          | DVE baseline                 |
+| `/test-view-each-meta` | `each` block with metadata      | Loop + expression evaluation |
+| `/test-view-include`   | Include + partial               | Composition overhead         |
+| `/test-view-expr`      | Optional chaining + expressions | Expression parser/evaluator  |
+
+## Commands (Copy/Paste)
 
 ```bash
-# Baseline (no CPU)
+# JSON Baseline
 npx autocannon http://localhost:8000/test -c 500 -p 10 -d 30
 
-# CPU on main thread (blocks event loop)
+# CPU On Main Thread
 npx autocannon http://localhost:8000/test-cpu -c 500 -p 10 -d 30
 
-# CPU in worker (non-blocking)
+# CPU In Worker (Requires benchmark/main-worker.ts)
 npx autocannon http://localhost:8000/test-worker -c 500 -p 10 -d 30
+
+# DVE Views
+npx autocannon http://localhost:8000/test-view -c 500 -p 10 -d 30
+npx autocannon http://localhost:8000/test-view-each-meta -c 500 -p 10 -d 30
+npx autocannon http://localhost:8000/test-view-include -c 500 -p 10 -d 30
+npx autocannon http://localhost:8000/test-view-expr -c 500 -p 10 -d 30
 ```
 
-## Latest benchmark results (30s, 500 conn, pipelining 10)
+## Latest Results (30s, 500 Conn, Pipelining 10)
 
-**Non-worker** — `main.ts`:
+### JSON + CPU (Example)
 
-| Route          | Test 1  | Test 2  | Test 3  | Req/Sec (avg) | Latency (avg) | Total (avg) |
-| -------------- | ------- | ------- | ------- | ------------- | ------------- | ----------- |
-| `/test`        | 175,343 | 170,567 | 164,515 | 170,142       | 29 ms         | 5109k       |
-| `/test-cpu`    | 25,009  | 24,949  | 24,927  | 24,962        | 199 ms        | 754k        |
-| `/test-worker` | 150,151 | 148,683 | 148,061 | 148,965       | 33 ms         | 4474k       |
+**Non-worker** — `benchmark/main.ts`:
 
-`/test-worker` without worker returns 503 (no pool).
+| Route       | Test 1  | Test 2  | Test 3  | Req/Sec (avg) | Latency (avg) | Total (avg) |
+| ----------- | ------- | ------- | ------- | ------------- | ------------- | ----------- |
+| `/test`     | 175,343 | 170,567 | 164,515 | 170,142       | 29 ms         | 5109k       |
+| `/test-cpu` | 25,009  | 24,949  | 24,927  | 24,962        | 199 ms        | 754k        |
 
-**With worker** — `main-worker.ts` (worker pool, poolSize 4).
+**Worker-enabled** — `benchmark/main-worker.ts`:
 
 | Route          | Test 1  | Test 2  | Test 3  | Req/Sec (avg) | Latency (avg) | Total (avg) |
 | -------------- | ------- | ------- | ------- | ------------- | ------------- | ----------- |
@@ -75,12 +93,20 @@ npx autocannon http://localhost:8000/test-worker -c 500 -p 10 -d 30
 | `/test-cpu`    | 25,133  | 24,833  | 24,773  | 24,912        | 199 ms        | 752k        |
 | `/test-worker` | 69,265  | 69,063  | 68,810  | 69,046        | 72 ms         | 2076k       |
 
-**Conclusion (test-cpu vs test-worker).** Both routes run the same CPU-bound workload (50k sqrt loop). `/test-cpu` runs it on the main thread and blocks the event loop (~25k req/s, ~199 ms). `/test-worker` offloads the work to a worker pool (~69k req/s, ~72 ms). For CPU-bound tasks, using the worker yields roughly 2.8× higher throughput and ~2.8× lower latency because the main thread stays free to accept and dispatch requests.
+Takeaway: `/test-cpu` blocks the event loop; `/test-worker` moves the same work off-thread.
 
-## Test Behavior (baseline)
+### Views (DVE Rendering Baseline)
 
-- **Method:** GET
-- **Route:** `/test`
-- **Response:** `{ "hello": "world!" }` (JSON)
-- **File-based routing:** `benchmark/routes/test.ts` → pattern `/test`
-- **API:** `Context` + `ctx.send.json()`
+| Route                  | Test 1  | Test 2  | Test 3  | Req/Sec (avg) | Latency (avg) | Total (avg) |
+| ---------------------- | ------- | ------- | ------- | ------------- | ------------- | ----------- |
+| `/test-view`           | 129,063 | 124,978 | 120,516 | 124,852       | 39.77 ms      | 3.75M       |
+| `/test-view-each-meta` | 10,406  | 10,381  | 10,073  | 10,287        | 482.13 ms     | 313k        |
+| `/test-view-include`   | 112,115 | 109,558 | 101,886 | 107,853       | 46.02 ms      | 3.24M       |
+| `/test-view-expr`      | 96,328  | 94,207  | 82,094  | 90,876        | 54.84 ms      | 2.73M       |
+
+## Files
+
+- `benchmark/main.ts`: server entry (non-worker)
+- `benchmark/main-worker.ts`: server entry (worker-enabled)
+- `benchmark/routes/*.ts`: route handlers
+- `benchmark/views/*.dve`: DVE templates

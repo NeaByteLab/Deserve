@@ -18,6 +18,7 @@ const workerScriptUrl = URL.createObjectURL(
 
 const router = new Router({
   routesDir: 'benchmark/routes',
+  viewsDir: 'benchmark/views',
   worker: { scriptURL: workerScriptUrl, poolSize: 4 }
 })
 

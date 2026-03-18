@@ -1,0 +1,1 @@
+{{#each items as item}}({{ @index }}/{{ @length }} {{#if @first}}F{{else}}-{{/if}}{{#if @last}}L{{else}}-{{/if}}={{ item }});{{/each}}
