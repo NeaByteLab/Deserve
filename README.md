@@ -10,14 +10,14 @@ Build HTTP server effortlessly with zero configuration for productivity.
 
 ## Features
 
-- **Zero Config** — No build step for the server. Point to a routes directory and serve.
-- **File-Based Routing** — Drop files in `routes/`; export `GET`, `POST`, etc. File structure is your API.
-- **Context** — Request wrapper: body (JSON/form/text), query, params, cookies, headers, `ctx.send`.
-- **Middleware** — Global, path-specific. CORS, SecHeaders, Body Limit, Basic Auth, Session, WebSocket.
-- **Static Files** — `router.static(urlPath, options)` with optional etag and cache-control.
-- **Error Handling** — Pluggable error response builder and error middleware; default HTML/JSON by `Accept`.
-- **Worker Pool** — Optional worker pool for CPU-bound work; enable via `worker: { scriptURL, poolSize }`.
-- **Frontend Optional** — Use any stack (Vite, React, etc.); Deserve stays the server.
+- **Zero Config** — No build step. Point to routes and serve.
+- **File-Based Routing** — Put route files in a folder, URL follows that structure.
+- **Context** — Body, query, params, cookies, headers, plus helpers to respond.
+- **Middleware** — Global or per path. CORS, auth, session, WebSocket.
+- **Static Files** — Serve directories with optional cache and etag.
+- **Error Handling** — Custom or default HTML/JSON error responses.
+- **Worker Pool** — Offload heavy work to a pool so the server stays responsive.
+- **Frontend Optional** — Use any frontend. Deserve stays the server.
 
 ## Installation
 
@@ -84,23 +84,16 @@ deno task check
 deno task test
 ```
 
-**Benchmark** — performance runs with autocannon; see [benchmark/README.md](benchmark/README.md) for how to run and interpret results.
+**Benchmark** — autocannon runs. [benchmark/README.md](benchmark/README.md) for details.
 
 ## Documentation
 
-Full docs (EN / ID): **[docs-deserve.neabyte.com](https://docs-deserve.neabyte.com)**
-
-- **Getting Started** — Installation, Quick Start, Server & Routes configuration
-- **Core Concepts** — Philosophy, file-based routing, route patterns, Context, request handling
-- **Middleware** — Global, route-specific, Basic Auth, Body Limit, CORS, Security Headers, WebSocket
-- **Response** — JSON, text, HTML, file/data download, redirect, custom
-- **Static Files** — Basic and multiple directories
-- **Error Handling** — Default behavior, error object details
+Full documentation (EN / ID): **[docs-deserve.neabyte.com](https://docs-deserve.neabyte.com)**
 
 ## Contributing
 
 - **Bugs & ideas** — [GitHub Issues](https://github.com/NeaByteLab/Deserve/issues)
-- **Code & docs** — [Pull Requests](https://github.com/NeaByteLab/Deserve/pulls) welcome; docs support English and Indonesian.
+- **Code & docs** — [Pull Requests](https://github.com/NeaByteLab/Deserve/pulls) welcome.
 - **Use it** — Try Deserve in your projects and share feedback.
 
 ## License
