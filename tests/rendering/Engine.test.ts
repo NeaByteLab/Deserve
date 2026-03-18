@@ -41,8 +41,8 @@ Deno.test('Engine#render if/else chooses correct branch', async () => {
 Deno.test('Engine#render include renders nested template', async () => {
   const viewsDir = new URL('../fixtures/views/', import.meta.url).pathname.replace(/\/$/, '')
   const engine = new Rendering.Engine({ viewsDir })
-  const html = await engine.render('include.dve', { name: 'Neo' })
-  assertEquals(html.trim(), 'Hello Neo.')
+  const html = await engine.render('include.dve', { name: 'Nea' })
+  assertEquals(html.trim(), 'Hello Nea.')
 })
 
 Deno.test('Engine#render raw var (triple braces) does not escape', async () => {
@@ -123,8 +123,8 @@ Deno.test('Engine#render supports JS-like expressions in {{ ... }}', async () =>
   const htmlGuest = await engine.render('expr.dve', {})
   assertEquals(htmlGuest.trim(), 'Hello Guest.\nUSER\nSum=7')
 
-  const htmlAdmin = await engine.render('expr.dve', { user: { name: 'Neo', isAdmin: true } })
-  assertEquals(htmlAdmin.trim(), 'Hello Neo.\nADMIN\nSum=7')
+  const htmlAdmin = await engine.render('expr.dve', { user: { name: 'Nea', isAdmin: true } })
+  assertEquals(htmlAdmin.trim(), 'Hello Nea.\nADMIN\nSum=7')
 })
 
 Deno.test('Engine#render throws when template not found', async () => {
