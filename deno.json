@@ -71,21 +71,6 @@
     "@neabyte/fast-router": "jsr:@neabyte/fast-router@^0.1.0"
   },
   "publish": {
-    "exclude": [
-      "*.bench.ts",
-      "*.spec.ts",
-      "*.test.ts",
-      ".github/",
-      "bench/",
-      "build.config.ts",
-      "coverage/",
-      "dist/",
-      "docs/",
-      "examples/",
-      "package-lock.json",
-      "package.json",
-      "preview/",
-      "tests/"
-    ]
+    "include": ["src/", "README.md", "CHANGELOG.md", "LICENSE", "deno.json"]
   }
 }
