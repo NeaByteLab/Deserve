@@ -83,7 +83,9 @@ export class Expression {
     let exprNode = this.parseMul()
     while (true) {
       const currentToken = this.peek()
-      if (currentToken?.kind === 'op' && (currentToken.value === '+' || currentToken.value === '-')) {
+      if (
+        currentToken?.kind === 'op' && (currentToken.value === '+' || currentToken.value === '-')
+      ) {
         this.consume()
         const rightNode = this.parseMul()
         exprNode = { type: 'binary', op: currentToken.value, left: exprNode, right: rightNode }
@@ -167,8 +169,10 @@ export class Expression {
     let exprNode = this.parseUn()
     while (true) {
       const currentToken = this.peek()
-      if (currentToken?.kind === 'op' &&
-        (currentToken.value === '*' || currentToken.value === '/' || currentToken.value === '%')) {
+      if (
+        currentToken?.kind === 'op' &&
+        (currentToken.value === '*' || currentToken.value === '/' || currentToken.value === '%')
+      ) {
         this.consume()
         const rightNode = this.parseUn()
         exprNode = { type: 'binary', op: currentToken.value, left: exprNode, right: rightNode }
@@ -280,8 +284,10 @@ export class Expression {
    */
   private parseUn(): Types.ExprNode {
     const currentToken = this.peek()
-    if (currentToken?.kind === 'op' &&
-      (currentToken.value === '!' || currentToken.value === '+' || currentToken.value === '-')) {
+    if (
+      currentToken?.kind === 'op' &&
+      (currentToken.value === '!' || currentToken.value === '+' || currentToken.value === '-')
+    ) {
       this.consume()
       const argNode = this.parseUn()
       return { type: 'unary', op: currentToken.value as '!' | '+' | '-', arg: argNode }

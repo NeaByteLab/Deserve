@@ -41,7 +41,7 @@ export class Utils {
   static lookup(dataObject: unknown, dataPath: string): unknown {
     const pathSegments = dataPath
       .split('.')
-      .map(pathSegment => pathSegment.trim())
+      .map((pathSegment) => pathSegment.trim())
       .filter(Boolean)
     let currentValue: unknown = dataObject
     for (const pathSegment of pathSegments) {
