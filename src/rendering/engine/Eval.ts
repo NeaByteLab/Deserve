@@ -9,6 +9,7 @@ export class Eval {
   /** Simple dotted path regex */
   private static readonly simplePathRegex =
     /^[a-zA-Z_$][a-zA-Z0-9_$]*(\.[a-zA-Z_$][a-zA-Z0-9_$]*)*$/
+
   /**
    * Evaluate expression in scope
    * @description Tokenizes, parses, and evaluates expression
@@ -31,66 +32,74 @@ export class Eval {
     parser.assertEnd()
     return Eval.evalNode(astNode, scope)
   }
-  private static evalNode(node: Types.ExprNode, scope: Record<string, unknown>): unknown {
-    if (node.type === 'literal') {
-      return node.value
+
+  /**
+   * Evaluate single AST node in scope.
+   * @description Recursively evaluates literal, ident, member, ops.
+   * @param exprNode - Expression AST node
+   * @param scope - Scope data for identifiers
+   * @returns Evaluated value
+   */
+  private static evalNode(exprNode: Types.ExprNode, scope: Record<string, unknown>): unknown {
+    if (exprNode.type === 'literal') {
+      return exprNode.value
     }
-    if (node.type === 'ident') {
-      if (node.name === 'true') {
+    if (exprNode.type === 'ident') {
+      if (exprNode.name === 'true') {
         return true
       }
-      if (node.name === 'false') {
+      if (exprNode.name === 'false') {
         return false
       }
-      if (node.name === 'null') {
+      if (exprNode.name === 'null') {
         return null
       }
-      if (node.name === 'undefined') {
+      if (exprNode.name === 'undefined') {
         return undefined
       }
-      return scope[node.name]
+      return scope[exprNode.name]
     }
-    if (node.type === 'member') {
-      const objectValue = Eval.evalNode(node.object, scope)
+    if (exprNode.type === 'member') {
+      const objectValue = Eval.evalNode(exprNode.object, scope)
       if (objectValue === null || objectValue === undefined) {
         return undefined
       }
       if (typeof objectValue !== 'object') {
         return undefined
       }
-      return (objectValue as Record<string, unknown>)[node.property]
+      return (objectValue as Record<string, unknown>)[exprNode.property]
     }
-    if (node.type === 'unary') {
-      const argValue = Eval.evalNode(node.arg, scope)
-      if (node.op === '!') {
+    if (exprNode.type === 'unary') {
+      const argValue = Eval.evalNode(exprNode.arg, scope)
+      if (exprNode.op === '!') {
         return !argValue
       }
-      if (node.op === '+') {
+      if (exprNode.op === '+') {
         return typeof argValue === 'number' ? argValue : Number(argValue)
       }
-      if (node.op === '-') {
+      if (exprNode.op === '-') {
         return -(typeof argValue === 'number' ? argValue : Number(argValue))
       }
       return undefined
     }
-    if (node.type === 'binary') {
-      if (node.op === '&&') {
-        const leftValue = Eval.evalNode(node.left, scope)
-        return leftValue ? Eval.evalNode(node.right, scope) : leftValue
+    if (exprNode.type === 'binary') {
+      if (exprNode.op === '&&') {
+        const leftValue = Eval.evalNode(exprNode.left, scope)
+        return leftValue ? Eval.evalNode(exprNode.right, scope) : leftValue
       }
-      if (node.op === '||') {
-        const leftValue = Eval.evalNode(node.left, scope)
-        return leftValue ? leftValue : Eval.evalNode(node.right, scope)
+      if (exprNode.op === '||') {
+        const leftValue = Eval.evalNode(exprNode.left, scope)
+        return leftValue ? leftValue : Eval.evalNode(exprNode.right, scope)
       }
-      if (node.op === '??') {
-        const leftValue = Eval.evalNode(node.left, scope)
+      if (exprNode.op === '??') {
+        const leftValue = Eval.evalNode(exprNode.left, scope)
         return leftValue === null || leftValue === undefined
-          ? Eval.evalNode(node.right, scope)
+          ? Eval.evalNode(exprNode.right, scope)
           : leftValue
       }
-      const leftValue = Eval.evalNode(node.left, scope)
-      const rightValue = Eval.evalNode(node.right, scope)
-      switch (node.op) {
+      const leftValue = Eval.evalNode(exprNode.left, scope)
+      const rightValue = Eval.evalNode(exprNode.right, scope)
+      switch (exprNode.op) {
         case '===':
           return leftValue === rightValue
         case '!==':
@@ -121,11 +130,11 @@ export class Eval {
           return undefined
       }
     }
-    if (node.type === 'ternary') {
-      const testValue = Eval.evalNode(node.test, scope)
+    if (exprNode.type === 'ternary') {
+      const testValue = Eval.evalNode(exprNode.test, scope)
       return testValue
-        ? Eval.evalNode(node.consequent, scope)
-        : Eval.evalNode(node.alternate, scope)
+        ? Eval.evalNode(exprNode.consequent, scope)
+        : Eval.evalNode(exprNode.alternate, scope)
     }
     return undefined
   }
