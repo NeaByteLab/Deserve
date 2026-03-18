@@ -1,23 +1,23 @@
-import type * as Types from '@app/Types.ts'
+import type * as Types from '@interfaces/index.ts'
 
 /**
  * Worker pool for CPU-bound tasks.
  * @description Payload and result must be structured-clone serializable.
  */
-export class WorkerPool {
+export class Worker {
   /** Default worker count when poolSize omitted */
   private static readonly defaultPoolSize = 4
   /** Round-robin index for next worker */
   private nextIndex = 0
   /** Pooled worker instances */
-  private workers: Worker[] = []
+  private workers: globalThis.Worker[] = []
 
   /**
    * Construct pool with given workers.
    * @description Initializes pool with pre-created worker list.
    * @param workers - Pre-created Deno worker instances
    */
-  private constructor(workers: Worker[]) {
+  private constructor(workers: globalThis.Worker[]) {
     this.workers = workers
   }
 
@@ -25,19 +25,19 @@ export class WorkerPool {
    * Create worker pool from options.
    * @description Spawns module workers from scriptURL; must resolve in app.
    * @param options - scriptURL and optional poolSize
-   * @returns WorkerPool with run and terminate
+   * @returns Worker with run and terminate
    */
-  static createPool(options: Types.WorkerPoolOptions): WorkerPool {
-    const workerCount = Math.max(1, options.poolSize ?? WorkerPool.defaultPoolSize)
-    const workerList: Worker[] = []
+  static createPool(options: Types.WorkerPoolOptions): Worker {
+    const workerCount = Math.max(1, options.poolSize ?? Worker.defaultPoolSize)
+    const workerList: globalThis.Worker[] = []
     for (let index = 0; index < workerCount; index++) {
       workerList.push(
-        new Worker(options.scriptURL, {
+        new globalThis.Worker(options.scriptURL, {
           type: 'module'
         })
       )
     }
-    return new WorkerPool(workerList)
+    return new Worker(workerList)
   }
 
   /**

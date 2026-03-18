@@ -1,12 +1,12 @@
-import type * as Types from '@app/Types.ts'
-import { Handler } from '@app/index.ts'
+import type * as Types from '@interfaces/index.ts'
+import * as Routing from '@routing/index.ts'
 
 /**
  * Public API for routes, middleware, and serve.
  * @description Wraps Handler and exposes serve, use, static, catch.
  */
 export class Router {
-  private handler: Handler
+  private handler: Routing.Handler
   private routesDir: string
 
   /**
@@ -28,7 +28,12 @@ export class Router {
     if (options?.worker !== undefined) {
       handlerOptions.worker = options.worker
     }
-    this.handler = new Handler(Object.keys(handlerOptions).length > 0 ? handlerOptions : undefined)
+    if (options?.viewsDir !== undefined) {
+      handlerOptions.viewsDir = options.viewsDir
+    }
+    this.handler = new Routing.Handler(
+      Object.keys(handlerOptions).length > 0 ? handlerOptions : undefined
+    )
     this.routesDir = options?.routesDir ?? './routes'
   }
 

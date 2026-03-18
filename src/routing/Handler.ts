@@ -1,20 +1,22 @@
-import type * as Types from '@app/Types.ts'
+import type * as Types from '@interfaces/index.ts'
+import * as Core from '@core/index.ts'
+import * as Rendering from '@rendering/index.ts'
+import * as Routing from '@routing/index.ts'
 import { FastRouter } from '@neabyte/fast-router'
-import { Constant, Context, ErrorHelpers, Scanner, Static, WorkerPool } from '@app/index.ts'
 
 /**
  * Core request handler: middleware, routing, static.
  * @description Scans routes, runs middleware chain, dispatches to route or static.
  */
 export class Handler {
-  /** Default error response builder using ErrorHelpers. */
+  /** Default error response builder using Error. */
   private static readonly defaultErrorResponseBuilder: Types.ErrorResponseBuilder = {
     build: (ctx, statusCode, error, errorMiddleware) =>
-      ErrorHelpers.buildResponse(ctx, statusCode, error, errorMiddleware)
+      Core.Error.buildResponse(ctx, statusCode, error, errorMiddleware)
   }
   /** Default static file handler using Static.serveStaticFile. */
   private static readonly defaultStaticHandler: Types.StaticHandler = {
-    serve: (ctx, options, urlPath) => Static.serveStaticFile(ctx, options, urlPath)
+    serve: (ctx, options, urlPath) => Core.Static.serveStaticFile(ctx, options, urlPath)
   }
   /** Middleware list with optional path prefix. */
   private entryMiddleware: Types.MiddlewareEntry[] = []
@@ -29,7 +31,9 @@ export class Handler {
   /** Static file handler; default or custom. */
   private staticHandler: Types.StaticHandler
   /** Optional worker pool when worker option is set. */
-  private workerPool: WorkerPool | undefined
+  private workerPool: Core.Worker | undefined
+  /** Optional view engine when viewsDir is set. */
+  private viewEngine: Types.ViewEngine | undefined
 
   /**
    * Create handler with optional overrides.
@@ -41,7 +45,10 @@ export class Handler {
     this.staticHandler = options?.staticHandler ?? Handler.defaultStaticHandler
     this.requestTimeoutMs = options?.requestTimeoutMs
     this.workerPool = options?.worker !== undefined
-      ? WorkerPool.createPool(options.worker)
+      ? Core.Worker.createPool(options.worker)
+      : undefined
+    this.viewEngine = options?.viewsDir !== undefined
+      ? new Rendering.Engine({ viewsDir: options.viewsDir })
       : undefined
   }
 
@@ -65,13 +72,13 @@ export class Handler {
    */
   addStaticRoute(urlPath: string, options: Types.ServeOptions): void {
     const staticHandler = this.staticHandler
-    for (const method of Constant.httpMethods) {
+    for (const method of Core.Constant.httpMethods) {
       const routePattern = urlPath === '/' ? '/**' : `${urlPath}/**`
       const metadata: Types.RouteMetadata = {
         handler: {
           staticRoute: true,
           urlPath,
-          execute: (ctx: Context) => staticHandler.serve(ctx, options, urlPath)
+          execute: (ctx: Core.Context) => staticHandler.serve(ctx, options, urlPath)
         },
         pattern: routePattern
       }
@@ -87,11 +94,14 @@ export class Handler {
   createHandler(): (req: Request) => Promise<Response> {
     const run = async (req: Request): Promise<Response> => {
       const url = new URL(req.url)
-      const ctx = new Context(req, url, {}, this.handleResponse.bind(this))
+      const ctx = new Core.Context(req, url, {}, this.handleResponse.bind(this))
       if (this.workerPool) {
         ctx.state['worker'] = {
           run: <T>(payload: unknown) => this.workerPool!.run<T>(payload)
         } as Types.WorkerRunHandle
+      }
+      if (this.viewEngine !== undefined) {
+        ctx.state['view'] = this.viewEngine
       }
       try {
         const middlewareResult = await this.executeMiddlewares(ctx, url.pathname)
@@ -152,7 +162,7 @@ export class Handler {
    * @returns Pattern like /users/:id or null
    */
   createPattern(routePath: string): string | null {
-    return Scanner.createPattern(routePath, Constant.allowedExtensions)
+    return Routing.Scanner.createPattern(routePath, Core.Constant.allowedExtensions)
   }
 
   /**
@@ -163,7 +173,7 @@ export class Handler {
    * @param error - Error instance
    * @returns Error response
    */
-  async handleResponse(ctx: Context, statusCode: number, error: Error): Promise<Response> {
+  async handleResponse(ctx: Core.Context, statusCode: number, error: Error): Promise<Response> {
     return await this.errorResponseBuilder.build(ctx, statusCode, error, this.errorMiddleware)
   }
 
@@ -174,12 +184,12 @@ export class Handler {
    * @param basePath - Base path prefix for route paths
    */
   async scanRoutes(targetDir: string, basePath = ''): Promise<void> {
-    return await Scanner.explore(
+    return await Routing.Scanner.explore(
       this.routerInstance,
       targetDir,
       basePath,
-      Constant.httpMethods,
-      Constant.allowedExtensions
+      Core.Constant.httpMethods,
+      Core.Constant.allowedExtensions
     )
   }
 
@@ -217,7 +227,7 @@ export class Handler {
    * @throws {Error} When no method exported or handler not function
    */
   validateModule(module: Record<string, unknown>, routePath: string): void {
-    Scanner.validateModule(module, routePath, Constant.httpMethods)
+    Routing.Scanner.validateModule(module, routePath, Core.Constant.httpMethods)
   }
 
   /**
@@ -227,7 +237,10 @@ export class Handler {
    * @param pathname - Request pathname for path matching
    * @returns Response from middleware or undefined to continue
    */
-  private async executeMiddlewares(ctx: Context, pathname: string): Promise<Response | undefined> {
+  private async executeMiddlewares(
+    ctx: Core.Context,
+    pathname: string
+  ): Promise<Response | undefined> {
     const applicableMiddlewares = this.entryMiddleware.filter((middlewareEntry) => {
       if (middlewareEntry.path === '' || middlewareEntry.path === '*') {
         return true

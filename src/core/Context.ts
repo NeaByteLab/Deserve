@@ -1,5 +1,5 @@
-import type * as Types from '@app/Types.ts'
-import { Redirect, ResponseHelpers } from '@app/index.ts'
+import type * as Types from '@interfaces/index.ts'
+import * as Core from '@core/index.ts'
 
 /**
  * Request wrapper with body, query, params.
@@ -237,7 +237,13 @@ export class Context {
    * @returns Redirect response
    */
   redirect(url: string, status = 302, init?: { headers?: HeadersInit }): Response {
-    return Redirect.buildResponse(this.req.url, this.responseHeaders, url, status, init?.headers)
+    return Core.Redirect.buildResponse(
+      this.req.url,
+      this.responseHeaders,
+      url,
+      status,
+      init?.headers
+    )
   }
 
   /** Raw Request object */
@@ -263,11 +269,27 @@ export class Context {
 
   /** Helpers to send JSON, HTML, file, redirect, etc. */
   get send(): Types.SendHelpers {
-    return ResponseHelpers.create(
+    return Core.Response.create(
       this.responseHeaders,
       (url, status, extraHeaders) =>
-        Redirect.buildResponse(this.req.url, this.responseHeaders, url, status, extraHeaders)
+        Core.Redirect.buildResponse(this.req.url, this.responseHeaders, url, status, extraHeaders)
     )
+  }
+
+  /**
+   * Render template and return HTML response.
+   * @description Requires viewsDir set in Router; uses ctx.state.view.
+   * @param templatePath - Path to .dve template relative to viewsDir
+   * @param data - Data for template
+   * @returns Response with rendered HTML
+   */
+  async render(templatePath: string, data: Record<string, unknown> = {}): Promise<Response> {
+    const view = this.state['view'] as Types.ViewEngine | undefined
+    if (view === undefined) {
+      throw new Error('View engine not configured; set viewsDir in Router options.')
+    }
+    const html = await view.render(templatePath, data)
+    return this.send.html(html)
   }
 
   /**

@@ -1,5 +1,5 @@
-import type * as Types from '@app/index.ts'
-import { Constant } from '@app/index.ts'
+import type * as Types from '@interfaces/index.ts'
+import * as Core from '@core/index.ts'
 
 /**
  * Serves static files with etag and cache.
@@ -15,7 +15,7 @@ export class Static {
    * @returns File response or 304 or error
    */
   static async serveStaticFile(
-    ctx: Types.Context,
+    ctx: Core.Context,
     options: Types.ServeOptions,
     urlPath: string
   ): Promise<Response> {
@@ -50,7 +50,7 @@ export class Static {
         return await ctx.handleError(404, new Error('File not found'))
       }
       const extension = filePath.split('.').pop()?.toLowerCase() ?? ''
-      const contentType = Constant.contentTypes[extension] ?? 'application/octet-stream'
+      const contentType = Core.Constant.contentTypes[extension] ?? 'application/octet-stream'
       const file = await Deno.open(fileResolved, { read: true })
       let etag: string | null = null
       if (options.etag) {

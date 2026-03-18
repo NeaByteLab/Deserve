@@ -1,10 +1,11 @@
-import type { Context, ErrorMiddleware } from '@app/index.ts'
+import type * as Types from '@interfaces/index.ts'
+import type * as Core from '@core/index.ts'
 
 /**
  * Default error response builder.
  * @description Runs error middleware then JSON or HTML by Accept.
  */
-export class ErrorHelpers {
+export class Error {
   /**
    * Build error response with middleware and format.
    * @description Tries error middleware then JSON or HTML.
@@ -15,11 +16,11 @@ export class ErrorHelpers {
    * @returns Error response
    */
   static async buildResponse(
-    ctx: Context,
+    ctx: Core.Context,
     statusCode: number,
-    error: Error,
-    errorMiddleware: ErrorMiddleware | null
-  ): Promise<Response> {
+    error: globalThis.Error,
+    errorMiddleware: Types.ErrorMiddleware | null
+  ): Promise<globalThis.Response> {
     if (errorMiddleware) {
       const customResponse = await errorMiddleware(ctx, {
         url: ctx.url,
@@ -43,7 +44,7 @@ export class ErrorHelpers {
         { status: statusCode }
       )
     }
-    return ctx.send.html(ErrorHelpers.defaultErrorHtml(statusCode, error.message), {
+    return ctx.send.html(Error.defaultErrorHtml(statusCode, error.message), {
       status: statusCode
     })
   }
@@ -56,7 +57,7 @@ export class ErrorHelpers {
    * @returns HTML string
    */
   static defaultErrorHtml(statusCode: number, message: string): string {
-    const escapedMessage = ErrorHelpers.escapeHtml(message)
+    const escapedMessage = Error.escapeHtml(message)
     return `<!DOCTYPE html>
 <html>
 <head><title>${statusCode}</title></head>

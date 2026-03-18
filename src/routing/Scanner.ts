@@ -1,4 +1,4 @@
-import type * as Types from '@app/index.ts'
+import type * as Types from '@interfaces/index.ts'
 import type { FastRouter } from '@neabyte/fast-router'
 import { pathToFileURL } from 'node:url'
 

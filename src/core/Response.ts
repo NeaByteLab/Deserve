@@ -1,10 +1,10 @@
-import type * as Types from '@app/Types.ts'
+import type * as Types from '@interfaces/index.ts'
 
 /**
  * Factory for ctx.send response helpers.
  * @description Merges context headers with each response.
  */
-export class ResponseHelpers {
+export class Response {
   /**
    * Create SendHelpers for headers and redirect.
    * @description Binds base headers and redirect builder to helpers.
@@ -14,13 +14,13 @@ export class ResponseHelpers {
    */
   static create(
     responseHeaders: Record<string, string>,
-    buildRedirect: (url: string, status: number, extraHeaders?: HeadersInit) => Response
+    buildRedirect: (url: string, status: number, extraHeaders?: HeadersInit) => globalThis.Response
   ): Types.SendHelpers {
     return {
-      custom(body: BodyInit | null, options?: ResponseInit): Response {
-        return new Response(body, {
+      custom(body: BodyInit | null, options?: ResponseInit): globalThis.Response {
+        return new globalThis.Response(body, {
           ...options,
-          headers: ResponseHelpers.mergeHeaders(responseHeaders, options)
+          headers: Response.mergeHeaders(responseHeaders, options)
         })
       },
       data(
@@ -28,30 +28,34 @@ export class ResponseHelpers {
         filename: string,
         options?: ResponseInit,
         contentType = 'application/octet-stream'
-      ): Response {
+      ): globalThis.Response {
         const body = typeof data === 'string' ? new TextEncoder().encode(data) : data
-        return new Response(body as BodyInit, {
+        return new globalThis.Response(body as BodyInit, {
           headers: {
             'Content-Type': contentType,
             'Content-Disposition': `attachment; filename="${filename}"`,
             'Content-Length': body.length.toString(),
-            ...ResponseHelpers.mergeHeaders(responseHeaders, options)
+            ...Response.mergeHeaders(responseHeaders, options)
           },
           ...options
         })
       },
-      async file(filePath: string, filename?: string, options?: ResponseInit): Promise<Response> {
+      async file(
+        filePath: string,
+        filename?: string,
+        options?: ResponseInit
+      ): Promise<globalThis.Response> {
         let file: Deno.FsFile | null = null
         try {
           file = await Deno.open(filePath, { read: true })
           const fileInfo = await file.stat()
           const fileName = filename || filePath.split('/').pop() || 'download'
-          return new Response(file.readable, {
+          return new globalThis.Response(file.readable, {
             headers: {
               'Content-Type': 'application/octet-stream',
               'Content-Disposition': `attachment; filename="${fileName}"`,
               'Content-Length': fileInfo.size.toString(),
-              ...ResponseHelpers.mergeHeaders(responseHeaders, options)
+              ...Response.mergeHeaders(responseHeaders, options)
             },
             ...options
           })
@@ -59,49 +63,49 @@ export class ResponseHelpers {
           if (file) {
             file.close()
           }
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-          throw new Error(`Failed to read file: ${errorMessage}`)
+          const errorMessage = error instanceof globalThis.Error ? error.message : 'Unknown error'
+          throw new globalThis.Error(`Failed to read file: ${errorMessage}`)
         }
       },
-      html(html: string, options?: ResponseInit): Response {
-        return new Response(html, {
+      html(html: string, options?: ResponseInit): globalThis.Response {
+        return new globalThis.Response(html, {
           headers: {
             'Content-Type': 'text/html',
-            ...ResponseHelpers.mergeHeaders(responseHeaders, options)
+            ...Response.mergeHeaders(responseHeaders, options)
           },
           ...options
         })
       },
-      json(data: unknown, options?: ResponseInit): Response {
-        return Response.json(data, {
+      json(data: unknown, options?: ResponseInit): globalThis.Response {
+        return globalThis.Response.json(data, {
           headers: {
             'Content-Type': 'application/json',
-            ...ResponseHelpers.mergeHeaders(responseHeaders, options)
+            ...Response.mergeHeaders(responseHeaders, options)
           },
           ...options
         })
       },
-      redirect(url: string, status = 302, options?: ResponseInit): Response {
+      redirect(url: string, status = 302, options?: ResponseInit): globalThis.Response {
         return buildRedirect(url, status, options?.headers)
       },
       stream(
         stream: ReadableStream,
         options?: ResponseInit,
         contentType = 'application/octet-stream'
-      ): Response {
-        return new Response(stream, {
+      ): globalThis.Response {
+        return new globalThis.Response(stream, {
           headers: {
             'Content-Type': contentType,
-            ...ResponseHelpers.mergeHeaders(responseHeaders, options)
+            ...Response.mergeHeaders(responseHeaders, options)
           },
           ...options
         })
       },
-      text(text: string, options?: ResponseInit): Response {
-        return new Response(text, {
+      text(text: string, options?: ResponseInit): globalThis.Response {
+        return new globalThis.Response(text, {
           headers: {
             'Content-Type': 'text/plain',
-            ...ResponseHelpers.mergeHeaders(responseHeaders, options)
+            ...Response.mergeHeaders(responseHeaders, options)
           },
           ...options
         })
@@ -143,6 +147,6 @@ export class ResponseHelpers {
     base: Record<string, string>,
     options?: ResponseInit
   ): Record<string, string> {
-    return { ...base, ...ResponseHelpers.headersToRecord(options?.headers) }
+    return { ...base, ...Response.headersToRecord(options?.headers) }
   }
 }
