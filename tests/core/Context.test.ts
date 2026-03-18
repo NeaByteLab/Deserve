@@ -1,13 +1,13 @@
 import { assertEquals } from 'jsr:@std/assert'
-import { Context } from '@app/index.ts'
+import * as Core from '@core/index.ts'
 
 function createTestContext(
   url = 'http://localhost/',
   routeParams: Record<string, string> = {},
   requestInit?: RequestInit
-): Context {
+): Core.Context {
   const request = new Request(url, requestInit)
-  return new Context(request, new URL(url), routeParams)
+  return new Core.Context(request, new URL(url), routeParams)
 }
 
 Deno.test('Context#body parses form-urlencoded as FormData', async () => {
@@ -91,7 +91,7 @@ Deno.test('Context#cookie without key returns all cookies', () => {
 
 Deno.test('Context#handleError when errorHandler throws propagates', async () => {
   const request = new Request('http://localhost/')
-  const ctx = new Context(request, new URL('http://localhost/'), {}, (_ctx, _code, _err) => {
+  const ctx = new Core.Context(request, new URL('http://localhost/'), {}, (_ctx, _code, _err) => {
     throw new Error('handler threw')
   })
   let thrown = false
@@ -106,7 +106,7 @@ Deno.test('Context#handleError when errorHandler throws propagates', async () =>
 
 Deno.test('Context#handleError with handler uses custom response', async () => {
   const request = new Request('http://localhost/')
-  const ctx = new Context(request, new URL('http://localhost/'), {}, async (_, statusCode) => {
+  const ctx = new Core.Context(request, new URL('http://localhost/'), {}, async (_, statusCode) => {
     return new Response(`custom ${statusCode}`, { status: statusCode })
   })
   const res = await ctx.handleError(418, new Error('teapot'))
@@ -172,16 +172,16 @@ Deno.test('Context#pathname returns URL pathname', () => {
   assertEquals(ctx.pathname, '/items/42')
 })
 
+Deno.test('Context#queries returns all values for a key', () => {
+  const ctx = createTestContext('http://localhost/?tag=a&tag=b')
+  assertEquals(ctx.queries('tag'), ['a', 'b'])
+})
+
 Deno.test('Context#query returns query value by key', () => {
   const ctx = createTestContext('http://localhost/?foo=bar&baz=qux')
   assertEquals(ctx.query('foo'), 'bar')
   assertEquals(ctx.query('baz'), 'qux')
   assertEquals(ctx.query('missing'), undefined)
-})
-
-Deno.test('Context#queries returns all values for a key', () => {
-  const ctx = createTestContext('http://localhost/?tag=a&tag=b')
-  assertEquals(ctx.queries('tag'), ['a', 'b'])
 })
 
 Deno.test('Context#redirect returns 302 with Location header', () => {

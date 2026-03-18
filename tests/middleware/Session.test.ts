@@ -1,16 +1,16 @@
 import { assertEquals } from 'jsr:@std/assert'
-import { Context, Mware } from '@app/index.ts'
-import type { Types } from '@app/index.ts'
+import * as Core from '@core/index.ts'
+import * as Middleware from '@middleware/index.ts'
 
-function createTestContext(url = 'http://localhost/', requestInit?: RequestInit): Context {
+function createTestContext(url = 'http://localhost/', requestInit?: RequestInit): Core.Context {
   const request = new Request(url, requestInit)
-  return new Context(request, new URL(url), {})
+  return new Core.Context(request, new URL(url), {})
 }
 
 const testSecret = 'test-secret-min-32-chars-long'
 
 Deno.test('session clearSession sets Max-Age=0 and path', async () => {
-  const middleware = Mware.session({ cookieSecret: testSecret, path: '/api' })
+  const middleware = Middleware.Mware.session({ cookieSecret: testSecret, path: '/api' })
   const ctx = createTestContext('http://localhost/')
   await middleware(ctx, async () => {
     ;(ctx.state['clearSession'] as () => void)()
@@ -22,7 +22,7 @@ Deno.test('session clearSession sets Max-Age=0 and path', async () => {
 })
 
 Deno.test('session custom cookieName used in Set-Cookie', async () => {
-  const middleware = Mware.session({ cookieSecret: testSecret, cookieName: 'sid' })
+  const middleware = Middleware.Mware.session({ cookieSecret: testSecret, cookieName: 'sid' })
   const ctx = createTestContext('http://localhost/')
   await middleware(ctx, async () => {
     const setSession = ctx.state['setSession'] as (data: Record<string, unknown>) => Promise<void>
@@ -32,8 +32,45 @@ Deno.test('session custom cookieName used in Set-Cookie', async () => {
   assertEquals(ctx.responseHeadersMap['Set-Cookie']?.startsWith('sid='), true)
 })
 
+Deno.test('session custom cookie options are reflected in Set-Cookie', async () => {
+  const middleware = Middleware.Mware.session({
+    cookieSecret: testSecret,
+    path: '/api',
+    maxAge: 60,
+    sameSite: 'Strict',
+    httpOnly: false,
+    cookieName: 'sid'
+  })
+  const ctx = createTestContext('http://localhost/')
+  await middleware(ctx, async () => {
+    const setSession = ctx.state['setSession'] as (data: Record<string, unknown>) => Promise<void>
+    await setSession({ ok: true })
+    return new Response()
+  })
+  const setCookie = ctx.responseHeadersMap['Set-Cookie'] ?? ''
+  assertEquals(setCookie.startsWith('sid='), true)
+  assertEquals(setCookie.includes('Path=/api'), true)
+  assertEquals(setCookie.includes('Max-Age=60'), true)
+  assertEquals(setCookie.includes('SameSite=Strict'), true)
+  assertEquals(setCookie.includes('HttpOnly'), false)
+})
+
+Deno.test('session default cookie options include SameSite and HttpOnly', async () => {
+  const middleware = Middleware.Mware.session({ cookieSecret: testSecret })
+  const ctx = createTestContext('http://localhost/')
+  await middleware(ctx, async () => {
+    const setSession = ctx.state['setSession'] as (data: Record<string, unknown>) => Promise<void>
+    await setSession({ ok: true })
+    return new Response()
+  })
+  const setCookie = ctx.responseHeadersMap['Set-Cookie'] ?? ''
+  assertEquals(setCookie.includes('SameSite=Lax'), true)
+  assertEquals(setCookie.includes('HttpOnly'), true)
+  assertEquals(setCookie.includes('Path=/'), true)
+})
+
 Deno.test('session invalid or malformed cookie yields null', async () => {
-  const middleware = Mware.session({ cookieSecret: testSecret })
+  const middleware = Middleware.Mware.session({ cookieSecret: testSecret })
   const ctx = createTestContext('http://localhost/', {
     headers: new Headers({ Cookie: 'session=not-valid-signed-format' })
   })
@@ -43,7 +80,7 @@ Deno.test('session invalid or malformed cookie yields null', async () => {
 })
 
 Deno.test('session setSession sets Set-Cookie and next receives response', async () => {
-  const middleware = Mware.session({ cookieSecret: testSecret })
+  const middleware = Middleware.Mware.session({ cookieSecret: testSecret })
   const ctx = createTestContext('http://localhost/')
   const next = async (): Promise<Response> => {
     const setSession = ctx.state['setSession'] as (data: Record<string, unknown>) => Promise<void>
@@ -62,7 +99,7 @@ Deno.test('session setSession sets Set-Cookie and next receives response', async
 Deno.test('session throws when cookieSecret empty string', () => {
   let thrown = false
   try {
-    Mware.session({ cookieSecret: '' })
+    Middleware.Mware.session({ cookieSecret: '' })
   } catch (e) {
     thrown = true
     assertEquals((e as Error).message.includes('cookieSecret'), true)
@@ -73,7 +110,7 @@ Deno.test('session throws when cookieSecret empty string', () => {
 Deno.test('session throws when cookieSecret missing', () => {
   let thrown = false
   try {
-    Mware.session({} as Types.SessionOptions)
+    Middleware.Mware.session({} as { cookieSecret: string })
   } catch (e) {
     thrown = true
     assertEquals((e as Error).message.includes('cookieSecret'), true)
@@ -83,7 +120,7 @@ Deno.test('session throws when cookieSecret missing', () => {
 
 Deno.test('session with cookieSecret round-trip encode decode', async () => {
   const secret = 'test-secret-min-32-chars-long'
-  const middleware = Mware.session({ cookieSecret: secret })
+  const middleware = Middleware.Mware.session({ cookieSecret: secret })
   const ctx = createTestContext('http://localhost/')
   await middleware(ctx, async () => {
     const setSession = ctx.state['setSession'] as (data: Record<string, unknown>) => Promise<void>
@@ -106,7 +143,7 @@ Deno.test('session with cookieSecret round-trip encode decode', async () => {
 
 Deno.test('session with cookieSecret tampered payload yields null', async () => {
   const secret = 'test-secret-min-32-chars-long'
-  const middleware = Mware.session({ cookieSecret: secret })
+  const middleware = Middleware.Mware.session({ cookieSecret: secret })
   const ctx = createTestContext('http://localhost/')
   await middleware(ctx, async () => {
     const setSession = ctx.state['setSession'] as (data: Record<string, unknown>) => Promise<void>
@@ -129,7 +166,7 @@ Deno.test('session with cookieSecret tampered payload yields null', async () => 
 
 Deno.test('session with cookieSecret valid signed cookie decodes', async () => {
   const secret = 'test-secret-min-32-chars-long'
-  const middleware = Mware.session({ cookieSecret: secret })
+  const middleware = Middleware.Mware.session({ cookieSecret: secret })
   const ctx = createTestContext('http://localhost/')
   await middleware(ctx, async () => {
     const setSession = ctx.state['setSession'] as (data: Record<string, unknown>) => Promise<void>
@@ -146,7 +183,7 @@ Deno.test('session with cookieSecret valid signed cookie decodes', async () => {
 })
 
 Deno.test('session with cookieSecret wrong secret yields null', async () => {
-  const middleware = Mware.session({ cookieSecret: 'secret-a-min-32-chars-long!!!!' })
+  const middleware = Middleware.Mware.session({ cookieSecret: 'secret-a-min-32-chars-long!!!!' })
   const ctx = createTestContext('http://localhost/')
   await middleware(ctx, async () => {
     const setSession = ctx.state['setSession'] as (data: Record<string, unknown>) => Promise<void>
@@ -156,7 +193,9 @@ Deno.test('session with cookieSecret wrong secret yields null', async () => {
   const setCookie = ctx.responseHeadersMap['Set-Cookie']
   const valueMatch = setCookie?.match(/session=([^;]+)/)
   const cookieValue = valueMatch?.[1] ?? ''
-  const middlewareB = Mware.session({ cookieSecret: 'secret-b-different-32-chars!!!!!' })
+  const middlewareB = Middleware.Mware.session({
+    cookieSecret: 'secret-b-different-32-chars!!!!!'
+  })
   const ctx2 = createTestContext('http://localhost/', {
     headers: new Headers({ Cookie: `session=${cookieValue}` })
   })
@@ -165,7 +204,7 @@ Deno.test('session with cookieSecret wrong secret yields null', async () => {
 })
 
 Deno.test('session without cookie yields session null', async () => {
-  const middleware = Mware.session({ cookieSecret: testSecret })
+  const middleware = Middleware.Mware.session({ cookieSecret: testSecret })
   const ctx = createTestContext('http://localhost/')
   const next = async (): Promise<Response> => new Response()
   await middleware(ctx, next)
