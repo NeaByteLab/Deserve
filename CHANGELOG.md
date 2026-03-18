@@ -10,14 +10,19 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
-- **feat(worker):** Worker pool for CPU-bound tasks; optional `worker` option on Router with `scriptURL` and `poolSize`; `ctx.state.worker.run(payload)` in routes when enabled
+- **feat(worker):** Worker pool for CPU-bound tasks with optional `worker` option on Router using `scriptURL` and `poolSize` plus `ctx.state.worker.run(payload)` in routes
+- **feat(rendering):** DVE view engine with `.dve` templates, includes, `if` and `each` blocks, escaping by default, and JS-like expressions for lookups
 - **docs(worker):** Worker Pool docs (en + id) under Core Concepts, marked Unreleased; VitePress sidebar updated
 - **benchmark(worker):** `main-worker.ts`, `/test-worker` and `/test-cpu` routes, benchmark README in English
 - **test(worker):** Worker pool tests and fixtures (`echo_worker.ts`, `error_worker.ts`)
+- **test(config):** Add unit tests for misconfiguration covering invalid worker `scriptURL`, poolSize clamping, and negative body limit
 
 ### Changed
 
-- **refactor(src):** Clear naming and A–Z sort in `Worker.ts`; JSDoc (ts-js-jsdoc) and constructor docs; Types.ts interfaces/properties sorted A–Z
+- **refactor(src):** Clear naming and A–Z sort in `Worker.ts` with JSDoc and constructor docs plus type members sorted A–Z
+- **refactor(src):** Split modules into `core`, `routing`, `rendering`, and `interfaces` and update imports to new path aliases
+- **test(tests):** Reorganize tests into `tests/core`, `tests/middleware`, `tests/rendering`, and `tests/routing` with new DVE fixtures
+- **refactor(rendering):** Shorten template engine API names and reorder methods for clearer grouping
 - **docs(benchmark):** Benchmark README — one Indonesian sentence translated to English
 
 ---
