@@ -1,7 +1,5 @@
 # Worker Pool
 
-> **Unreleased** — This feature is not yet in a stable release.
-
 > **Reference**: [Deno Workers API](https://docs.deno.com/runtime/manual/workers/)
 
 The worker pool offloads CPU-bound work to a pool of Deno Workers so the main thread stays responsive. When you configure a worker pool, `ctx.state.worker` is available in route handlers and you can run tasks with `worker.run(payload)`.

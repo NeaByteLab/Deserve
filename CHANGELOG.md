@@ -6,30 +6,35 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
-## [Unreleased]
+## [0.9.0] - 2026-03-19
 
-### Added
+### 2026-03-19
 
-- **feat(worker):** Worker pool for CPU-bound tasks with optional `worker` option on Router using `scriptURL` and `poolSize` plus `ctx.state.worker.run(payload)` in routes
-- **feat(rendering):** DVE view engine with `.dve` templates, includes, `if` and `each` blocks, escaping by default, and JS-like expressions for lookups
-- **docs(worker):** Worker Pool docs (en + id) under Core Concepts, marked Unreleased; VitePress sidebar updated
-- **benchmark(worker):** `main-worker.ts`, `/test-worker` and `/test-cpu` routes, benchmark README in English
-- **benchmark(rendering):** DVE view rendering benchmark routes (`/test-view*`) and `.dve` templates under `benchmark/views`
-- **docs(editor):** Editor tooling docs plus DVE syntax reference and snippet shortcuts for `.dve` templates
-- **feat(security):** Add URL length and route param length limits returning 414
-- **test(worker):** Worker pool tests and fixtures (`echo_worker.ts`, `error_worker.ts`)
-- **test(config):** Add unit tests for misconfiguration covering invalid worker `scriptURL`, poolSize clamping, and negative body limit
-- **test(benchmark):** Add smoke test for benchmark routes scanning and `/test` response
-- **test(security):** Add tests for 414 on URL and param length limits
+- `0beedd8` style(routing): format Handler implementation
+- `608cb3f` feat(security): enforce URL and route param limits with 414
+- `73f2842` docs(changelog): update security and test entries
+- `0ad46dd` test(security): add 414 length-limit assertions
+- `b9823bd` docs(changelog): update Unreleased entries
+- `8f261f6` chore(publish): use explicit publish include list
+- `ca229da` test(rendering): align DVE test fixtures naming
+- `afeb7e0` docs(editor): add DVE syntax highlighting docs
+- `07f299e` feat(benchmark): add DVE view rendering benchmarks
+- `2b6bd44` docs(readme): tighten copy and remove doc outline
+- `6cc83c2` docs(changelog): update Unreleased section
+- `73d8c89` test(tests): restructure test folders
+- `1d8bdf6` test(config): add human error coverage
+- `cb58c42` refactor(rendering): add DVE view engine and shorten API names
+- `817be4a` refactor(middleware): align middleware modules
+- `e6797a8` refactor(src): split modules into domains
+- `6114c4c` chore(deno): add src path aliases
 
-### Changed
+### 2026-03-10
 
-- **refactor(src):** Clear naming and A–Z sort in `Worker.ts` with JSDoc and constructor docs plus type members sorted A–Z
-- **refactor(src):** Split modules into `core`, `routing`, `rendering`, and `interfaces` and update imports to new path aliases
-- **test(tests):** Reorganize tests into `tests/core`, `tests/middleware`, `tests/rendering`, and `tests/routing` with new DVE fixtures
-- **refactor(rendering):** Shorten template engine API names and reorder methods for clearer grouping
-- **docs(benchmark):** Benchmark README — one Indonesian sentence translated to English
-- **chore(publish):** Switch `deno.json` publish config to an explicit include list
+- `32b01db` feat(worker): add optional worker pool for CPU-bound work
+
+### 2026-03-07
+
+- `a9db24b` docs(example): add Deserve-React to showcase
 
 ---
 
@@ -122,5 +127,5 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
-[Unreleased]: https://github.com/neabytelab/deserve/compare/v0.8.0...HEAD
-[0.8.0]: https://github.com/neabytelab/deserve/compare/v0.7.0...v0.8.0
+[0.9.0]: https://github.com/NeaByteLab/Deserve/compare/v0.8.0...v0.9.0
+[0.8.0]: https://github.com/NeaByteLab/Deserve/compare/v0.7.0...v0.8.0

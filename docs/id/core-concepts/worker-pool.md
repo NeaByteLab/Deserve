@@ -1,7 +1,5 @@
 # Worker Pool
 
-> **Belum dirilis** — Fitur ini belum tersedia di rilis stabil.
-
 > **Referensi**: [Deno Workers API](https://docs.deno.com/runtime/manual/workers/)
 
 Worker pool memindahkan pekerjaan yang berat di CPU ke sekumpulan Deno Worker agar main thread tetap responsif. Saat Anda mengonfigurasi worker pool, `ctx.state.worker` tersedia di route handler dan Anda bisa menjalankan tugas dengan `worker.run(payload)`.
