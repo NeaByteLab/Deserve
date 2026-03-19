@@ -100,6 +100,11 @@ Inside `#each`, you can use:
 
 DVE supports JS-like expressions for lookups and basic operators.
 
+Notes:
+
+- `.` and `?.` both return `undefined` for nullish objects
+- Block tags must be balanced (`#if`/`/if`, `#each`/`/each`)
+
 ```txt
 Hello {{ user?.name ?? 'Guest' }}.
 Sum={{ 1 + 2 * 3 }}
