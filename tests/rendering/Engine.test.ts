@@ -135,3 +135,23 @@ Deno.test('Engine#render throws when template not found', async () => {
     'Template not found: missing.dve'
   )
 })
+
+Deno.test('Engine#render rejects else without if', async () => {
+  const viewsDir = new URL('../fixtures/views/', import.meta.url).pathname.replace(/\/$/, '')
+  const engine = new Rendering.Engine({ viewsDir })
+  await assertRejects(
+    () => engine.render('attack-else-without-if.dve', {}),
+    Error,
+    'Unexpected {{else}} without matching {{#if}} block.'
+  )
+})
+
+Deno.test('Engine#render rejects unclosed block', async () => {
+  const viewsDir = new URL('../fixtures/views/', import.meta.url).pathname.replace(/\/$/, '')
+  const engine = new Rendering.Engine({ viewsDir })
+  await assertRejects(
+    () => engine.render('attack-unclosed-block.dve', { ok: true }),
+    Error,
+    'Unclosed {{#if}} block in DVE template.'
+  )
+})
