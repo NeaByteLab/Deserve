@@ -11,6 +11,8 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 
 - Remove `ViewEngine.render` options parameter
+- Parse `{{else}}`, `{{/if}}`, and `{{/each}}` strictly
+- Throw on unclosed `#if` and `#each` blocks
 
 ## [0.9.0] - 2026-03-19
 
