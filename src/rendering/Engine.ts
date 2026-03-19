@@ -30,16 +30,10 @@ export class Engine implements Types.ViewEngine {
    * @description Loads template and produces final HTML
    * @param templatePath - Relative template path
    * @param data - Template scope data
-   * @param options - Render options override values
    * @returns Rendered HTML string
    * @throws {Error} When template path not discovered
    */
-  async render(
-    templatePath: string,
-    data: Record<string, unknown> = {},
-    options?: Types.EngineRenderOptions
-  ): Promise<string> {
-    const viewsDir = options?.viewsDir ?? this.defaultViewsDir
+  async render(templatePath: string, data: Record<string, unknown> = {}): Promise<string> {
     if (this.discoveredPaths === null) {
       this.discoveredPaths = await Rendering.Discover.discoverPaths(this.defaultViewsDir)
     }
@@ -51,9 +45,9 @@ export class Engine implements Types.ViewEngine {
     if (!discoveredTemplatePaths.has(pathWithExt)) {
       throw new Error(`Template not found: ${templatePath}.`)
     }
-    const absPath = EngineParts.Utils.join(viewsDir, pathWithExt)
+    const absPath = EngineParts.Utils.join(this.defaultViewsDir, pathWithExt)
     const compiled = await this.compileTemplate(absPath)
-    return await this.renderNodes(compiled.ast, data, viewsDir)
+    return await this.renderNodes(compiled.ast, data, this.defaultViewsDir)
   }
 
   /**
@@ -118,7 +112,7 @@ export class Engine implements Types.ViewEngine {
         continue
       }
       if (node.type === 'include') {
-        outputHtml += await this.render(node.templatePath, data, { viewsDir })
+        outputHtml += await this.render(node.templatePath, data)
         continue
       }
       if (node.type === 'if') {

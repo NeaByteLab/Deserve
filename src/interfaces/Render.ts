@@ -31,15 +31,17 @@ export type DveStackFrame = { kind: 'if' | 'each'; node: AstNode; inElse: boolea
 /** Options for constructing rendering Engine. */
 export type EngineOptions = { viewsDir: string }
 
-/** Render options override for Engine (matches ViewEngine render options). */
-export type EngineRenderOptions = { viewsDir?: string }
-
-/** View engine for rendering templates (e.g. .dve); Engine implements this. */
+/**
+ * View engine for templates
+ * @description Renders DVE templates to HTML strings
+ */
 export interface ViewEngine {
-  /** Render template at path with data; returns HTML string. */
-  render(
-    templatePath: string,
-    data?: Record<string, unknown>,
-    options?: EngineRenderOptions
-  ): Promise<string>
+  /**
+   * Render template to HTML
+   * @description Renders DVE template with scope data
+   * @param templatePath - Relative template path
+   * @param data - Template scope data
+   * @returns Rendered HTML string
+   */
+  render(templatePath: string, data?: Record<string, unknown>): Promise<string>
 }
