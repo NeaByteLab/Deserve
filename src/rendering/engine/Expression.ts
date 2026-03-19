@@ -84,7 +84,8 @@ export class Expression {
     while (true) {
       const currentToken = this.peek()
       if (
-        currentToken?.kind === 'op' && (currentToken.value === '+' || currentToken.value === '-')
+        currentToken?.kind === 'op' &&
+        (currentToken.value === '+' || currentToken.value === '-')
       ) {
         this.consume()
         const rightNode = this.parseMul()
@@ -120,8 +121,10 @@ export class Expression {
       const currentToken = this.peek()
       if (
         currentToken?.kind === 'op' &&
-        (currentToken.value === '===' || currentToken.value === '!==' ||
-          currentToken.value === '==' || currentToken.value === '!=')
+        (currentToken.value === '===' ||
+          currentToken.value === '!==' ||
+          currentToken.value === '==' ||
+          currentToken.value === '!=')
       ) {
         this.consume()
         const rightNode = this.parseRel()
@@ -145,7 +148,7 @@ export class Expression {
         if (!propToken || propToken.kind !== 'ident') {
           throw new Error('Expected identifier after "." in DVE expression.')
         }
-        exprNode = { type: 'member', object: exprNode, property: propToken.value, optional: false }
+        exprNode = { type: 'member', object: exprNode, property: propToken.value }
         continue
       }
       if (this.matchOp('?.')) {
@@ -153,7 +156,7 @@ export class Expression {
         if (!propToken || propToken.kind !== 'ident') {
           throw new Error('Expected identifier after "?." in DVE expression.')
         }
-        exprNode = { type: 'member', object: exprNode, property: propToken.value, optional: true }
+        exprNode = { type: 'member', object: exprNode, property: propToken.value }
         continue
       }
       return exprNode
@@ -249,8 +252,10 @@ export class Expression {
       const currentToken = this.peek()
       if (
         currentToken?.kind === 'op' &&
-        (currentToken.value === '>' || currentToken.value === '<' ||
-          currentToken.value === '>=' || currentToken.value === '<=')
+        (currentToken.value === '>' ||
+          currentToken.value === '<' ||
+          currentToken.value === '>=' ||
+          currentToken.value === '<=')
       ) {
         this.consume()
         const rightNode = this.parseAdd()

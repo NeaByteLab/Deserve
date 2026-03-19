@@ -74,16 +74,18 @@ export class Parser {
       }
       if (tagContent === 'else') {
         const stackFrame = frameStack[frameStack.length - 1]
-        if (stackFrame?.kind === 'if') {
-          stackFrame.inElse = true
+        if (!stackFrame || stackFrame.kind !== 'if') {
+          throw new Error('Unexpected {{else}} without matching {{#if}} block.')
         }
+        stackFrame.inElse = true
         continue
       }
       if (tagContent === '/if') {
         const stackFrame = frameStack[frameStack.length - 1]
-        if (stackFrame?.kind === 'if') {
-          frameStack.pop()
+        if (!stackFrame || stackFrame.kind !== 'if') {
+          throw new Error('Unexpected {{/if}} without matching {{#if}} block.')
         }
+        frameStack.pop()
         continue
       }
       if (tagContent.startsWith('#each ')) {
@@ -103,15 +105,21 @@ export class Parser {
       }
       if (tagContent === '/each') {
         const stackFrame = frameStack[frameStack.length - 1]
-        if (stackFrame?.kind === 'each') {
-          frameStack.pop()
+        if (!stackFrame || stackFrame.kind !== 'each') {
+          throw new Error('Unexpected {{/each}} without matching {{#each}} block.')
         }
+        frameStack.pop()
         continue
       }
       appendAstNode({ type: 'var', path: tagContent, raw: false })
     }
     if (scanIndex < templateText.length) {
       appendAstNode({ type: 'text', value: templateText.slice(scanIndex) })
+    }
+    if (frameStack.length > 0) {
+      const unclosedFrame = frameStack[frameStack.length - 1]
+      const label = unclosedFrame?.kind === 'each' ? '#each' : '#if'
+      throw new Error(`Unclosed {{${label}}} block in DVE template.`)
     }
     return astNodes
   }

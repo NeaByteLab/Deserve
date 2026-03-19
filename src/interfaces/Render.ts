@@ -20,7 +20,7 @@ export type ExprToken =
 export type ExprNode =
   | { type: 'literal'; value: unknown }
   | { type: 'ident'; name: string }
-  | { type: 'member'; object: ExprNode; property: string; optional: boolean }
+  | { type: 'member'; object: ExprNode; property: string }
   | { type: 'unary'; op: '!' | '+' | '-'; arg: ExprNode }
   | { type: 'binary'; op: string; left: ExprNode; right: ExprNode }
   | { type: 'ternary'; test: ExprNode; consequent: ExprNode; alternate: ExprNode }
