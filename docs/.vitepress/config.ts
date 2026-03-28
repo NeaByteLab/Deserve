@@ -97,6 +97,14 @@ export default withMermaid(
                 ]
               },
               {
+                text: 'Rendering',
+                collapsed: true,
+                items: [
+                  { text: 'Template Engine', link: '/en/rendering/' },
+                  { text: 'Streaming Rendering', link: '/en/rendering/streaming' }
+                ]
+              },
+              {
                 text: 'Middleware',
                 collapsed: true,
                 items: [
@@ -168,6 +176,14 @@ export default withMermaid(
                     text: 'Server Configuration',
                     link: '/en/getting-started/server-configuration'
                   }
+                ]
+              },
+              {
+                text: 'Rendering',
+                collapsed: true,
+                items: [
+                  { text: 'Template Engine', link: '/en/rendering/' },
+                  { text: 'Streaming Rendering', link: '/en/rendering/streaming' }
                 ]
               },
               {
@@ -294,6 +310,14 @@ export default withMermaid(
                     text: 'Konfigurasi Server',
                     link: '/id/getting-started/server-configuration'
                   }
+                ]
+              },
+              {
+                text: 'Rendering',
+                collapsed: true,
+                items: [
+                  { text: 'Template Engine', link: '/id/rendering/' },
+                  { text: 'Streaming Rendering', link: '/id/rendering/streaming' }
                 ]
               },
               {

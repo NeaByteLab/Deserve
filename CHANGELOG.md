@@ -8,11 +8,28 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- Streaming template rendering with `ViewEngine.streamRender()` method
+- `Context.streamRender()` method for streaming HTML responses
+- Progressive template rendering with `TransformStream` support
+- Template chunk rendering utilities for streaming pipeline
+
 ### Changed
 
+- Reorganize method ordering in `Engine` class (properties → public → private, A-Z sorted)
+- Reorganize method ordering in `Context` class (properties → public → private, A-Z sorted)
+- Update rendering documentation with DVE syntax reference and streaming support
+- Apply consistent JSDoc formatting across rendering interfaces
+- Improve error message consistency in view engine configuration
 - Remove `ViewEngine.render` options parameter
 - Parse `{{else}}`, `{{/if}}`, and `{{/each}}` strictly
 - Throw on unclosed `#if` and `#each` blocks
+
+### Fixed
+
+- TypeScript parameter compatibility in `streamRender()` method
+- Method organization for better code maintainability
 
 ## [0.9.0] - 2026-03-19
 
