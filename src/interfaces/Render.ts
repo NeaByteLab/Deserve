@@ -32,16 +32,25 @@ export type DveStackFrame = { kind: 'if' | 'each'; node: AstNode; inElse: boolea
 export type EngineOptions = { viewsDir: string }
 
 /**
- * View engine for templates
- * @description Renders DVE templates to HTML strings
+ * View engine for templates.
+ * @description Renders DVE templates to HTML strings.
  */
 export interface ViewEngine {
   /**
-   * Render template to HTML
-   * @description Renders DVE template with scope data
+   * Render template to HTML.
+   * @description Renders DVE template with scope data.
    * @param templatePath - Relative template path
    * @param data - Template scope data
    * @returns Rendered HTML string
    */
   render(templatePath: string, data?: Record<string, unknown>): Promise<string>
+
+  /**
+   * Stream template to HTML.
+   * @description Streams DVE template with scope data.
+   * @param templatePath - Relative template path
+   * @param data - Template scope data
+   * @returns HTML readable stream
+   */
+  streamRender(templatePath: string, data?: Record<string, unknown>): ReadableStream
 }
