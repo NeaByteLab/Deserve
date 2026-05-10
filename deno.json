@@ -5,7 +5,6 @@
   "type": "module",
   "license": "MIT",
   "exports": "./src/index.ts",
-
   "compilerOptions": {
     "allowUnreachableCode": false,
     "allowUnusedLabels": false,
