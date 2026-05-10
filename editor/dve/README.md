@@ -6,6 +6,7 @@ Quick reference for Deserve `.dve` template syntax.
 
 ## Table of Contents
 
+- [Install Local VSIX](#install-local-vsix)
 - [DVE Scope Mapping](#dve-scope-mapping)
 - [Syntax Overview](#syntax-overview)
 - [Variables](#variables)
@@ -17,6 +18,29 @@ Quick reference for Deserve `.dve` template syntax.
 - [Expressions](#expressions)
 - [Advanced Examples](#advanced-examples)
 - [Escaping Rules](#escaping-rules)
+
+## Install Local VSIX
+
+This folder includes a prebuilt VSIX package:
+
+```txt
+dve-language-0.1.0.vsix
+```
+
+Install it from this directory with your editor CLI:
+
+```bash
+# VS Code
+code --install-extension ./dve-language-0.1.0.vsix --force
+
+# Cursor
+cursor --install-extension ./dve-language-0.1.0.vsix --force
+
+# Trae
+trae --install-extension ./dve-language-0.1.0.vsix --force
+```
+
+After installing, reload the editor; DVE uses HTML syntax with embedded template tags.
 
 ## DVE Scope Mapping
 

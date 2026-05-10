@@ -75,6 +75,23 @@ export async function GET(ctx: Context) {
 
 Now run your server and open `http://localhost:8000`.
 
-## Syntax Highlighting (Cursor / VS Code)
+## Syntax Highlighting (Cursor / VS Code / Trae)
+
+Deserve ships a local DVE extension package at `editor/dve/dve-language-0.1.0.vsix`.
+
+Install it with your editor CLI:
+
+```bash
+# Trae
+trae --install-extension ./dve/dve-language-0.1.0.vsix --force
+
+# VS Code
+code --install-extension ./dve/dve-language-0.1.0.vsix --force
+
+# Cursor
+cursor --install-extension ./dve/dve-language-0.1.0.vsix --force
+```
+
+After installing, reload the editor window and open any `.dve` file. DVE templates use HTML as the base syntax with embedded DVE tags.
 
 - **DVE syntax reference**: See [`editor/dve/README.md`](dve/README.md)
