@@ -1,84 +1,78 @@
 {
   "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
   "name": "DVE",
-  "scopeName": "source.dve",
+  "scopeName": "text.html.dve",
   "fileTypes": ["dve"],
-  "patterns": [{ "include": "#tag-raw" }, { "include": "#tag" }],
+  "patterns": [{ "include": "#dve-tags" }, { "include": "text.html.basic" }],
   "repository": {
-    "tag-raw": {
+    "dve-tags": {
+      "patterns": [
+        { "include": "#dve-raw-tag" },
+        { "include": "#dve-include-tag" },
+        { "include": "#dve-block-tag" },
+        { "include": "#dve-output-tag" }
+      ]
+    },
+    "dve-raw-tag": {
       "begin": "\\{\\{\\{",
+      "beginCaptures": {
+        "0": { "name": "punctuation.section.embedded.begin.dve" }
+      },
       "end": "\\}\\}\\}",
-      "name": "meta.tag.raw.dve",
+      "endCaptures": {
+        "0": { "name": "punctuation.section.embedded.end.dve" }
+      },
+      "name": "meta.embedded.line.dve meta.tag.raw.dve",
       "contentName": "meta.expression.dve",
       "patterns": [{ "include": "#expression" }]
     },
-    "tag": {
-      "begin": "\\{\\{",
-      "end": "\\}\\}",
-      "name": "meta.tag.dve",
-      "patterns": [
-        { "include": "#include" },
-        { "include": "#each-block" },
-        { "include": "#if-block" },
-        { "include": "#else-keyword" },
-        { "include": "#close-each" },
-        { "include": "#close-if" },
-        { "include": "#expression" }
-      ]
-    },
-    "include": {
-      "begin": "(>)\\s*",
+    "dve-include-tag": {
+      "begin": "\\{\\{\\s*(>)",
       "beginCaptures": {
+        "0": { "name": "punctuation.section.embedded.begin.dve" },
         "1": { "name": "keyword.control.include.dve" }
       },
-      "name": "meta.tag.include.dve",
+      "end": "\\}\\}",
+      "endCaptures": {
+        "0": { "name": "punctuation.section.embedded.end.dve" }
+      },
+      "name": "meta.embedded.line.dve meta.tag.include.dve",
       "patterns": [{ "include": "#path" }]
     },
-    "each-block": {
-      "begin": "(#each)\\s+",
+    "dve-block-tag": {
+      "begin": "\\{\\{\\s*(#if|#each|else|/if|/each)\\b",
       "beginCaptures": {
+        "0": { "name": "punctuation.section.embedded.begin.dve" },
         "1": { "name": "keyword.control.dve" }
       },
-      "name": "meta.tag.each.dve",
+      "end": "\\}\\}",
+      "endCaptures": {
+        "0": { "name": "punctuation.section.embedded.end.dve" }
+      },
+      "name": "meta.embedded.block.dve meta.tag.block.dve",
       "patterns": [
-        { "include": "#expression" },
         {
           "match": "\\b(as)\\s+([a-zA-Z_$][a-zA-Z0-9_$]*)",
           "captures": {
             "1": { "name": "keyword.operator.as.dve" },
             "2": { "name": "variable.parameter.dve" }
           }
-        }
+        },
+        { "include": "#expression" }
       ]
     },
-    "if-block": {
-      "begin": "(#if)\\s+",
+    "dve-output-tag": {
+      "begin": "\\{\\{",
       "beginCaptures": {
-        "1": { "name": "keyword.control.dve" }
+        "0": { "name": "punctuation.section.embedded.begin.dve" }
       },
-      "name": "meta.tag.if.dve",
+      "end": "\\}\\}",
+      "endCaptures": {
+        "0": { "name": "punctuation.section.embedded.end.dve" }
+      },
+      "name": "meta.embedded.line.dve meta.tag.output.dve",
+      "contentName": "meta.expression.dve",
       "patterns": [{ "include": "#expression" }]
-    },
-    "else-keyword": {
-      "match": "\\b(else)\\b",
-      "captures": {
-        "1": { "name": "keyword.control.dve" }
-      },
-      "name": "meta.tag.else.dve"
-    },
-    "close-each": {
-      "match": "(/each)\\b",
-      "captures": {
-        "1": { "name": "keyword.control.dve" }
-      },
-      "name": "meta.tag.close.each.dve"
-    },
-    "close-if": {
-      "match": "(/if)\\b",
-      "captures": {
-        "1": { "name": "keyword.control.dve" }
-      },
-      "name": "meta.tag.close.if.dve"
     },
     "expression": {
       "patterns": [
@@ -131,6 +125,17 @@
     "identifier": {
       "match": "\\b([a-zA-Z_$@][a-zA-Z0-9_$]*)\\b",
       "name": "variable.other.dve"
+    }
+  },
+  "injections": {
+    "L:text.html.dve - (meta.embedded.line.dve | meta.embedded.block.dve)": {
+      "patterns": [{ "include": "#dve-tags" }]
+    },
+    "L:text.html.basic": {
+      "patterns": [{ "include": "#dve-tags" }]
+    },
+    "L:string.quoted.double.html, L:string.quoted.single.html": {
+      "patterns": [{ "include": "#dve-tags" }]
     }
   }
 }

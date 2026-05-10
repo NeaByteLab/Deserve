@@ -33,8 +33,12 @@
     "grammars": [
       {
         "language": "dve",
-        "scopeName": "source.dve",
-        "path": "./syntaxes/dve.tmLanguage.json"
+        "scopeName": "text.html.dve",
+        "path": "./syntaxes/dve.tmLanguage.json",
+        "embeddedLanguages": {
+          "meta.embedded.line.dve": "dve",
+          "meta.embedded.block.dve": "dve"
+        }
       }
     ]
   }
