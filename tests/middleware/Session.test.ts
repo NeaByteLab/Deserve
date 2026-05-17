@@ -21,17 +21,6 @@ Deno.test('session clearSession sets Max-Age=0 and path', async () => {
   assertEquals(setCookie?.includes('Path=/api'), true)
 })
 
-Deno.test('session custom cookieName used in Set-Cookie', async () => {
-  const middleware = Middleware.Mware.session({ cookieSecret: testSecret, cookieName: 'sid' })
-  const ctx = createTestContext('http://localhost/')
-  await middleware(ctx, async () => {
-    const setSession = ctx.state['setSession'] as (data: Record<string, unknown>) => Promise<void>
-    await setSession({ n: 1 })
-    return new Response()
-  })
-  assertEquals(ctx.responseHeadersMap['Set-Cookie']?.startsWith('sid='), true)
-})
-
 Deno.test('session custom cookie options are reflected in Set-Cookie', async () => {
   const middleware = Middleware.Mware.session({
     cookieSecret: testSecret,
@@ -53,6 +42,17 @@ Deno.test('session custom cookie options are reflected in Set-Cookie', async () 
   assertEquals(setCookie.includes('Max-Age=60'), true)
   assertEquals(setCookie.includes('SameSite=Strict'), true)
   assertEquals(setCookie.includes('HttpOnly'), false)
+})
+
+Deno.test('session custom cookieName used in Set-Cookie', async () => {
+  const middleware = Middleware.Mware.session({ cookieSecret: testSecret, cookieName: 'sid' })
+  const ctx = createTestContext('http://localhost/')
+  await middleware(ctx, async () => {
+    const setSession = ctx.state['setSession'] as (data: Record<string, unknown>) => Promise<void>
+    await setSession({ n: 1 })
+    return new Response()
+  })
+  assertEquals(ctx.responseHeadersMap['Set-Cookie']?.startsWith('sid='), true)
 })
 
 Deno.test('session default cookie options include SameSite and HttpOnly', async () => {
