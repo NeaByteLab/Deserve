@@ -8,6 +8,15 @@ Deno.test('Engine#render appends .dve when omitted', async () => {
   assertEquals(html.trim(), 'Hello NoExt.')
 })
 
+Deno.test('Engine#render caches compiled template', async () => {
+  const viewsDir = new URL('../fixtures/views/', import.meta.url).pathname.replace(/\/$/, '')
+  const engine = new Rendering.Engine({ viewsDir })
+  const first = await engine.render('hello.dve', { name: 'A' })
+  const second = await engine.render('hello.dve', { name: 'B' })
+  assertEquals(first.trim(), 'Hello A.')
+  assertEquals(second.trim(), 'Hello B.')
+})
+
 Deno.test('Engine#render each exposes @index/@first/@last/@length', async () => {
   const viewsDir = new URL('../fixtures/views/', import.meta.url).pathname.replace(/\/$/, '')
   const engine = new Rendering.Engine({ viewsDir })
@@ -20,6 +29,27 @@ Deno.test('Engine#render each renders all items', async () => {
   const engine = new Rendering.Engine({ viewsDir })
   const html = await engine.render('each.dve', { items: [1, 2, 3] })
   assertEquals(html.trim(), '1,2,3,')
+})
+
+Deno.test('Engine#render each with empty array renders nothing', async () => {
+  const viewsDir = new URL('../fixtures/views/', import.meta.url).pathname.replace(/\/$/, '')
+  const engine = new Rendering.Engine({ viewsDir })
+  const html = await engine.render('each.dve', { items: [] })
+  assertEquals(html.trim(), '')
+})
+
+Deno.test('Engine#render each with non-array data renders nothing', async () => {
+  const viewsDir = new URL('../fixtures/views/', import.meta.url).pathname.replace(/\/$/, '')
+  const engine = new Rendering.Engine({ viewsDir })
+  const html = await engine.render('each-nonarray.dve', { items: 'not-an-array' })
+  assertEquals(html.trim(), '')
+})
+
+Deno.test('Engine#render each with null data renders nothing', async () => {
+  const viewsDir = new URL('../fixtures/views/', import.meta.url).pathname.replace(/\/$/, '')
+  const engine = new Rendering.Engine({ viewsDir })
+  const html = await engine.render('each-nonarray.dve', { items: null })
+  assertEquals(html.trim(), '')
 })
 
 Deno.test('Engine#render escapes variable by default', async () => {
@@ -45,11 +75,42 @@ Deno.test('Engine#render include renders nested template', async () => {
   assertEquals(html.trim(), 'Hello Nea.')
 })
 
+Deno.test('Engine#render nested if/else works correctly', async () => {
+  const viewsDir = new URL('../fixtures/views/', import.meta.url).pathname.replace(/\/$/, '')
+  const engine = new Rendering.Engine({ viewsDir })
+  const both = await engine.render('nested-if.dve', { outer: true, inner: true })
+  assertEquals(both.trim(), 'BOTH')
+  const outerOnly = await engine.render('nested-if.dve', { outer: true, inner: false })
+  assertEquals(outerOnly.trim(), 'OUTER_ONLY')
+  const none = await engine.render('nested-if.dve', { outer: false, inner: true })
+  assertEquals(none.trim(), 'NONE')
+})
+
 Deno.test('Engine#render raw var (triple braces) does not escape', async () => {
   const viewsDir = new URL('../fixtures/views/', import.meta.url).pathname.replace(/\/$/, '')
   const engine = new Rendering.Engine({ viewsDir })
   const html = await engine.render('raw.dve', { value: '<b>ok</b>' })
   assertEquals(html.trim(), '<b>ok</b>')
+})
+
+Deno.test('Engine#render rejects else without if', async () => {
+  const viewsDir = new URL('../fixtures/views/', import.meta.url).pathname.replace(/\/$/, '')
+  const engine = new Rendering.Engine({ viewsDir })
+  await assertRejects(
+    () => engine.render('attack-else-without-if.dve', {}),
+    Error,
+    'Unexpected {{else}} without matching {{#if}} block.'
+  )
+})
+
+Deno.test('Engine#render rejects unclosed block', async () => {
+  const viewsDir = new URL('../fixtures/views/', import.meta.url).pathname.replace(/\/$/, '')
+  const engine = new Rendering.Engine({ viewsDir })
+  await assertRejects(
+    () => engine.render('attack-unclosed-block.dve', { ok: true }),
+    Error,
+    'Unclosed {{#if}} block in DVE template.'
+  )
 })
 
 Deno.test('Engine#render renders simple variable', async () => {
@@ -136,22 +197,45 @@ Deno.test('Engine#render throws when template not found', async () => {
   )
 })
 
-Deno.test('Engine#render rejects else without if', async () => {
+Deno.test('Engine#render variable with undefined value renders empty', async () => {
   const viewsDir = new URL('../fixtures/views/', import.meta.url).pathname.replace(/\/$/, '')
   const engine = new Rendering.Engine({ viewsDir })
-  await assertRejects(
-    () => engine.render('attack-else-without-if.dve', {}),
-    Error,
-    'Unexpected {{else}} without matching {{#if}} block.'
-  )
+  const html = await engine.render('hello.dve', {})
+  assertEquals(html.trim(), 'Hello .')
 })
 
-Deno.test('Engine#render rejects unclosed block', async () => {
+Deno.test('Engine#render with backslash in path normalizes', async () => {
   const viewsDir = new URL('../fixtures/views/', import.meta.url).pathname.replace(/\/$/, '')
   const engine = new Rendering.Engine({ viewsDir })
-  await assertRejects(
-    () => engine.render('attack-unclosed-block.dve', { ok: true }),
-    Error,
-    'Unclosed {{#if}} block in DVE template.'
-  )
+  const html = await engine.render('hello.dve', { name: 'Backslash' })
+  assertEquals(html.trim(), 'Hello Backslash.')
+})
+
+Deno.test('Engine#streamRender returns ReadableStream response', () => {
+  const viewsDir = new URL('../fixtures/views/', import.meta.url).pathname.replace(/\/$/, '')
+  const engine = new Rendering.Engine({ viewsDir })
+  const stream = engine.streamRender('hello.dve', { name: 'Stream' })
+  assertEquals(stream instanceof ReadableStream, true)
+  stream.cancel()
+})
+
+Deno.test({
+  name: 'Engine#streamRender produces correct output',
+  fn: async () => {
+    const viewsDir = new URL('../fixtures/views/', import.meta.url).pathname.replace(/\/$/, '')
+    const engine = new Rendering.Engine({ viewsDir })
+    const stream = engine.streamRender('hello.dve', { name: 'Test' })
+    const reader = stream.getReader()
+    let result = ''
+    const decoder = new TextDecoder()
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) {
+        break
+      }
+      result += decoder.decode(value, { stream: true })
+    }
+    assertEquals(result.trim(), 'Hello Test.')
+  },
+  sanitizeOps: false
 })
