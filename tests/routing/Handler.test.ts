@@ -9,6 +9,28 @@ function createTestContext(url: string, requestInit?: RequestInit): Core.Context
   return new Core.Context(request, new URL(url), {})
 }
 
+Deno.test('Handler 404 for unmatched route returns HTML without Accept json', async () => {
+  const handler = new Routing.Handler()
+  const res = await handler.createHandler()(new Request('http://localhost/unknown'))
+  assertEquals(res.status, 404)
+  assertEquals(res.headers.get('Content-Type'), 'text/html')
+  const html = await res.text()
+  assertEquals(html.includes('404'), true)
+})
+
+Deno.test('Handler 404 for unmatched route returns JSON when Accept json', async () => {
+  const handler = new Routing.Handler()
+  const res = await handler.createHandler()(
+    new Request('http://localhost/unknown', {
+      headers: new Headers({ Accept: 'application/json' })
+    })
+  )
+  assertEquals(res.status, 404)
+  assertEquals(res.headers.get('Content-Type'), 'application/json')
+  const body = (await res.json()) as { error: string }
+  assertEquals(body.error, 'Route not found')
+})
+
 Deno.test('Handler addMiddleware path prefix only applies to matching routes', async () => {
   const handler = new Routing.Handler()
   handler.addMiddleware('/api', async (ctx, next) => {
@@ -25,6 +47,21 @@ Deno.test('Handler addMiddleware path prefix only applies to matching routes', a
   assertEquals(await resOther.text(), 'no')
 })
 
+Deno.test('Handler createPattern with .cjs extension', () => {
+  const handler = new Routing.Handler()
+  assertEquals(handler.createPattern('items/create.cjs'), '/items/create')
+})
+
+Deno.test('Handler createPattern with .jsx extension', () => {
+  const handler = new Routing.Handler()
+  assertEquals(handler.createPattern('items/create.jsx'), '/items/create')
+})
+
+Deno.test('Handler createPattern with .mjs extension', () => {
+  const handler = new Routing.Handler()
+  assertEquals(handler.createPattern('items/create.mjs'), '/items/create')
+})
+
 Deno.test('Handler maxRouteParamLength returns 414 when exceeded', async () => {
   const handler = new Routing.Handler({ maxRouteParamLength: 10 })
   ;(
@@ -37,11 +74,76 @@ Deno.test('Handler maxRouteParamLength returns 414 when exceeded', async () => {
   assertEquals(res.status, 414)
 })
 
+Deno.test('Handler maxUrlLength 414 returns HTML without Accept json', async () => {
+  const handler = new Routing.Handler({ maxUrlLength: 30 })
+  const longPath = 'a'.repeat(50)
+  const res = await handler.createHandler()(new Request(`http://localhost/${longPath}`))
+  assertEquals(res.status, 414)
+  assertEquals(res.headers.get('Content-Type'), 'text/html')
+})
+
+Deno.test('Handler maxUrlLength 414 returns JSON when Accept json', async () => {
+  const handler = new Routing.Handler({ maxUrlLength: 30 })
+  const longPath = 'a'.repeat(50)
+  const res = await handler.createHandler()(
+    new Request(`http://localhost/${longPath}`, {
+      headers: new Headers({ Accept: 'application/json' })
+    })
+  )
+  assertEquals(res.status, 414)
+  const body = (await res.json()) as { error: string }
+  assertEquals(body.error, 'URI Too Long')
+})
+
 Deno.test('Handler maxUrlLength returns 414 when exceeded', async () => {
   const handler = new Routing.Handler({ maxUrlLength: 50 })
   const longPath = 'a'.repeat(200)
   const res = await handler.createHandler()(new Request(`http://localhost/${longPath}`))
   assertEquals(res.status, 414)
+})
+
+Deno.test('Handler middleware * matches all paths', async () => {
+  const handler = new Routing.Handler()
+  handler.addMiddleware('*', async (ctx, next) => {
+    ctx.setHeader('X-Global', 'yes')
+    return await next()
+  })
+  handler.addMiddleware('', async ctx => new Response(ctx.responseHeadersMap['X-Global'] ?? 'no'))
+  const handle = handler.createHandler()
+  const res = await handle(new Request('http://localhost/anything'))
+  assertEquals(await res.text(), 'yes')
+})
+
+Deno.test('Handler middleware chain runs in order', async () => {
+  const handler = new Routing.Handler()
+  const order: number[] = []
+  handler.addMiddleware('', async (_ctx, next) => {
+    order.push(1)
+    return await next()
+  })
+  handler.addMiddleware('', async (_ctx, next) => {
+    order.push(2)
+    return await next()
+  })
+  handler.addMiddleware('', async () => {
+    order.push(3)
+    return new Response('done')
+  })
+  const handle = handler.createHandler()
+  await handle(new Request('http://localhost/'))
+  assertEquals(order, [1, 2, 3])
+})
+
+Deno.test('Handler middleware wildcard /** matches deep paths', async () => {
+  const handler = new Routing.Handler()
+  handler.addMiddleware('/api/**', async (ctx, next) => {
+    ctx.setHeader('X-API', 'true')
+    return await next()
+  })
+  handler.addMiddleware('', async ctx => new Response(ctx.responseHeadersMap['X-API'] ?? 'no'))
+  const handle = handler.createHandler()
+  const res = await handle(new Request('http://localhost/api/v1/users/123'))
+  assertEquals(await res.text(), 'true')
 })
 
 Deno.test('Handler requestTimeoutMs returns 503 when exceeded', async () => {
@@ -56,6 +158,17 @@ Deno.test('Handler requestTimeoutMs returns 503 when exceeded', async () => {
   await new Promise(r => setTimeout(r, 30))
 })
 
+Deno.test('Handler setErrorResponseBuilder overrides error response', async () => {
+  const handler = new Routing.Handler()
+  handler.setErrorResponseBuilder({
+    build: async (_ctx, statusCode) =>
+      new Response('custom error', { status: statusCode })
+  })
+  const res = await handler.createHandler()(new Request('http://localhost/nonexistent'))
+  assertEquals(res.status, 404)
+  assertEquals(await res.text(), 'custom error')
+})
+
 Deno.test('Handler viewsDir sets ctx.state.view and can render', async () => {
   const viewsDir = new URL('../fixtures/views/', import.meta.url).pathname.replace(/\/$/, '')
   const handler = new Routing.Handler({ viewsDir })
@@ -66,6 +179,17 @@ Deno.test('Handler viewsDir sets ctx.state.view and can render', async () => {
   })
   const res = await handler.createHandler()(new Request('http://localhost/'))
   assertEquals(await res.text(), 'Hello DX.\n')
+})
+
+Deno.test('Handler without timeout does not return 503', async () => {
+  const handler = new Routing.Handler()
+  handler.addMiddleware('', async () => {
+    await new Promise(r => setTimeout(r, 5))
+    return new Response('ok')
+  })
+  const res = await handler.createHandler()(new Request('http://localhost/'))
+  assertEquals(res.status, 200)
+  assertEquals(await res.text(), 'ok')
 })
 
 Deno.test('Handler#createHandler with worker option sets ctx.state.worker', async () => {
