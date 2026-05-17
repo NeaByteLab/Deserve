@@ -18,6 +18,21 @@ Deno.test('basicAuth always sets WWW-Authenticate header', async () => {
   assertEquals(ctx.responseHeadersMap['WWW-Authenticate'], 'Basic realm="Secure Area"')
 })
 
+Deno.test('basicAuth correct username but wrong password returns 401', async () => {
+  const middleware = Middleware.Mware.basicAuth({
+    users: [{ username: 'admin', password: 'secret' }]
+  })
+  const ctx = createTestContext('http://localhost/', {
+    headers: new Headers({ Authorization: 'Basic ' + btoa('admin:wrong') })
+  })
+  const next = async (): Promise<Response> => new Response('ok')
+  const res = await middleware(ctx, next)
+  assertEquals(res !== undefined, true)
+  if (res) {
+    assertEquals(res.status, 401)
+  }
+})
+
 Deno.test('basicAuth returns 401 when Authorization base64 is invalid', async () => {
   const middleware = Middleware.Mware.basicAuth({
     users: [{ username: 'u', password: 'p' }]
@@ -85,6 +100,84 @@ Deno.test('basicAuth throws when users array empty', () => {
     assertEquals((e as Error).message.includes('users array cannot be empty'), true)
   }
   assertEquals(thrown, true)
+})
+
+Deno.test('basicAuth with Bearer scheme returns 401', async () => {
+  const middleware = Middleware.Mware.basicAuth({
+    users: [{ username: 'u', password: 'p' }]
+  })
+  const ctx = createTestContext('http://localhost/', {
+    headers: new Headers({ Authorization: 'Bearer some-token' })
+  })
+  const next = async (): Promise<Response> => new Response('ok')
+  const res = await middleware(ctx, next)
+  assertEquals(res !== undefined, true)
+  if (res) {
+    assertEquals(res.status, 401)
+  }
+})
+
+Deno.test('basicAuth with empty Authorization value returns 401', async () => {
+  const middleware = Middleware.Mware.basicAuth({
+    users: [{ username: 'u', password: 'p' }]
+  })
+  const ctx = createTestContext('http://localhost/', {
+    headers: new Headers({ Authorization: '' })
+  })
+  const next = async (): Promise<Response> => new Response('ok')
+  const res = await middleware(ctx, next)
+  assertEquals(res !== undefined, true)
+  if (res) {
+    assertEquals(res.status, 401)
+  }
+})
+
+Deno.test('basicAuth with empty password credential returns 401', async () => {
+  const middleware = Middleware.Mware.basicAuth({
+    users: [{ username: 'u', password: 'p' }]
+  })
+  const ctx = createTestContext('http://localhost/', {
+    headers: new Headers({ Authorization: 'Basic ' + btoa('u:') })
+  })
+  const next = async (): Promise<Response> => new Response('ok')
+  const res = await middleware(ctx, next)
+  assertEquals(res !== undefined, true)
+  if (res) {
+    assertEquals(res.status, 401)
+  }
+})
+
+Deno.test('basicAuth with multiple users matches second user', async () => {
+  const middleware = Middleware.Mware.basicAuth({
+    users: [
+      { username: 'admin', password: 'secret' },
+      { username: 'user', password: 'pass' }
+    ]
+  })
+  const ctx = createTestContext('http://localhost/', {
+    headers: new Headers({ Authorization: 'Basic ' + btoa('user:pass') })
+  })
+  const next = async (): Promise<Response> => new Response('ok')
+  const res = await middleware(ctx, next)
+  assertEquals(res !== undefined, true)
+  if (res) {
+    assertEquals(await res.text(), 'ok')
+  }
+})
+
+Deno.test('basicAuth with password containing colon succeeds', async () => {
+  const middleware = Middleware.Mware.basicAuth({
+    users: [{ username: 'user', password: 'pass:word:extra' }]
+  })
+  const ctx = createTestContext('http://localhost/', {
+    headers: new Headers({ Authorization: 'Basic ' + btoa('user:pass:word:extra') })
+  })
+  const next = async (): Promise<Response> => new Response('ok')
+  const res = await middleware(ctx, next)
+  assertEquals(res !== undefined, true)
+  if (res) {
+    assertEquals(await res.text(), 'ok')
+  }
 })
 
 Deno.test('basicAuth with valid credential calls next', async () => {
