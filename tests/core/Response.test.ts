@@ -19,6 +19,12 @@ Deno.test('Response#create custom options.headers overrides base', () => {
   assertEquals(res.headers.get('X-App'), 'override')
 })
 
+Deno.test('Response#create custom with no body returns empty response', async () => {
+  const res = send.custom(null, { status: 204 })
+  assertEquals(res.status, 204)
+  assertEquals(await res.text(), '')
+})
+
 Deno.test('Response#create data sets Content-Disposition and Content-Type', () => {
   const res = send.data(new TextEncoder().encode('data'), 'file.bin', undefined, 'application/pdf')
   assertEquals(res.headers.get('Content-Type'), 'application/pdf')
@@ -31,6 +37,12 @@ Deno.test('Response#create data string sets Content-Length', () => {
   const res = send.data('hello', 'a.txt')
   assertEquals(res.headers.get('Content-Length'), '5')
   assertEquals(res.headers.get('Content-Disposition'), 'attachment; filename="a.txt"')
+})
+
+Deno.test('Response#create data with Uint8Array sets Content-Length', () => {
+  const data = new TextEncoder().encode('hello')
+  const res = send.data(data, 'file.bin')
+  assertEquals(res.headers.get('Content-Length'), '5')
 })
 
 Deno.test('Response#create file reads file and sets headers', async () => {
@@ -52,10 +64,24 @@ Deno.test('Response#create file with missing path throws', async () => {
   assertEquals(thrown, true)
 })
 
+Deno.test('Response#create file with no custom filename uses path basename', async () => {
+  const filePath = new URL('../fixtures/response-file.txt', import.meta.url).pathname
+  const res = await send.file(filePath)
+  assertEquals(res.headers.get('Content-Disposition'), 'attachment; filename="response-file.txt"')
+  assertEquals(await res.text(), 'fixture content\n')
+})
+
 Deno.test('Response#create html sets text/html', async () => {
   const res = send.html('<p>hi</p>', { status: 200 })
   assertEquals(res.headers.get('Content-Type'), 'text/html')
   assertEquals(await res.text(), '<p>hi</p>')
+})
+
+Deno.test('Response#create html with large content', async () => {
+  const largeHtml = '<p>' + 'x'.repeat(10000) + '</p>'
+  const res = send.html(largeHtml)
+  assertEquals(res.headers.get('Content-Type'), 'text/html')
+  assertEquals(await res.text(), largeHtml)
 })
 
 Deno.test('Response#create json serializes and sets application/json', async () => {
@@ -64,9 +90,22 @@ Deno.test('Response#create json serializes and sets application/json', async () 
   assertEquals(await res.json(), { a: 1 })
 })
 
+Deno.test('Response#create json with nested object', async () => {
+  const res = send.json({ nested: { array: [1, 2, 3] } })
+  assertEquals(res.headers.get('Content-Type'), 'application/json')
+  const body = await res.json()
+  assertEquals(body, { nested: { array: [1, 2, 3] } })
+})
+
 Deno.test('Response#create redirect delegates to buildRedirect', () => {
   const res = send.redirect('https://example.com/', 301)
   assertEquals(res.status, 301)
+  assertEquals(res.headers.get('Location'), 'https://example.com/')
+})
+
+Deno.test('Response#create redirect with 308', () => {
+  const res = send.redirect('https://example.com/', 308)
+  assertEquals(res.status, 308)
   assertEquals(res.headers.get('Location'), 'https://example.com/')
 })
 
@@ -82,8 +121,25 @@ Deno.test('Response#create stream sets Content-Type', () => {
   assertEquals(res.headers.get('X-App'), 'test')
 })
 
+Deno.test('Response#create stream with default contentType uses octet-stream', () => {
+  const stream = new ReadableStream({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode('data'))
+      controller.close()
+    }
+  })
+  const res = send.stream(stream)
+  assertEquals(res.headers.get('Content-Type'), 'application/octet-stream')
+})
+
 Deno.test('Response#create text sets text/plain', async () => {
   const res = send.text('hello', { status: 200 })
   assertEquals(res.headers.get('Content-Type'), 'text/plain')
   assertEquals(await res.text(), 'hello')
+})
+
+Deno.test('Response#create text with empty string', async () => {
+  const res = send.text('')
+  assertEquals(res.headers.get('Content-Type'), 'text/plain')
+  assertEquals(await res.text(), '')
 })
