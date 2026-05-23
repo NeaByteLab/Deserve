@@ -1,8 +1,5 @@
 # Streaming Template Rendering
 
-> [!WARNING]
-> Fitur ini masih dalam pengembangan dan belum dirilis secara resmi.
-
 Streaming template rendering memungkinkan Anda mengirim HTML, mengurangi time-to-first-byte (TTFB) dan meningkatkan user experience untuk template besar.
 
 ## Konsep Dasar
