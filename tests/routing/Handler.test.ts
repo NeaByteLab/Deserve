@@ -1,4 +1,5 @@
-import { assertEquals } from 'jsr:@std/assert'
+import { assertEquals } from '@std/assert'
+import { fileURLToPath } from 'node:url'
 import * as Core from '@core/index.ts'
 import * as Routing from '@routing/index.ts'
 
@@ -161,8 +162,7 @@ Deno.test('Handler requestTimeoutMs returns 503 when exceeded', async () => {
 Deno.test('Handler setErrorResponseBuilder overrides error response', async () => {
   const handler = new Routing.Handler()
   handler.setErrorResponseBuilder({
-    build: async (_ctx, statusCode) =>
-      new Response('custom error', { status: statusCode })
+    build: async (_ctx, statusCode) => new Response('custom error', { status: statusCode })
   })
   const res = await handler.createHandler()(new Request('http://localhost/nonexistent'))
   assertEquals(res.status, 404)
@@ -170,7 +170,7 @@ Deno.test('Handler setErrorResponseBuilder overrides error response', async () =
 })
 
 Deno.test('Handler viewsDir sets ctx.state.view and can render', async () => {
-  const viewsDir = new URL('../fixtures/views/', import.meta.url).pathname.replace(/\/$/, '')
+  const viewsDir = fileURLToPath(new URL('../fixtures/views/', import.meta.url)).replace(/[\\/]$/, '')
   const handler = new Routing.Handler({ viewsDir })
   handler.addMiddleware('', async ctx => {
     const engine = ctx.state['view'] as { render: (p: string, d?: unknown) => Promise<string> }

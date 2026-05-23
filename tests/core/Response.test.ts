@@ -1,4 +1,5 @@
-import { assertEquals } from 'jsr:@std/assert'
+import { assertEquals } from '@std/assert'
+import { fileURLToPath } from 'node:url'
 import * as Core from '@core/index.ts'
 
 const baseHeaders = { 'X-App': 'test' }
@@ -46,7 +47,7 @@ Deno.test('Response#create data with Uint8Array sets Content-Length', () => {
 })
 
 Deno.test('Response#create file reads file and sets headers', async () => {
-  const filePath = new URL('../fixtures/response-file.txt', import.meta.url).pathname
+  const filePath = fileURLToPath(new URL('../fixtures/response-file.txt', import.meta.url))
   const res = await send.file(filePath, 'custom.txt')
   assertEquals(res.headers.get('Content-Disposition'), 'attachment; filename="custom.txt"')
   assertEquals(res.headers.get('Content-Type'), 'application/octet-stream')
@@ -65,7 +66,7 @@ Deno.test('Response#create file with missing path throws', async () => {
 })
 
 Deno.test('Response#create file with no custom filename uses path basename', async () => {
-  const filePath = new URL('../fixtures/response-file.txt', import.meta.url).pathname
+  const filePath = fileURLToPath(new URL('../fixtures/response-file.txt', import.meta.url))
   const res = await send.file(filePath)
   assertEquals(res.headers.get('Content-Disposition'), 'attachment; filename="response-file.txt"')
   assertEquals(await res.text(), 'fixture content\n')

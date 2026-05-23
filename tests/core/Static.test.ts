@@ -1,4 +1,5 @@
-import { assertEquals } from 'jsr:@std/assert'
+import { assertEquals } from '@std/assert'
+import { fileURLToPath } from 'node:url'
 import * as Core from '@core/index.ts'
 
 function createTestContext(url: string, requestInit?: RequestInit): Core.Context {
@@ -7,14 +8,14 @@ function createTestContext(url: string, requestInit?: RequestInit): Core.Context
 }
 
 Deno.test('Static#serveStaticFile blocks path traversal via ..', async () => {
-  const basePath = new URL('../fixtures/static/', import.meta.url).pathname.replace(/\/$/, '')
+  const basePath = fileURLToPath(new URL('../fixtures/static/', import.meta.url)).replace(/[\\/]$/, '')
   const ctx = createTestContext('http://localhost/../response-file.txt')
   const res = await Core.Static.serveStaticFile(ctx, { path: basePath }, '/')
   assertEquals(res.status, 404)
 })
 
 Deno.test('Static#serveStaticFile returns 404 for missing file', async () => {
-  const basePath = new URL('../fixtures/static/', import.meta.url).pathname.replace(/\/$/, '')
+  const basePath = fileURLToPath(new URL('../fixtures/static/', import.meta.url)).replace(/[\\/]$/, '')
   const handleError = async (_ctx: Core.Context, status: number): Promise<Response> =>
     new Response('not found', { status })
   const ctxWithHandler = new Core.Context(
@@ -29,7 +30,7 @@ Deno.test('Static#serveStaticFile returns 404 for missing file', async () => {
 
 Deno.test('Static#serveStaticFile serves index.html when pathname is /', async () => {
   const ctx = createTestContext('http://localhost/')
-  const basePath = new URL('../fixtures/static/', import.meta.url).pathname.replace(/\/$/, '')
+  const basePath = fileURLToPath(new URL('../fixtures/static/', import.meta.url)).replace(/[\\/]$/, '')
   const res = await Core.Static.serveStaticFile(ctx, { path: basePath }, '/')
   assertEquals(res.status, 200)
   assertEquals(res.headers.get('Content-Type'), 'text/html')
@@ -38,7 +39,7 @@ Deno.test('Static#serveStaticFile serves index.html when pathname is /', async (
 })
 
 Deno.test('Static#serveStaticFile sets Cache-Control when configured', async () => {
-  const basePath = new URL('../fixtures/static/', import.meta.url).pathname.replace(/\/$/, '')
+  const basePath = fileURLToPath(new URL('../fixtures/static/', import.meta.url)).replace(/[\\/]$/, '')
   const ctx = createTestContext('http://localhost/')
   const res = await Core.Static.serveStaticFile(ctx, { path: basePath, cacheControl: 3600 }, '/')
   assertEquals(res.status, 200)
@@ -48,7 +49,7 @@ Deno.test('Static#serveStaticFile sets Cache-Control when configured', async () 
 
 Deno.test('Static#serveStaticFile with etag sets ETag header', async () => {
   const ctx = createTestContext('http://localhost/')
-  const basePath = new URL('../fixtures/static/', import.meta.url).pathname.replace(/\/$/, '')
+  const basePath = fileURLToPath(new URL('../fixtures/static/', import.meta.url)).replace(/[\\/]$/, '')
   const res = await Core.Static.serveStaticFile(ctx, { path: basePath, etag: true }, '/')
   assertEquals(res.status, 200)
   assertEquals(res.headers.get('ETag')?.startsWith('"'), true)
@@ -56,7 +57,7 @@ Deno.test('Static#serveStaticFile with etag sets ETag header', async () => {
 })
 
 Deno.test('Static#serveStaticFile with If-None-Match returns 304', async () => {
-  const basePath = new URL('../fixtures/static/', import.meta.url).pathname.replace(/\/$/, '')
+  const basePath = fileURLToPath(new URL('../fixtures/static/', import.meta.url)).replace(/[\\/]$/, '')
   const ctxFirst = createTestContext('http://localhost/')
   const resFirst = await Core.Static.serveStaticFile(ctxFirst, { path: basePath, etag: true }, '/')
   const etag = resFirst.headers.get('ETag')
