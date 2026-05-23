@@ -320,7 +320,7 @@ Deno.test('Handler#validateModule throws when no HTTP method exported', () => {
     handler.validateModule({ default: () => {} }, 'routes/foo.ts')
   } catch (e) {
     thrown = true
-    assertEquals((e as Error).message.includes('Must export at least one HTTP method'), true)
+    assertEquals((e as Error).message.includes('must export at least one HTTP method'), true)
   }
   assertEquals(thrown, true)
 })

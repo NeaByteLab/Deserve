@@ -99,7 +99,7 @@ Deno.test('Engine#render rejects else without if', async () => {
   await assertRejects(
     () => engine.render('attack-else-without-if.dve', {}),
     Error,
-    'Unexpected {{else}} without matching {{#if}} block.'
+    'Unexpected {{else}} without matching {{#if}} block'
   )
 })
 
@@ -109,7 +109,7 @@ Deno.test('Engine#render rejects unclosed block', async () => {
   await assertRejects(
     () => engine.render('attack-unclosed-block.dve', { ok: true }),
     Error,
-    'Unclosed {{#if}} block in DVE template.'
+    'Unclosed {{#if}} block in DVE template'
   )
 })
 
@@ -155,7 +155,7 @@ Deno.test('Engine#render security: include path traversal is blocked by discover
   await assertRejects(
     () => engine.render('attack-include-traversal.dve', {}),
     Error,
-    'Template not found: ../escape.dve'
+    'Template "../escape.dve" not found in views directory'
   )
 })
 
@@ -193,7 +193,7 @@ Deno.test('Engine#render throws when template not found', async () => {
   await assertRejects(
     () => engine.render('missing.dve', {}),
     Error,
-    'Template not found: missing.dve'
+    'Template "missing.dve" not found in views directory'
   )
 })
 

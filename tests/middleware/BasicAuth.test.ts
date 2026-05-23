@@ -97,7 +97,7 @@ Deno.test('basicAuth throws when users array empty', () => {
     Middleware.Mware.basicAuth({ users: [] })
   } catch (e) {
     thrown = true
-    assertEquals((e as Error).message.includes('users array cannot be empty'), true)
+    assertEquals((e as Error).message.includes('at least one user'), true)
   }
   assertEquals(thrown, true)
 })

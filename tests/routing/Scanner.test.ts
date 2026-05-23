@@ -92,7 +92,7 @@ Deno.test('Scanner#validateModule throws when no method exported', () => {
     Routing.Scanner.validateModule({ foo: 1 }, 'routes/foo.ts', Core.Constant.httpMethods)
   } catch (e) {
     thrown = true
-    assertEquals((e as Error).message.includes('Must export at least one HTTP method'), true)
+    assertEquals((e as Error).message.includes('must export at least one HTTP method'), true)
   }
   assertEquals(thrown, true)
 })
