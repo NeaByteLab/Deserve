@@ -6,7 +6,7 @@ export interface SecurityHeaderEntry {
   name: string
 }
 
-/** Security header options; false to omit. */
+/** Security header options, false to omit. */
 export interface SecurityHeadersOptions {
   /** Content-Security-Policy value */
   contentSecurityPolicy?: string | false

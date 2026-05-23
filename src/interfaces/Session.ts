@@ -5,7 +5,7 @@
 export interface SessionOptions {
   /** Cookie name */
   cookieName?: string
-  /** Signing secret for cookie payload, required (HMAC-SHA256) */
+  /** HMAC-SHA256 signing secret, required */
   cookieSecret: string
   /** HttpOnly flag */
   httpOnly?: boolean

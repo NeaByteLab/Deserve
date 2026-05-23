@@ -1,13 +1,19 @@
-/** Options to create a worker pool; scriptURL must be module URL. */
+/** Worker pool creation options. */
 export interface WorkerPoolOptions {
-  /** Number of workers in pool; default 4 */
+  /** Number of workers, default 4 */
   poolSize?: number
-  /** Worker script URL (e.g. import.meta.resolve('./worker.ts')) */
+  /** Module URL for worker script */
   scriptURL: string
 }
 
-/** Run a task in the worker pool; payload and result must be structured-clone serializable. */
+/** Handle to run worker tasks. */
 export interface WorkerRunHandle {
-  /** Send payload to a worker and resolve with result. */
+  /**
+   * Run payload in worker pool.
+   * @description Sends payload to worker and resolves result.
+   * @param payload - Structured-clone serializable data
+   * @returns Promise resolving with worker result
+   * @template T - Expected result type
+   */
   run<T = unknown>(payload: unknown): Promise<T>
 }

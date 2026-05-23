@@ -1,36 +1,3 @@
-/** AST node for DVE template (render engine internal). */
-export type AstNode =
-  | { type: 'each'; path: string; itemName: string; nodes: AstNode[] }
-  | { type: 'if'; path: string; thenNodes: AstNode[]; elseNodes: AstNode[] }
-  | { type: 'include'; templatePath: string }
-  | { type: 'text'; value: string }
-  | { type: 'var'; path: string; raw: boolean }
-
-/** Compiled DVE template result (render engine internal). */
-export type CompileResult = { ast: AstNode[] }
-
-/** Expression token for DVE expression evaluator (render engine internal). */
-export type ExprToken =
-  | { kind: 'op'; value: string }
-  | { kind: 'ident'; value: string }
-  | { kind: 'number'; value: number }
-  | { kind: 'string'; value: string }
-
-/** Expression AST node for DVE expression evaluator (render engine internal). */
-export type ExprNode =
-  | { type: 'literal'; value: unknown }
-  | { type: 'ident'; name: string }
-  | { type: 'member'; object: ExprNode; property: string }
-  | { type: 'unary'; op: '!' | '+' | '-'; arg: ExprNode }
-  | { type: 'binary'; op: string; left: ExprNode; right: ExprNode }
-  | { type: 'ternary'; test: ExprNode; consequent: ExprNode; alternate: ExprNode }
-
-/** Stack frame for DVE template parser (render engine internal). */
-export type DveStackFrame = { kind: 'if' | 'each'; node: AstNode; inElse: boolean }
-
-/** Options for constructing rendering Engine. */
-export type EngineOptions = { viewsDir: string }
-
 /**
  * View engine for templates.
  * @description Renders DVE templates to HTML strings.
@@ -54,3 +21,49 @@ export interface ViewEngine {
    */
   streamRender(templatePath: string, data?: Record<string, unknown>): ReadableStream
 }
+
+/** DVE template AST node. */
+export type AstNode =
+  | { type: 'each'; path: string; itemName: string; nodes: AstNode[] }
+  | { type: 'if'; path: string; thenNodes: AstNode[]; elseNodes: AstNode[] }
+  | { type: 'include'; templatePath: string }
+  | { type: 'text'; value: string }
+  | { type: 'var'; path: string; raw: boolean }
+
+/** Compiled DVE template result. */
+export type CompileResult = {
+  /** Parsed AST node array */
+  ast: AstNode[]
+}
+
+/** DVE template parser stack frame. */
+export type DveStackFrame = {
+  /** Block type: if or each */
+  kind: 'if' | 'each'
+  /** Current AST node reference */
+  node: AstNode
+  /** True when inside else branch */
+  inElse: boolean
+}
+
+/** Rendering engine constructor options. */
+export type EngineOptions = {
+  /** Root directory for DVE templates */
+  viewsDir: string
+}
+
+/** DVE expression AST node. */
+export type ExprNode =
+  | { type: 'literal'; value: unknown }
+  | { type: 'ident'; name: string }
+  | { type: 'member'; object: ExprNode; property: string }
+  | { type: 'unary'; op: '!' | '+' | '-'; arg: ExprNode }
+  | { type: 'binary'; op: string; left: ExprNode; right: ExprNode }
+  | { type: 'ternary'; test: ExprNode; consequent: ExprNode; alternate: ExprNode }
+
+/** DVE expression evaluator token. */
+export type ExprToken =
+  | { kind: 'op'; value: string }
+  | { kind: 'ident'; value: string }
+  | { kind: 'number'; value: number }
+  | { kind: 'string'; value: string }
