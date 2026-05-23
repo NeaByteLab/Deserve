@@ -50,6 +50,45 @@ export class Context {
     this.requestState = {}
   }
 
+  /** Raw request Headers */
+  get headers(): Headers {
+    return this.req.headers
+  }
+
+  /** Request pathname from URL */
+  get pathname(): string {
+    return this.urlObj.pathname
+  }
+
+  /** Raw Request object */
+  get request(): Request {
+    return this.req
+  }
+
+  /** Copy of response headers set on context */
+  get responseHeadersMap(): Record<string, string> {
+    return { ...this.responseHeaders }
+  }
+
+  /** Helpers to send JSON, HTML, file, redirect, etc. */
+  get send(): Types.SendHelpers {
+    return Core.Response.create(
+      this.responseHeaders,
+      (url, status, extraHeaders) =>
+        Core.Redirect.buildResponse(this.req.url, this.responseHeaders, url, status, extraHeaders)
+    )
+  }
+
+  /** Mutable state shared by middleware and route */
+  get state(): Record<string, unknown> {
+    return this.requestState
+  }
+
+  /** Full request URL string */
+  get url(): string {
+    return this.req.url
+  }
+
   /**
    * Read body as ArrayBuffer.
    * @description Parses once; returns cached if already read.
@@ -161,11 +200,6 @@ export class Context {
     return key ? this.headerMap?.[key?.toLowerCase()] : this.headerMap
   }
 
-  /** Raw request Headers */
-  get headers(): Headers {
-    return this.req.headers
-  }
-
   /**
    * Read body as JSON.
    * @description Parses once; returns cached if already read.
@@ -200,9 +234,14 @@ export class Context {
     return { ...this.routeParams }
   }
 
-  /** Request pathname from URL */
-  get pathname(): string {
-    return this.urlObj.pathname
+  /**
+   * Get all values for a query key.
+   * @description Returns all query values for repeated key.
+   * @param key - Query parameter name
+   * @returns Array of values
+   */
+  queries(key: string): string[] {
+    return this.urlObj.searchParams.getAll(key)
   }
 
   /**
@@ -216,16 +255,6 @@ export class Context {
       this.parseQuery()
     }
     return key ? this.queryParams?.[key] : this.queryParams
-  }
-
-  /**
-   * Get all values for a query key.
-   * @description Returns all query values for repeated key.
-   * @param key - Query parameter name
-   * @returns Array of values
-   */
-  queries(key: string): string[] {
-    return this.urlObj.searchParams.getAll(key)
   }
 
   /**
@@ -256,7 +285,7 @@ export class Context {
   async render(templatePath: string, data: Record<string, unknown> = {}): Promise<Response> {
     const view = this.state['view'] as Types.ViewEngine | undefined
     if (view === undefined) {
-      throw new Error('View engine not configured, set viewsDir in Router options.')
+      throw new Error('View engine not configured, set viewsDir in RouterOptions')
     }
     const html = await view.render(templatePath, data)
     return this.send.html(html)
@@ -271,16 +300,6 @@ export class Context {
     this.req = req
     this.bodyData = undefined
     this.bodyParsedAs = null
-  }
-
-  /** Raw Request object */
-  get request(): Request {
-    return this.req
-  }
-
-  /** Copy of response headers set on context */
-  get responseHeadersMap(): Record<string, string> {
-    return { ...this.responseHeaders }
   }
 
   /**
@@ -315,20 +334,6 @@ export class Context {
     Object.assign(this.routeParams, params)
   }
 
-  /** Helpers to send JSON, HTML, file, redirect, etc. */
-  get send(): Types.SendHelpers {
-    return Core.Response.create(
-      this.responseHeaders,
-      (url, status, extraHeaders) =>
-        Core.Redirect.buildResponse(this.req.url, this.responseHeaders, url, status, extraHeaders)
-    )
-  }
-
-  /** Mutable state shared by middleware and route */
-  get state(): Record<string, unknown> {
-    return this.requestState
-  }
-
   /**
    * Render template with streaming.
    * @description Requires viewsDir set in Router.
@@ -339,7 +344,7 @@ export class Context {
   streamRender(templatePath: string, data: Record<string, unknown> = {}): Response {
     const view = this.state['view'] as Types.ViewEngine
     if (view === undefined) {
-      throw new Error('View engine not configured, set viewsDir in Router options.')
+      throw new Error('View engine not configured, set viewsDir in RouterOptions')
     }
     const stream = view.streamRender(templatePath, data)
     return this.send.stream(stream, undefined, 'text/html; charset=utf-8')
@@ -358,11 +363,6 @@ export class Context {
     this.bodyData = await this.req.text()
     this.bodyParsedAs = 'text'
     return this.bodyData as string
-  }
-
-  /** Full request URL string */
-  get url(): string {
-    return this.req.url
   }
 
   /** Throws if body was already consumed. */
@@ -389,19 +389,13 @@ export class Context {
 
   /** Parse request headers into lowercased map. */
   private parseHeaders(): void {
-    const result: Record<string, string> = {}
-    this.req.headers.forEach((headerValue, headerKey) => {
-      result[headerKey.toLowerCase()] = headerValue
-    })
-    this.headerMap = result
+    this.headerMap = Object.fromEntries(
+      Array.from(this.req.headers.entries(), ([key, value]) => [key.toLowerCase(), value])
+    )
   }
 
   /** Parse URL search params into map. */
   private parseQuery(): void {
-    const result: Record<string, string> = {}
-    this.urlObj.searchParams.forEach((paramValue, paramKey) => {
-      result[paramKey] = paramValue
-    })
-    this.queryParams = result
+    this.queryParams = Object.fromEntries(this.urlObj.searchParams.entries())
   }
 }
