@@ -8,33 +8,106 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+---
+
+## [0.10.0] - 2026-05-23
+
 ### Added
 
-- Streaming template rendering with `ViewEngine.streamRender()` method
-- `Context.streamRender()` method for streaming HTML responses
-- Progressive template rendering with `TransformStream` support
-- Template chunk rendering utilities for streaming pipeline
+- DVE template test fixtures for `nested-if`, `each-nonarray`, `attack-else-without-if`, and `attack-unclosed-block`
+- Streaming template rendering via `ViewEngine.streamRender()` and `Context.streamRender()` methods for progressive HTML output using `TransformStream`
+- Documentation guides for DVE template syntax and streaming rendering
+- Cross-platform CI build matrix (Ubuntu, macOS, Windows) in GitHub Actions workflow
+- `.gitattributes` to enforce LF line endings across all platforms
+- `@std/assert` import map alias for standardized test assertions
+- Packaged DVE language extension (`.vsix`) with improved HTML syntax embedding
+- Test suites for rendering engine sub-modules (Eval, Expression, Parser, Tokenizer, Utils)
+- Edge case test coverage for Context body parsing, Response factory methods, BasicAuth credentials, CORS options, BodyLimit boundaries, SecHeaders combinations, wrapMiddleware error handling, Scanner validation, and Handler content negotiation
 
 ### Changed
 
-- Reorganize method ordering in `Engine` class (properties → public → private, A-Z sorted)
-- Reorganize method ordering in `Context` class (properties → public → private, A-Z sorted)
-- Reorganize method ordering in `Session` class (public → private, A-Z sorted)
-- Sort interface and type exports A-Z in `Error`, `Middleware`, `Render`, `Static`, `Worker`
-- Simplify `Router` constructor with object destructuring
-- Simplify `Redirect.headersToRecord` and `Response.headersToRecord` with `Object.fromEntries`
-- Standardize all error messages across `src/` (no periods, no colons, clear developer context)
-- Apply consistent JSDoc across all interfaces and middleware
-- Update rendering documentation with DVE syntax reference and streaming support
-- Update docs to reflect new error message wording
-- Remove `ViewEngine.render` options parameter
-- Parse `{{else}}`, `{{/if}}`, and `{{/each}}` strictly
-- Throw on unclosed `#if` and `#each` blocks
+- DVE template parsing is now strict: unmatched `{{else}}`, `{{/if}}`, `{{/each}}` and unclosed `{{#if}}`/`{{#each}}` blocks throw errors instead of being silently ignored
+- Remove `options` parameter from `ViewEngine.render()` — the engine always uses its configured `viewsDir`
+- Remove `optional` flag from `ExprNode` member access (expression AST simplification)
+- Simplify `Router` constructor using object destructuring instead of manual property copying
+- Simplify `Worker.createPool` using `Array.from` instead of manual loop
+- Simplify `headersToRecord` in `Context`, `Redirect`, and `Response` using `Object.fromEntries`
+- Simplify `Context.parseHeaders` and `Context.parseQuery` using `Object.fromEntries`
+- Reorganize method ordering in `Context`, `Engine`, and `Session` (getters first, public, private, A-Z sorted)
+- Sort interface and type exports alphabetically in `Error`, `Middleware`, `Render`, `Static`, `Worker`
+- Standardize all error messages across `src/` to use consistent wording (no trailing periods, no colons before details)
+- Apply JSDoc with `@description`, `@param`, `@returns`, and `@throws` across all interfaces
+- Update documentation examples and guides to match new error message wording
 
 ### Fixed
 
+- Windows path handling in static file serving — backslash separators are now normalized correctly
+- Filename extraction in `Response.file()` now splits on both `/` and `\` for cross-platform compatibility
+- Cross-platform test path resolution using `fileURLToPath` instead of raw URL strings
 - TypeScript parameter compatibility in `streamRender()` method
-- Method organization for better code maintainability
+
+### 2026-05-23
+
+- `b65c622` fix(static): handle Windows backslash paths in file serving
+- `366c920` fix(response): split filename on both / and \ separators
+- `d61aaf3` style(tests): use import map alias for @std/assert
+- `16a015b` chore(config): add @std/assert import map alias
+- `2a34f8d` fix(tests): use fileURLToPath for cross-platform path resolution
+- `80ac484` ci(git): enforce LF line endings across all platforms
+- `9dd2934` ci(workflow): add cross-platform build matrix
+- `bf7612e` docs(changelog): add entries for refactoring and standardization pass
+- `b66ed14` docs(guides): update error messages in examples and descriptions
+- `ecd6ebe` test(assertions): update expected error messages to match new wording
+- `9ca9dbe` refactor(middleware): standardize errors and reorder Session methods
+- `516c772` refactor(scanner): standardize route validation error messages
+- `2ac12f7` refactor(router): simplify constructor with object destructuring
+- `04e048b` refactor(rendering): standardize error messages and reorder methods
+- `39100ef` refactor(worker): simplify pool creation and standardize errors
+- `ed08584` refactor(core): simplify headersToRecord with Object.fromEntries
+- `00e407b` refactor(context): reorder getters and simplify parsing
+- `fbbba86` style(interfaces): apply JSDoc standards and sort exports A-Z
+
+### 2026-05-18
+
+- `2254a5f` test(rendering): add engine sub-module unit test suite
+- `9f53fdb` test(fixtures): add DVE templates for edge case coverage
+- `8893340` test(rendering): add Engine caching, edge case, and streaming coverage
+- `22b0e5e` test(rendering): add Discover views directory coverage
+- `9551bb5` test(router): add Scanner pattern and validation coverage
+- `f4944cd` test(router): add Handler content negotiation and middleware coverage
+- `ede1a6a` test(middleware): add wrapMiddleware error handling coverage
+- `0d0dcbc` test(security): add SecHeaders individual and combined coverage
+- `8c787a2` test(cors): add CORS credential and default option coverage
+- `6961b22` test(body): add BodyLimit boundary and method coverage
+- `e69bde9` test(auth): add BasicAuth credential and scheme edge cases
+- `4fc7d3a` test(core): add Response factory method edge case coverage
+- `6d0fcd5` test(core): add Context body parsing and accessor coverage
+- `712cc38` style(test): sort test cases alphabetically
+
+### 2026-05-10
+
+- `20dd6e6` build(editor): add packaged DVE language extension
+- `982ac92` feat(editor): improve DVE HTML syntax embedding
+- `c10080b` docs(editor): document DVE VSIX installation
+- `48f8123` style(config): remove extra blank line
+
+### 2026-03-28
+
+- `9e53364` feat(rendering): add streaming template rendering
+- `7356485` docs(rendering): add DVE template and streaming guides
+- `63d0455` docs(config): update VitePress nav and changelog for streaming
+
+### 2026-03-19
+
+- `bc62ff3` docs(example): update showcase and project root link
+- `62e59a4` refactor(rendering): engine JSDoc, naming, spacing
+- `a0b0c60` style(rendering): apply deno fmt to engine
+- `d6e24f2` refactor(rendering): drop render options parameter
+- `0a37f9a` docs(changelog): add Unreleased rendering entry
+- `7d3d0f7` test(rendering): add invalid template coverage
+- `8d25b5e` refactor(rendering): make DVE parsing strict
+- `83610cb` docs(changelog): document strict DVE parsing
+- `e835fb4` docs(editor): clarify DVE safe member access
 
 ## [0.9.0] - 2026-03-19
 
@@ -157,6 +230,7 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
-[Unreleased]: https://github.com/NeaByteLab/Deserve/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/NeaByteLab/Deserve/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/NeaByteLab/Deserve/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/NeaByteLab/Deserve/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/NeaByteLab/Deserve/compare/v0.7.0...v0.8.0
