@@ -49,7 +49,7 @@ export class Response {
         try {
           file = await Deno.open(filePath, { read: true })
           const fileInfo = await file.stat()
-          const fileName = filename || filePath.split('/').pop() || 'download'
+          const fileName = filename || filePath.split(/[\\/]/).pop() || 'download'
           return new globalThis.Response(file.readable, {
             headers: {
               'Content-Type': 'application/octet-stream',
