@@ -113,13 +113,15 @@ export class Scanner {
     const exportedMethods = Object.keys(module).filter((key) => methods.includes(key))
     if (exportedMethods.length === 0) {
       throw new Error(
-        `Route ${routePath}: Must export at least one HTTP method (${methods.join(', ')})`
+        `Route "${routePath}" must export at least one HTTP method (${methods.join(', ')})`
       )
     }
     for (const [key, value] of Object.entries(module)) {
       if (methods.includes(key)) {
         if (typeof value !== 'function') {
-          throw new Error(`Route ${routePath}: ${key} must be a function, got ${typeof value}`)
+          throw new Error(
+            `Route "${routePath}" export "${key}" must be a function, got ${typeof value}`
+          )
         }
       }
     }
