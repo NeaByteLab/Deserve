@@ -29,11 +29,10 @@ export class Static {
       } else if (filePath.startsWith('/')) {
         filePath = filePath.slice(1)
       }
-      const staticBasePath = options.path.startsWith('/')
-        ? options.path
-        : `${Deno.cwd()}/${options.path}`
-      const baseNormalized = staticBasePath.replace(/^\.\//, '').replace(/\/+$/, '') || '/'
-      const fullPath = new URL(filePath, `file://${baseNormalized}/`).pathname
+      const isAbsolute = options.path.startsWith('/') || /^[A-Za-z]:[\\/]/.test(options.path)
+      const staticBasePath = isAbsolute ? options.path : `${Deno.cwd()}/${options.path}`
+      const baseNormalized = staticBasePath.replace(/^\.\//, '').replace(/[\\/]+$/, '') || '/'
+      const fullPath = `${baseNormalized}/${filePath}`.replace(/\\/g, '/')
       const fileInfo = await Deno.stat(fullPath).catch(() => null)
       if (!fileInfo || !fileInfo.isFile) {
         return await ctx.handleError(404, new Error('File not found'))
@@ -41,12 +40,17 @@ export class Static {
       let baseResolved: string
       let fileResolved: string
       try {
-        baseResolved = (await Deno.realPath(baseNormalized)).replace(/\/+$/, '') + '/'
+        baseResolved = (await Deno.realPath(baseNormalized)).replace(/[\\/]+$/, '') + '/'
         fileResolved = await Deno.realPath(fullPath)
       } catch {
         return await ctx.handleError(404, new Error('File not found'))
       }
-      if (fileResolved !== baseResolved.slice(0, -1) && !fileResolved.startsWith(baseResolved)) {
+      const normalizedBase = baseResolved.replace(/\\/g, '/')
+      const normalizedFile = fileResolved.replace(/\\/g, '/')
+      if (
+        normalizedFile !== normalizedBase.slice(0, -1) &&
+        !normalizedFile.startsWith(normalizedBase)
+      ) {
         return await ctx.handleError(404, new Error('File not found'))
       }
       const extension = filePath.split('.').pop()?.toLowerCase() ?? ''
