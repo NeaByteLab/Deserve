@@ -20,7 +20,7 @@ export class Utils {
         const err = error as Error & { statusCode?: number }
         const status = err.statusCode ?? 500
         const message = err.message || 'Unknown error'
-        return await ctx.handleError(status, new Error(`${label}: ${message}`))
+        return await ctx.handleError(status, new Error(`${label} - ${message}`))
       }
     }
   }

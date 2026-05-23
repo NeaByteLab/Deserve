@@ -16,9 +16,48 @@ export class Session {
   }
 
   /**
-   * Decode base64url string to bytes.
-   * @description Converts base64url string to byte array.
-   * @param str - Base64url-encoded string
+   * Create session middleware.
+   * @description Populates ctx.state with session and helpers; requires cookieSecret.
+   * @param options - Session options with required cookieSecret
+   * @returns Middleware that populates ctx.state.session
+   * @throws {Error} When cookieSecret is missing or empty
+   */
+  static create(options: Types.SessionOptions): Types.Middleware {
+    const { cookieSecret, ...rest } = options
+    if (!cookieSecret || cookieSecret.length === 0) {
+      throw new Error('Session cookieSecret must be a non-empty string')
+    }
+    const sessionOptions = { ...Session.defaultOptions, ...rest } as Types.SessionCookieOpts
+    return async (
+      ctx: Core.Context,
+      next: () => Promise<Response | undefined>
+    ): Promise<Response | undefined> => {
+      const rawCookie = ctx.cookie(sessionOptions.cookieName)
+      const cookieValue = typeof rawCookie === 'string' ? rawCookie : undefined
+      ctx.state['session'] = cookieValue
+        ? await Session.decodePayload(cookieValue, cookieSecret)
+        : null
+      ctx.state['setSession'] = async (data: Types.SessionData) => {
+        const encodedPayload = await Session.encodePayload(data, cookieSecret)
+        ctx.setHeader(
+          'Set-Cookie',
+          Session.buildSetCookieHeader(sessionOptions.cookieName, encodedPayload, sessionOptions)
+        )
+      }
+      ctx.state['clearSession'] = () => {
+        ctx.setHeader(
+          'Set-Cookie',
+          Session.buildClearCookieHeader(sessionOptions.cookieName, sessionOptions.path)
+        )
+      }
+      return await next()
+    }
+  }
+
+  /**
+   * Decode base64url to bytes.
+   * @description Converts base64url string to Uint8Array with padding.
+   * @param str - Base64url encoded string
    * @returns Decoded byte array
    */
   private static base64UrlDecode(str: string): Uint8Array {
@@ -34,10 +73,10 @@ export class Session {
   }
 
   /**
-   * Encode bytes to base64url string.
-   * @description Converts byte array to base64url, no padding.
-   * @param bytes - Input byte array
-   * @returns Base64url-encoded string
+   * Encode bytes to base64url.
+   * @description Converts Uint8Array to base64url string without padding.
+   * @param bytes - Raw byte array to encode
+   * @returns Base64url encoded string
    */
   private static base64UrlEncode(bytes: Uint8Array): string {
     let binary = ''
@@ -84,45 +123,6 @@ export class Session {
       parts.push('HttpOnly')
     }
     return parts.join('; ')
-  }
-
-  /**
-   * Create session middleware.
-   * @description Populates ctx.state with session and helpers; requires cookieSecret.
-   * @param options - Session options with required cookieSecret
-   * @returns Middleware that populates ctx.state.session
-   * @throws {Error} When cookieSecret is missing or empty
-   */
-  static create(options: Types.SessionOptions): Types.Middleware {
-    const { cookieSecret, ...rest } = options
-    if (!cookieSecret || cookieSecret.length === 0) {
-      throw new Error('Session middleware requires cookieSecret (non-empty string)')
-    }
-    const sessionOptions = { ...Session.defaultOptions, ...rest } as Types.SessionCookieOpts
-    return async (
-      ctx: Core.Context,
-      next: () => Promise<Response | undefined>
-    ): Promise<Response | undefined> => {
-      const rawCookie = ctx.cookie(sessionOptions.cookieName)
-      const cookieValue = typeof rawCookie === 'string' ? rawCookie : undefined
-      ctx.state['session'] = cookieValue
-        ? await Session.decodePayload(cookieValue, cookieSecret)
-        : null
-      ctx.state['setSession'] = async (data: Types.SessionData) => {
-        const encodedPayload = await Session.encodePayload(data, cookieSecret)
-        ctx.setHeader(
-          'Set-Cookie',
-          Session.buildSetCookieHeader(sessionOptions.cookieName, encodedPayload, sessionOptions)
-        )
-      }
-      ctx.state['clearSession'] = () => {
-        ctx.setHeader(
-          'Set-Cookie',
-          Session.buildClearCookieHeader(sessionOptions.cookieName, sessionOptions.path)
-        )
-      }
-      return await next()
-    }
   }
 
   /**

@@ -16,7 +16,7 @@ export class BasicAuth {
   static create(options: Types.BasicAuthOptions): Types.Middleware {
     const { users } = options
     if (!users || users.length === 0) {
-      throw new Error('Basic auth: users array cannot be empty')
+      throw new Error('BasicAuth requires at least one user in the users array')
     }
     return async (
       ctx: Core.Context,
@@ -46,7 +46,7 @@ export class BasicAuth {
         return await next()
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-        return await ctx.handleError(401, new Error(`Basic auth error: ${errorMessage}`))
+        return await ctx.handleError(401, new Error(`BasicAuth failed with ${errorMessage}`))
       }
     }
   }
