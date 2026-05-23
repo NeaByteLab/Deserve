@@ -43,7 +43,7 @@ export class Engine implements Types.ViewEngine {
       ? normalizedPath
       : `${normalizedPath}.dve`
     if (!discoveredTemplatePaths.has(pathWithExt)) {
-      throw new Error(`Template not found: ${templatePath}.`)
+      throw new Error(`Template "${templatePath}" not found in views directory`)
     }
     const absPath = EngineParts.Utils.join(this.defaultViewsDir, pathWithExt)
     const compiled = await this.compileTemplate(absPath)
@@ -98,6 +98,61 @@ export class Engine implements Types.ViewEngine {
     const templateText = await Deno.readTextFile(absPath)
     this.fileCache.set(absPath, templateText)
     return templateText
+  }
+
+  /**
+   * Render node to chunk
+   * @description Renders individual node to HTML chunk
+   * @param node - AST node to render
+   * @param data - Template scope data
+   * @param viewsDir - Root directory for includes
+   * @returns HTML chunk string or null
+   */
+  private async renderNodeToChunk(
+    node: Types.AstNode,
+    data: Record<string, unknown>,
+    viewsDir: string
+  ): Promise<string | null> {
+    if (node.type === 'text') {
+      return node.value
+    }
+    if (node.type === 'var') {
+      const lookupValue = EngineParts.Eval.evaluate(node.path, data)
+      const stringValue = lookupValue === null || lookupValue === undefined
+        ? ''
+        : String(lookupValue)
+      return node.raw ? stringValue : EngineParts.Utils.escape(stringValue)
+    }
+    if (node.type === 'include') {
+      return await this.render(node.templatePath, data)
+    }
+    if (node.type === 'if') {
+      const lookupValue = EngineParts.Eval.evaluate(node.path, data)
+      const nodes = lookupValue ? node.thenNodes : node.elseNodes
+      return await this.renderNodesToString(nodes, data, viewsDir)
+    }
+    if (node.type === 'each') {
+      const lookupValue = EngineParts.Eval.evaluate(node.path, data)
+      if (!Array.isArray(lookupValue)) {
+        return null
+      }
+      const length = lookupValue.length
+      let output = ''
+      for (let index = 0; index < length; index++) {
+        const item = lookupValue[index]
+        const scopeData: Record<string, unknown> = {
+          ...data,
+          [node.itemName]: item,
+          '@index': index,
+          '@first': index === 0,
+          '@last': index === length - 1,
+          '@length': length
+        }
+        output += await this.renderNodesToString(node.nodes, scopeData, viewsDir)
+      }
+      return output
+    }
+    return null
   }
 
   /**
@@ -165,84 +220,6 @@ export class Engine implements Types.ViewEngine {
   }
 
   /**
-   * Render node to chunk
-   * @description Renders individual node to HTML chunk
-   * @param node - AST node to render
-   * @param data - Template scope data
-   * @param viewsDir - Root directory for includes
-   * @returns HTML chunk string or null
-   */
-  private async renderNodeToChunk(
-    node: Types.AstNode,
-    data: Record<string, unknown>,
-    viewsDir: string
-  ): Promise<string | null> {
-    if (node.type === 'text') {
-      return node.value
-    }
-    if (node.type === 'var') {
-      const lookupValue = EngineParts.Eval.evaluate(node.path, data)
-      const stringValue = lookupValue === null || lookupValue === undefined
-        ? ''
-        : String(lookupValue)
-      return node.raw ? stringValue : EngineParts.Utils.escape(stringValue)
-    }
-    if (node.type === 'include') {
-      return await this.render(node.templatePath, data)
-    }
-    if (node.type === 'if') {
-      const lookupValue = EngineParts.Eval.evaluate(node.path, data)
-      const nodes = lookupValue ? node.thenNodes : node.elseNodes
-      return await this.renderNodesToString(nodes, data, viewsDir)
-    }
-    if (node.type === 'each') {
-      const lookupValue = EngineParts.Eval.evaluate(node.path, data)
-      if (!Array.isArray(lookupValue)) {
-        return null
-      }
-      const length = lookupValue.length
-      let output = ''
-      for (let index = 0; index < length; index++) {
-        const item = lookupValue[index]
-        const scopeData: Record<string, unknown> = {
-          ...data,
-          [node.itemName]: item,
-          '@index': index,
-          '@first': index === 0,
-          '@last': index === length - 1,
-          '@length': length
-        }
-        output += await this.renderNodesToString(node.nodes, scopeData, viewsDir)
-      }
-      return output
-    }
-    return null
-  }
-
-  /**
-   * Render nodes to string
-   * @description Renders multiple nodes to HTML string
-   * @param ast - Parsed template AST nodes
-   * @param data - Current scope data
-   * @param viewsDir - Root directory for includes
-   * @returns Rendered HTML string
-   */
-  private async renderNodesToString(
-    ast: Types.AstNode[],
-    data: Record<string, unknown>,
-    viewsDir: string
-  ): Promise<string> {
-    let outputHtml = ''
-    for (const node of ast) {
-      const chunk = await this.renderNodeToChunk(node, data, viewsDir)
-      if (chunk) {
-        outputHtml += chunk
-      }
-    }
-    return outputHtml
-  }
-
-  /**
    * Render template nodes to stream
    * @description Streams HTML output progressively
    * @param templatePath - Relative template path
@@ -266,7 +243,7 @@ export class Engine implements Types.ViewEngine {
         ? normalizedPath
         : `${normalizedPath}.dve`
       if (!discoveredTemplatePaths.has(pathWithExt)) {
-        throw new Error(`Template not found: ${templatePath}.`)
+        throw new Error(`Template "${templatePath}" not found in views directory`)
       }
       const absPath = EngineParts.Utils.join(this.defaultViewsDir, pathWithExt)
       const compiled = await this.compileTemplate(absPath)
@@ -279,5 +256,28 @@ export class Engine implements Types.ViewEngine {
     } finally {
       await writer.close()
     }
+  }
+
+  /**
+   * Render nodes to string
+   * @description Renders multiple nodes to HTML string
+   * @param ast - Parsed template AST nodes
+   * @param data - Current scope data
+   * @param viewsDir - Root directory for includes
+   * @returns Rendered HTML string
+   */
+  private async renderNodesToString(
+    ast: Types.AstNode[],
+    data: Record<string, unknown>,
+    viewsDir: string
+  ): Promise<string> {
+    let outputHtml = ''
+    for (const node of ast) {
+      const chunk = await this.renderNodeToChunk(node, data, viewsDir)
+      if (chunk) {
+        outputHtml += chunk
+      }
+    }
+    return outputHtml
   }
 }

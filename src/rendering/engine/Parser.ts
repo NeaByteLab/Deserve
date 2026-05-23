@@ -75,7 +75,7 @@ export class Parser {
       if (tagContent === 'else') {
         const stackFrame = frameStack[frameStack.length - 1]
         if (!stackFrame || stackFrame.kind !== 'if') {
-          throw new Error('Unexpected {{else}} without matching {{#if}} block.')
+          throw new Error('Unexpected {{else}} without matching {{#if}} block')
         }
         stackFrame.inElse = true
         continue
@@ -83,7 +83,7 @@ export class Parser {
       if (tagContent === '/if') {
         const stackFrame = frameStack[frameStack.length - 1]
         if (!stackFrame || stackFrame.kind !== 'if') {
-          throw new Error('Unexpected {{/if}} without matching {{#if}} block.')
+          throw new Error('Unexpected {{/if}} without matching {{#if}} block')
         }
         frameStack.pop()
         continue
@@ -106,7 +106,7 @@ export class Parser {
       if (tagContent === '/each') {
         const stackFrame = frameStack[frameStack.length - 1]
         if (!stackFrame || stackFrame.kind !== 'each') {
-          throw new Error('Unexpected {{/each}} without matching {{#each}} block.')
+          throw new Error('Unexpected {{/each}} without matching {{#each}} block')
         }
         frameStack.pop()
         continue
@@ -119,7 +119,7 @@ export class Parser {
     if (frameStack.length > 0) {
       const unclosedFrame = frameStack[frameStack.length - 1]
       const label = unclosedFrame?.kind === 'each' ? '#each' : '#if'
-      throw new Error(`Unclosed {{${label}}} block in DVE template.`)
+      throw new Error(`Unclosed {{${label}}} block in DVE template`)
     }
     return astNodes
   }

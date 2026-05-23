@@ -111,7 +111,7 @@ export class Tokenizer {
           cursorIndex++
         }
         if (!isClosed) {
-          throw new Error('Unterminated string literal in DVE expression.')
+          throw new Error('Unterminated string literal in DVE expression')
         }
         pushToken({ kind: 'string', value: stringValue })
         continue
@@ -146,7 +146,7 @@ export class Tokenizer {
         continue
       }
       throw new Error(
-        `Invalid DVE expression token near: ${expressionText.slice(cursorIndex, cursorIndex + 10)}.`
+        `Invalid DVE expression token near ${expressionText.slice(cursorIndex, cursorIndex + 10)}`
       )
     }
     return exprTokens

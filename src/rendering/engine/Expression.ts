@@ -22,7 +22,7 @@ export class Expression {
    */
   assertEnd(): void {
     if (this.tokenIndex < this.tokens.length) {
-      throw new Error('Unexpected token in DVE expression.')
+      throw new Error('Unexpected token in DVE expression')
     }
   }
 
@@ -55,7 +55,7 @@ export class Expression {
   private expectOp(value: string): void {
     const currentToken = this.consume()
     if (!currentToken || currentToken.kind !== 'op' || currentToken.value !== value) {
-      throw new Error(`Expected '${value}' in DVE expression.`)
+      throw new Error(`Expected '${value}' in DVE expression`)
     }
   }
 
@@ -146,7 +146,7 @@ export class Expression {
       if (this.matchOp('.')) {
         const propToken = this.consume()
         if (!propToken || propToken.kind !== 'ident') {
-          throw new Error('Expected identifier after "." in DVE expression.')
+          throw new Error('Expected identifier after "." in DVE expression')
         }
         exprNode = { type: 'member', object: exprNode, property: propToken.value }
         continue
@@ -154,7 +154,7 @@ export class Expression {
       if (this.matchOp('?.')) {
         const propToken = this.consume()
         if (!propToken || propToken.kind !== 'ident') {
-          throw new Error('Expected identifier after "?." in DVE expression.')
+          throw new Error('Expected identifier after "?." in DVE expression')
         }
         exprNode = { type: 'member', object: exprNode, property: propToken.value }
         continue
@@ -222,7 +222,7 @@ export class Expression {
   private parsePrim(): Types.ExprNode {
     const currentToken = this.consume()
     if (!currentToken) {
-      throw new Error('Unexpected end of DVE expression.')
+      throw new Error('Unexpected end of DVE expression')
     }
     if (currentToken.kind === 'number') {
       return { type: 'literal', value: currentToken.value }
@@ -238,7 +238,7 @@ export class Expression {
       this.expectOp(')')
       return innerNode
     }
-    throw new Error('Invalid primary in DVE expression.')
+    throw new Error('Invalid primary in DVE expression')
   }
 
   /**
