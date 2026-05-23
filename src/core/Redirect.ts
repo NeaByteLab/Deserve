@@ -42,11 +42,7 @@ export class Redirect {
       return {}
     }
     if (init instanceof Headers) {
-      const out: Record<string, string> = {}
-      init.forEach((value, key) => {
-        out[key] = value
-      })
-      return out
+      return Object.fromEntries(init.entries())
     }
     if (Array.isArray(init)) {
       return Object.fromEntries(init as [string, string][])

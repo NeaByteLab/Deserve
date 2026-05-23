@@ -64,7 +64,7 @@ export class Response {
             file.close()
           }
           const errorMessage = error instanceof globalThis.Error ? error.message : 'Unknown error'
-          throw new globalThis.Error(`Failed to read file: ${errorMessage}`)
+          throw new globalThis.Error(`Failed to read file ${errorMessage}`)
         }
       },
       html(html: string, options?: ResponseInit): globalThis.Response {
@@ -124,11 +124,7 @@ export class Response {
       return {}
     }
     if (init instanceof Headers) {
-      const out: Record<string, string> = {}
-      init.forEach((value, key) => {
-        out[key] = value
-      })
-      return out
+      return Object.fromEntries(init.entries())
     }
     if (Array.isArray(init)) {
       return Object.fromEntries(init as [string, string][])
