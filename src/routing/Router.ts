@@ -15,32 +15,11 @@ export class Router {
    * @param options - Routes dir, error builder, static handler, worker pool
    */
   constructor(options?: Types.RouterOptions) {
-    const handlerOptions: Types.HandlerOptions = {}
-    if (options?.errorResponseBuilder !== undefined) {
-      handlerOptions.errorResponseBuilder = options.errorResponseBuilder
-    }
-    if (options?.maxUrlLength !== undefined) {
-      handlerOptions.maxUrlLength = options.maxUrlLength
-    }
-    if (options?.maxRouteParamLength !== undefined) {
-      handlerOptions.maxRouteParamLength = options.maxRouteParamLength
-    }
-    if (options?.staticHandler !== undefined) {
-      handlerOptions.staticHandler = options.staticHandler
-    }
-    if (options?.requestTimeoutMs !== undefined) {
-      handlerOptions.requestTimeoutMs = options.requestTimeoutMs
-    }
-    if (options?.worker !== undefined) {
-      handlerOptions.worker = options.worker
-    }
-    if (options?.viewsDir !== undefined) {
-      handlerOptions.viewsDir = options.viewsDir
-    }
+    const { routesDir, ...handlerOptions } = options ?? {}
     this.handler = new Routing.Handler(
       Object.keys(handlerOptions).length > 0 ? handlerOptions : undefined
     )
-    this.routesDir = options?.routesDir ?? './routes'
+    this.routesDir = routesDir ?? './routes'
   }
 
   /**
