@@ -29,14 +29,10 @@ export class Worker {
    */
   static createPool(options: Types.WorkerPoolOptions): Worker {
     const workerCount = Math.max(1, options.poolSize ?? Worker.defaultPoolSize)
-    const workerList: globalThis.Worker[] = []
-    for (let index = 0; index < workerCount; index++) {
-      workerList.push(
-        new globalThis.Worker(options.scriptURL, {
-          type: 'module'
-        })
-      )
-    }
+    const workerList = Array.from(
+      { length: workerCount },
+      () => new globalThis.Worker(options.scriptURL, { type: 'module' })
+    )
     return new Worker(workerList)
   }
 
@@ -62,7 +58,7 @@ export class Worker {
         worker.removeEventListener('error', onError)
         const messageData = event.data as { error?: boolean; message?: string }
         if (messageData && typeof messageData === 'object' && messageData.error === true) {
-          reject(new Error(messageData.message ?? 'Worker reported error'))
+          reject(new Error(messageData.message ?? 'Worker returned an error with no message'))
         } else {
           resolve(event.data as T)
         }
@@ -70,7 +66,7 @@ export class Worker {
       const onError = () => {
         worker.removeEventListener('message', onMessage)
         worker.removeEventListener('error', onError)
-        reject(new Error('Worker error'))
+        reject(new Error('Worker terminated unexpectedly before responding'))
       }
       worker.addEventListener('message', onMessage)
       worker.addEventListener('error', onError)
