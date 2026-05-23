@@ -120,8 +120,8 @@ await router.serve(8000)
 ## Penanganan Error
 
 - **Tanpa pool:** Jika router dibuat tanpa `worker`, `ctx.state.worker` undefined. Kembalikan 503 atau pesan yang jelas ketika route membutuhkan worker.
-- **Error dari worker:** Jika worker memanggil `postMessage({ error: true, message: '...' })`, `worker.run()` akan reject dengan `Error` berisi pesan tersebut.
-- **Worker crash:** Jika worker throw atau crash, `run()` reject dengan error worker generik.
+- **Error dari worker:** Jika worker memanggil `postMessage({ error: true, message: '...' })`, `worker.run()` akan reject dengan `Error` berisi pesan tersebut. Jika tidak ada pesan, error berbunyi `Worker returned an error with no message`.
+- **Worker crash:** Jika worker throw atau crash, `run()` reject dengan `Worker terminated unexpectedly before responding`.
 
 Tangani error di route:
 

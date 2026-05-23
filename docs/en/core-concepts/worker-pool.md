@@ -120,8 +120,8 @@ await router.serve(8000)
 ## Error Handling
 
 - **No pool:** If the router was created without `worker`, `ctx.state.worker` is undefined. Return 503 or a clear message when the route requires a worker.
-- **Worker error:** If the worker calls `postMessage({ error: true, message: '...' })`, `worker.run()` rejects with an `Error` with that message.
-- **Worker crash:** If the worker throws or crashes, `run()` rejects with a generic worker error.
+- **Worker error:** If the worker calls `postMessage({ error: true, message: '...' })`, `worker.run()` rejects with an `Error` with that message. If no message is provided, the error reads `Worker returned an error with no message`.
+- **Worker crash:** If the worker throws or crashes, `run()` rejects with `Worker terminated unexpectedly before responding`.
 
 Handle errors in the route:
 

@@ -220,7 +220,7 @@ export function GET(ctx: Context): Response {
   try {
     return ctx.render('template', data)
   } catch (error) {
-    if (error.message.includes('Template not found')) {
+    if (error.message.includes('not found in views directory')) {
       return ctx.send.json({ error: 'Template missing' }, { status: 404 })
     }
     return ctx.send.json({ error: 'Render failed' }, { status: 500 })
