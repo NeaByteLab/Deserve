@@ -61,6 +61,7 @@
     "test": "deno test tests/ --allow-read"
   },
   "imports": {
+    "@std/assert": "jsr:@std/assert@^1.0.19",
     "@app/": "./src/",
     "@core/": "./src/core/",
     "@interfaces/": "./src/interfaces/",
