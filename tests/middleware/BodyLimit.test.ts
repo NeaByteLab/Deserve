@@ -1,4 +1,4 @@
-import { assertEquals } from 'jsr:@std/assert'
+import { assertEquals } from '@std/assert'
 import * as Core from '@core/index.ts'
 import * as Middleware from '@middleware/index.ts'
 
@@ -50,7 +50,9 @@ Deno.test('bodyLimit Content-Length one byte over limit returns 413', async () =
 })
 
 Deno.test('bodyLimit default limit is 1MB when not specified', async () => {
-  const middleware = Middleware.Mware.bodyLimit({ limit: undefined } as unknown as { limit: number })
+  const middleware = Middleware.Mware.bodyLimit({ limit: undefined } as unknown as {
+    limit: number
+  })
   const ctx = createTestContext('http://localhost/', {
     method: 'POST',
     headers: new Headers({ 'Content-Length': String(1024 * 1024) })

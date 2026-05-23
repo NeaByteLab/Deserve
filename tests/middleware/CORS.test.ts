@@ -1,4 +1,4 @@
-import { assertEquals } from 'jsr:@std/assert'
+import { assertEquals } from '@std/assert'
 import * as Core from '@core/index.ts'
 import * as Middleware from '@middleware/index.ts'
 

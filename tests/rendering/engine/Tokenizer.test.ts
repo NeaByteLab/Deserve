@@ -1,4 +1,4 @@
-import { assertEquals, assertThrows } from 'jsr:@std/assert'
+import { assertEquals, assertThrows } from '@std/assert'
 import { Tokenizer } from '@rendering/engine/Tokenizer.ts'
 
 Deno.test('Tokenizer#tokenize complex expression', () => {

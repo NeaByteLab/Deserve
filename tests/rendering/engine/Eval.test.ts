@@ -1,4 +1,4 @@
-import { assertEquals } from 'jsr:@std/assert'
+import { assertEquals } from '@std/assert'
 import { Eval } from '@rendering/engine/Eval.ts'
 
 Deno.test('Eval#evaluate arithmetic addition', () => {
@@ -22,14 +22,8 @@ Deno.test('Eval#evaluate arithmetic subtraction', () => {
 })
 
 Deno.test('Eval#evaluate complex nested expression', () => {
-  assertEquals(
-    Eval.evaluate('a > 0 ? a * 2 : -a', { a: 5 }),
-    10
-  )
-  assertEquals(
-    Eval.evaluate('a > 0 ? a * 2 : -a', { a: -3 }),
-    3
-  )
+  assertEquals(Eval.evaluate('a > 0 ? a * 2 : -a', { a: 5 }), 10)
+  assertEquals(Eval.evaluate('a > 0 ? a * 2 : -a', { a: -3 }), 3)
 })
 
 Deno.test('Eval#evaluate deep dotted path', () => {

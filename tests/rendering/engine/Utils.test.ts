@@ -1,4 +1,4 @@
-import { assertEquals } from 'jsr:@std/assert'
+import { assertEquals } from '@std/assert'
 import { Utils } from '@rendering/engine/Utils.ts'
 
 Deno.test('Utils#escape escapes ampersand', () => {

@@ -1,4 +1,4 @@
-import { assertEquals } from 'jsr:@std/assert'
+import { assertEquals } from '@std/assert'
 import * as Core from '@core/index.ts'
 
 function createTestContext(
@@ -11,32 +11,20 @@ function createTestContext(
 }
 
 Deno.test('Context#arrayBuffer reads body as ArrayBuffer', async () => {
-  const ctx = createTestContext(
-    'http://localhost/',
-    {},
-    { method: 'POST', body: 'hello' }
-  )
+  const ctx = createTestContext('http://localhost/', {}, { method: 'POST', body: 'hello' })
   const buf = await ctx.arrayBuffer()
   assertEquals(buf.byteLength, 5)
 })
 
 Deno.test('Context#arrayBuffer returns cached on second call', async () => {
-  const ctx = createTestContext(
-    'http://localhost/',
-    {},
-    { method: 'POST', body: 'test' }
-  )
+  const ctx = createTestContext('http://localhost/', {}, { method: 'POST', body: 'test' })
   const first = await ctx.arrayBuffer()
   const second = await ctx.arrayBuffer()
   assertEquals(first, second)
 })
 
 Deno.test('Context#arrayBuffer then json throws already consumed', async () => {
-  const ctx = createTestContext(
-    'http://localhost/',
-    {},
-    { method: 'POST', body: 'data' }
-  )
+  const ctx = createTestContext('http://localhost/', {}, { method: 'POST', body: 'data' })
   await ctx.arrayBuffer()
   let thrown = false
   try {
@@ -49,32 +37,20 @@ Deno.test('Context#arrayBuffer then json throws already consumed', async () => {
 })
 
 Deno.test('Context#blob reads body as Blob', async () => {
-  const ctx = createTestContext(
-    'http://localhost/',
-    {},
-    { method: 'POST', body: 'data' }
-  )
+  const ctx = createTestContext('http://localhost/', {}, { method: 'POST', body: 'data' })
   const blob = await ctx.blob()
   assertEquals(blob.size, 4)
 })
 
 Deno.test('Context#blob returns cached on second call', async () => {
-  const ctx = createTestContext(
-    'http://localhost/',
-    {},
-    { method: 'POST', body: 'data' }
-  )
+  const ctx = createTestContext('http://localhost/', {}, { method: 'POST', body: 'data' })
   const first = await ctx.blob()
   const second = await ctx.blob()
   assertEquals(first, second)
 })
 
 Deno.test('Context#blob then text throws already consumed', async () => {
-  const ctx = createTestContext(
-    'http://localhost/',
-    {},
-    { method: 'POST', body: 'data' }
-  )
+  const ctx = createTestContext('http://localhost/', {}, { method: 'POST', body: 'data' })
   await ctx.blob()
   let thrown = false
   try {
@@ -140,11 +116,7 @@ Deno.test('Context#body then formData throws when body already parsed as non-for
 })
 
 Deno.test('Context#body with no content-type returns text', async () => {
-  const ctx = createTestContext(
-    'http://localhost/',
-    {},
-    { method: 'POST', body: 'default text' }
-  )
+  const ctx = createTestContext('http://localhost/', {}, { method: 'POST', body: 'default text' })
   const body = await ctx.body()
   assertEquals(body, 'default text')
 })
@@ -514,21 +486,13 @@ Deno.test('Context#streamRender throws when view engine not configured', () => {
 })
 
 Deno.test('Context#text reads body as string', async () => {
-  const ctx = createTestContext(
-    'http://localhost/',
-    {},
-    { method: 'POST', body: 'plain text' }
-  )
+  const ctx = createTestContext('http://localhost/', {}, { method: 'POST', body: 'plain text' })
   const text = await ctx.text()
   assertEquals(text, 'plain text')
 })
 
 Deno.test('Context#text returns cached on second call', async () => {
-  const ctx = createTestContext(
-    'http://localhost/',
-    {},
-    { method: 'POST', body: 'cached' }
-  )
+  const ctx = createTestContext('http://localhost/', {}, { method: 'POST', body: 'cached' })
   const first = await ctx.text()
   const second = await ctx.text()
   assertEquals(first, second)

@@ -1,4 +1,4 @@
-import { assertEquals, assertThrows } from 'jsr:@std/assert'
+import { assertEquals, assertThrows } from '@std/assert'
 import { Tokenizer } from '@rendering/engine/Tokenizer.ts'
 import { Expression } from '@rendering/engine/Expression.ts'
 
@@ -28,10 +28,14 @@ Deno.test('Expression#parse binary multiplication', () => {
 })
 
 Deno.test('Expression#parse empty tokens throws', () => {
-  assertThrows(() => {
-    const parser = new Expression([])
-    parser.parse()
-  }, Error, 'Unexpected end')
+  assertThrows(
+    () => {
+      const parser = new Expression([])
+      parser.parse()
+    },
+    Error,
+    'Unexpected end'
+  )
 })
 
 Deno.test('Expression#parse equality', () => {

@@ -1,4 +1,4 @@
-import { assertEquals } from 'jsr:@std/assert'
+import { assertEquals } from '@std/assert'
 import * as Routing from '@routing/index.ts'
 
 const echoWorkerUrl = new URL('../fixtures/echo_worker.ts', import.meta.url).href

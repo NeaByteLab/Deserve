@@ -1,4 +1,4 @@
-import { assertEquals, assertRejects } from 'jsr:@std/assert'
+import { assertEquals, assertRejects } from '@std/assert'
 import * as Core from '@core/index.ts'
 
 const echoWorkerUrl = new URL('../fixtures/echo_worker.ts', import.meta.url).href

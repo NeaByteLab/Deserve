@@ -1,4 +1,4 @@
-import { assertEquals } from 'jsr:@std/assert'
+import { assertEquals } from '@std/assert'
 import * as Core from '@core/index.ts'
 
 Deno.test('Redirect#buildResponse merges responseHeaders and extraHeaders', () => {
