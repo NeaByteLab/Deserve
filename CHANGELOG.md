@@ -19,9 +19,14 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - Reorganize method ordering in `Engine` class (properties → public → private, A-Z sorted)
 - Reorganize method ordering in `Context` class (properties → public → private, A-Z sorted)
+- Reorganize method ordering in `Session` class (public → private, A-Z sorted)
+- Sort interface and type exports A-Z in `Error`, `Middleware`, `Render`, `Static`, `Worker`
+- Simplify `Router` constructor with object destructuring
+- Simplify `Redirect.headersToRecord` and `Response.headersToRecord` with `Object.fromEntries`
+- Standardize all error messages across `src/` (no periods, no colons, clear developer context)
+- Apply consistent JSDoc across all interfaces and middleware
 - Update rendering documentation with DVE syntax reference and streaming support
-- Apply consistent JSDoc formatting across rendering interfaces
-- Improve error message consistency in view engine configuration
+- Update docs to reflect new error message wording
 - Remove `ViewEngine.render` options parameter
 - Parse `{{else}}`, `{{/if}}`, and `{{/each}}` strictly
 - Throw on unclosed `#if` and `#each` blocks
