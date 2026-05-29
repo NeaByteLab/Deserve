@@ -1,6 +1,32 @@
 import { assertEquals } from '@std/assert'
 import * as Core from '@core/index.ts'
 
+Deno.test('Error#buildResponse with errorMiddleware receives correct error info', async () => {
+  const request = new Request('http://localhost/test-path', { method: 'POST' })
+  const ctx = new Core.Context(request, new URL('http://localhost/test-path'), {})
+  let receivedInfo: unknown = null
+  await Core.Error.buildResponse(
+    ctx,
+    422,
+    new globalThis.Error('validation failed'),
+    async (_ctx, info) => {
+      receivedInfo = info
+      return null
+    }
+  )
+  const info = receivedInfo as {
+    url: string
+    method: string
+    pathname: string
+    statusCode: number
+    error: Error
+  }
+  assertEquals(info.statusCode, 422)
+  assertEquals(info.method, 'POST')
+  assertEquals(info.pathname, '/test-path')
+  assertEquals(info.error.message, 'validation failed')
+})
+
 Deno.test('Error#buildResponse with errorMiddleware returning null uses default', async () => {
   const request = new Request('http://localhost/bar', {
     headers: new Headers({ Accept: 'application/json' })
@@ -32,6 +58,17 @@ Deno.test('Error#buildResponse with errorMiddleware returning response uses it',
   assertEquals(res.status, 499)
 })
 
+Deno.test('Error#buildResponse with sync errorMiddleware returning null', async () => {
+  const request = new Request('http://localhost/', {
+    headers: new Headers({ Accept: 'application/json' })
+  })
+  const ctx = new Core.Context(request, new URL('http://localhost/'), {})
+  const res = await Core.Error.buildResponse(ctx, 500, new globalThis.Error('fail'), () => null)
+  assertEquals(res.status, 500)
+  const body = (await res.json()) as { error: string }
+  assertEquals(body.error, 'fail')
+})
+
 Deno.test(
   'Error#buildResponse without errorMiddleware returns HTML when no Accept json',
   async () => {
@@ -60,6 +97,14 @@ Deno.test('Error#buildResponse without errorMiddleware returns JSON when Accept 
   assertEquals(body.statusCode, 404)
 })
 
+Deno.test('Error#defaultErrorHtml escapes quotes and apostrophes in message', () => {
+  const html = Core.Error.defaultErrorHtml(500, 'Error "test" & \'value\'')
+  assertEquals(html.includes('&quot;test&quot;'), true)
+  assertEquals(html.includes('&#39;value&#39;'), true)
+  assertEquals(html.includes('&amp;'), true)
+  assertEquals(html.includes('"test"'), false)
+})
+
 Deno.test('Error#defaultErrorHtml includes status and escaped message', () => {
   const html = Core.Error.defaultErrorHtml(404, 'Not <found>')
   assertEquals(html.includes('404'), true)
@@ -67,9 +112,25 @@ Deno.test('Error#defaultErrorHtml includes status and escaped message', () => {
   assertEquals(html.includes('<found>'), false)
 })
 
-Deno.test('Error#escapeHtml escapes &, <, >', () => {
+Deno.test('Error#escapeHtml escapes &, <, >, ", \'', () => {
   assertEquals(Core.Error.escapeHtml('a & b'), 'a &amp; b')
   assertEquals(Core.Error.escapeHtml('<script>'), '&lt;script&gt;')
   assertEquals(Core.Error.escapeHtml('x > 0'), 'x &gt; 0')
-  assertEquals(Core.Error.escapeHtml('"quoted"'), '"quoted"')
+  assertEquals(Core.Error.escapeHtml('"quoted"'), '&quot;quoted&quot;')
+  assertEquals(Core.Error.escapeHtml("it's"), "it&#39;s")
+})
+
+Deno.test('Error#escapeHtml escapes all special chars together', () => {
+  assertEquals(
+    Core.Error.escapeHtml('<img src="x" onerror=\'alert(1)\'>&'),
+    '&lt;img src=&quot;x&quot; onerror=&#39;alert(1)&#39;&gt;&amp;'
+  )
+})
+
+Deno.test('Error#escapeHtml passes through string with no special chars', () => {
+  assertEquals(Core.Error.escapeHtml('hello world'), 'hello world')
+})
+
+Deno.test('Error#escapeHtml returns empty string for empty input', () => {
+  assertEquals(Core.Error.escapeHtml(''), '')
 })
