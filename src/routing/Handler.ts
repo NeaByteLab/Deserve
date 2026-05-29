@@ -3,6 +3,7 @@ import * as Core from '@core/index.ts'
 import * as Rendering from '@rendering/index.ts'
 import * as Routing from '@routing/index.ts'
 import { FastRouter } from '@neabyte/fast-router'
+import nodeUrl from 'node:url'
 
 /**
  * Core request handler: middleware, routing, static.
@@ -13,12 +14,12 @@ export class Handler {
   private static readonly defaultMaxRouteParamLength = 1024
   /** Default max request URL length */
   private static readonly defaultMaxUrlLength = 8192
-  /** Default error response builder using Error. */
+  /** Default error response builder using Error */
   private static readonly defaultErrorResponseBuilder: Types.ErrorResponseBuilder = {
     build: (ctx, statusCode, error, errorMiddleware) =>
       Core.Error.buildResponse(ctx, statusCode, error, errorMiddleware)
   }
-  /** Default static file handler using Static.serveStaticFile. */
+  /** Default static file handler using Static */
   private static readonly defaultStaticHandler: Types.StaticHandler = {
     serve: (ctx, options, urlPath) => Core.Static.serveStaticFile(ctx, options, urlPath)
   }
@@ -187,6 +188,11 @@ export class Handler {
     return Routing.Scanner.createPattern(routePath, Core.Constant.allowedExtensions)
   }
 
+  /** View engine when viewsDir configured */
+  getViewEngine(): Types.ViewEngine | undefined {
+    return this.viewEngine
+  }
+
   /**
    * Build error response via builder and middleware.
    * @description Delegates to errorResponseBuilder with optional middleware.
@@ -197,6 +203,45 @@ export class Handler {
    */
   async handleResponse(ctx: Core.Context, statusCode: number, error: Error): Promise<Response> {
     return await this.errorResponseBuilder.build(ctx, statusCode, error, this.errorMiddleware)
+  }
+
+  /**
+   * Reload a single route file.
+   * @description Removes old route, re-imports module, registers new handlers.
+   * @param fullPath - Absolute file path
+   * @param routePath - Relative route path from routesDir
+   */
+  async reloadRoute(fullPath: string, routePath: string): Promise<void> {
+    const routePattern = Routing.Scanner.createPattern(routePath, Core.Constant.allowedExtensions)
+    if (!routePattern) {
+      return
+    }
+    this.removeRoute(routePattern)
+    try {
+      const importUrl = `${nodeUrl.pathToFileURL(fullPath).href}?t=${Date.now()}`
+      const fileModule = await import(importUrl) as Record<string, unknown>
+      Routing.Scanner.validateModule(fileModule, routePath, Core.Constant.httpMethods)
+      Routing.Scanner.registerHandlers(
+        this.routerInstance,
+        fileModule,
+        routePattern,
+        Core.Constant.httpMethods
+      )
+    } catch (reloadError) {
+      const errorMessage = reloadError instanceof Error ? reloadError.message : String(reloadError)
+      console.error(`[Deserve] Failed to reload route ${routePath}: ${errorMessage}`)
+    }
+  }
+
+  /**
+   * Remove route pattern from router.
+   * @description Removes all HTTP method entries for the pattern.
+   * @param routePattern - Route pattern to remove
+   */
+  removeRoute(routePattern: string): void {
+    for (const method of Core.Constant.httpMethods) {
+      this.routerInstance.remove(method, routePattern)
+    }
   }
 
   /**
