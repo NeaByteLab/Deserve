@@ -72,11 +72,16 @@ export class Error {
 
   /**
    * Escape HTML special characters.
-   * @description Escapes &, <, > for safe HTML.
+   * @description Escapes &, <, >, ", ' for safe HTML.
    * @param text - Raw string
    * @returns Escaped string
    */
   static escapeHtml(text: string): string {
-    return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;')
   }
 }
