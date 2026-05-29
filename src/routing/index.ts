@@ -2,3 +2,4 @@
 export * from '@routing/Handler.ts'
 export * from '@routing/Router.ts'
 export * from '@routing/Scanner.ts'
+export * from '@routing/Watcher.ts'
