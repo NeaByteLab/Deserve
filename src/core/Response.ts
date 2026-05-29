@@ -1,4 +1,5 @@
 import type * as Types from '@interfaces/index.ts'
+import { Helper } from '@core/Helper.ts'
 
 /**
  * Factory for ctx.send response helpers.
@@ -114,25 +115,6 @@ export class Response {
   }
 
   /**
-   * Convert HeadersInit to string record.
-   * @description Normalizes Headers, array, or object to key-value record.
-   * @param init - Optional headers (Headers, array, or object)
-   * @returns Record of header name to value
-   */
-  private static headersToRecord(init?: HeadersInit): Record<string, string> {
-    if (!init) {
-      return {}
-    }
-    if (init instanceof Headers) {
-      return Object.fromEntries(init.entries())
-    }
-    if (Array.isArray(init)) {
-      return Object.fromEntries(init as [string, string][])
-    }
-    return { ...init }
-  }
-
-  /**
    * Merge base headers with options headers.
    * @description Overlays options.headers onto base; returns new record.
    * @param base - Base headers record
@@ -143,6 +125,6 @@ export class Response {
     base: Record<string, string>,
     options?: ResponseInit
   ): Record<string, string> {
-    return { ...base, ...Response.headersToRecord(options?.headers) }
+    return { ...base, ...Helper.toRecord(options?.headers) }
   }
 }

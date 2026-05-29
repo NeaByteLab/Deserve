@@ -1,3 +1,5 @@
+import { Helper } from '@core/Helper.ts'
+
 /**
  * Builds redirect Response with Location.
  * @description Resolves relative URL; merges headers.
@@ -26,27 +28,8 @@ export class Redirect {
     const mergedHeaders = {
       ...responseHeaders,
       Location: absolute,
-      ...Redirect.headersToRecord(extraHeaders)
+      ...Helper.toRecord(extraHeaders)
     }
     return new Response(null, { status, headers: new Headers(mergedHeaders) })
-  }
-
-  /**
-   * Convert HeadersInit to string record.
-   * @description Normalizes Headers, array, or object to key-value record.
-   * @param init - Optional headers (Headers, array, or object)
-   * @returns Record of header name to value
-   */
-  private static headersToRecord(init?: HeadersInit): Record<string, string> {
-    if (!init) {
-      return {}
-    }
-    if (init instanceof Headers) {
-      return Object.fromEntries(init.entries())
-    }
-    if (Array.isArray(init)) {
-      return Object.fromEntries(init as [string, string][])
-    }
-    return { ...init }
   }
 }
