@@ -1,6 +1,6 @@
 import type * as Types from '@interfaces/index.ts'
 import type { FastRouter } from '@neabyte/fast-router'
-import { pathToFileURL } from 'node:url'
+import nodeUrl from 'node:url'
 
 /**
  * File-based route discovery and pattern creation.
@@ -66,21 +66,11 @@ export class Scanner {
             continue
           }
           try {
-            const fileModule = await import(pathToFileURL(fullPath).href)
+            const fileModule = await import(nodeUrl.pathToFileURL(fullPath).href)
             const routePattern = Scanner.createPattern(routePath, extensions)
             if (routePattern) {
               Scanner.validateModule(fileModule, routePath, methods)
-              for (const method of methods) {
-                const handler = fileModule[method] as Types.RouteHandler | undefined
-                if (typeof handler !== 'function') {
-                  continue
-                }
-                const metadata: Types.RouteMetadata = {
-                  handler,
-                  pattern: routePattern
-                }
-                routerInstance.add(method, routePattern, metadata)
-              }
+              Scanner.registerHandlers(routerInstance, fileModule, routePattern, methods)
             }
           } catch (fileError) {
             const errorMessage = fileError instanceof Error ? fileError.message : String(fileError)
@@ -94,6 +84,30 @@ export class Scanner {
       } else {
         throw error
       }
+    }
+  }
+
+  /**
+   * Register handlers from module to router.
+   * @description Iterates methods, checks for function exports, adds to router.
+   * @param routerInstance - Router to add routes to
+   * @param fileModule - Loaded route module
+   * @param routePattern - Route URL pattern
+   * @param methods - HTTP methods to register
+   */
+  static registerHandlers(
+    routerInstance: FastRouter<Types.RouteMetadata>,
+    fileModule: Record<string, unknown>,
+    routePattern: string,
+    methods: readonly string[]
+  ): void {
+    for (const method of methods) {
+      const handler = fileModule[method] as Types.RouteHandler | undefined
+      if (typeof handler !== 'function') {
+        continue
+      }
+      const metadata: Types.RouteMetadata = { handler, pattern: routePattern }
+      routerInstance.add(method, routePattern, metadata)
     }
   }
 
