@@ -4,10 +4,10 @@ import type * as Types from '@interfaces/index.ts'
 export interface HandlerOptions {
   /** Custom error response builder */
   errorResponseBuilder?: Types.ErrorResponseBuilder
-  /** Max URL length, 414 if exceeded */
-  maxUrlLength?: number
   /** Max route param length, 414 if exceeded */
   maxRouteParamLength?: number
+  /** Max URL length, 414 if exceeded */
+  maxUrlLength?: number
   /** Timeout in ms, 503 on expiry */
   requestTimeoutMs?: number
   /** Custom static file handler */
@@ -19,21 +19,7 @@ export interface HandlerOptions {
 }
 
 /** Router constructor and serve options. */
-export interface RouterOptions {
-  /** Custom error response builder */
-  errorResponseBuilder?: Types.ErrorResponseBuilder
-  /** Max URL length, 414 if exceeded */
-  maxUrlLength?: number
-  /** Max route param length, 414 if exceeded */
-  maxRouteParamLength?: number
-  /** Timeout in ms, 503 on expiry */
-  requestTimeoutMs?: number
+export interface RouterOptions extends HandlerOptions {
   /** Directory path for file-based routes */
   routesDir?: string
-  /** Custom static file handler */
-  staticHandler?: Types.StaticHandler
-  /** Root directory for .dve templates */
-  viewsDir?: string
-  /** Worker pool for CPU-bound work */
-  worker?: Types.WorkerPoolOptions
 }
