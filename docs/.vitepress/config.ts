@@ -15,36 +15,10 @@ export default withMermaid(
       ['link', { rel: 'icon', href: '/favicon.svg', type: 'image/svg+xml' }],
       ['meta', { name: 'theme-color', content: '#158f77' }],
       ['meta', { property: 'og:type', content: 'website' }],
-      [
-        'style',
-        {},
-        `
-          :root {
-            --vp-c-brand-1: #158f77;
-            --vp-c-brand-2: #20c9a6;
-            --vp-c-brand-3: #0f6b5a;
-            --vp-c-brand-soft: rgba(21, 143, 119, 0.14);
-          }
-          .VPHomeHero .image-container,
-          .VPHomeHero .image-bg,
-          .VPHomeHero .VPImage.image-src {
-            width: 100% !important;
-            height: 100% !important;
-            max-width: none !important;
-            max-height: none !important;
-          }
-          .VPHomeHero .image img,
-          .VPHomeHero .VPImage.image-src img {
-            margin-top: 5% !important;
-            width: 100% !important;
-            height: 100% !important;
-            object-fit: contain;
-          }
-        `
-      ]
+      ['meta', { name: 'viewport', content: 'width=device-width, initial-scale=1.0' }]
     ],
     locales: {
-      root: {
+      en: {
         lang: 'en-US',
         label: 'English',
         title: 'Deserve',
@@ -67,88 +41,6 @@ export default withMermaid(
             { text: 'Examples', link: '/en/examples' }
           ],
           sidebar: {
-            '/': [
-              {
-                text: 'Core Concepts',
-                collapsed: true,
-                items: [
-                  { text: 'Philosophy', link: '/en/core-concepts/philosophy' },
-                  { text: 'File-based Routing', link: '/en/core-concepts/file-based-routing' },
-                  { text: 'Route Patterns', link: '/en/core-concepts/route-patterns' },
-                  { text: 'Context Object', link: '/en/core-concepts/context-object' },
-                  { text: 'Request Handling', link: '/en/core-concepts/request-handling' },
-                  { text: 'Worker Pool', link: '/en/core-concepts/worker-pool' }
-                ]
-              },
-              {
-                text: 'Getting Started',
-                collapsed: true,
-                items: [
-                  { text: 'Installation', link: '/en/getting-started/installation' },
-                  { text: 'Quick Start', link: '/en/getting-started/quick-start' },
-                  {
-                    text: 'Routes Configuration',
-                    link: '/en/getting-started/routes-configuration'
-                  },
-                  {
-                    text: 'Server Configuration',
-                    link: '/en/getting-started/server-configuration'
-                  }
-                ]
-              },
-              {
-                text: 'Rendering',
-                collapsed: true,
-                items: [
-                  { text: 'Template Engine', link: '/en/rendering/' },
-                  { text: 'Streaming Rendering', link: '/en/rendering/streaming' }
-                ]
-              },
-              {
-                text: 'Middleware',
-                collapsed: true,
-                items: [
-                  { text: 'Use Global', link: '/en/middleware/global' },
-                  { text: 'Use Route-Specific', link: '/en/middleware/route-specific' },
-                  { text: 'Basic Auth', link: '/en/middleware/basic-auth' },
-                  { text: 'Body Limit', link: '/en/middleware/body-limit' },
-                  { text: 'CORS', link: '/en/middleware/cors' },
-                  { text: 'Security Headers', link: '/en/middleware/security-headers' },
-                  { text: 'Session', link: '/en/middleware/session' },
-                  { text: 'WebSocket', link: '/en/middleware/websocket' }
-                ]
-              },
-              {
-                text: 'Static Files',
-                collapsed: true,
-                items: [
-                  { text: 'Basic Usage', link: '/en/static-file/basic' },
-                  { text: 'Multiple Directories', link: '/en/static-file/multiple' }
-                ]
-              },
-              {
-                text: 'Response',
-                collapsed: true,
-                items: [
-                  { text: 'JSON Format', link: '/en/response/json' },
-                  { text: 'Text Format', link: '/en/response/text' },
-                  { text: 'HTML Format', link: '/en/response/html' },
-                  { text: 'File Downloads', link: '/en/response/file' },
-                  { text: 'Data Downloads', link: '/en/response/data' },
-                  { text: 'Stream', link: '/en/response/stream' },
-                  { text: 'Redirects', link: '/en/response/redirect' },
-                  { text: 'Custom Responses', link: '/en/response/custom' }
-                ]
-              },
-              {
-                text: 'Error Handling',
-                collapsed: true,
-                items: [
-                  { text: 'Default Behavior', link: '/en/error-handling/default-behavior' },
-                  { text: 'Object Details', link: '/en/error-handling/object-details' }
-                ]
-              }
-            ],
             '/en/': [
               {
                 text: 'Core Concepts',
@@ -159,6 +51,7 @@ export default withMermaid(
                   { text: 'Route Patterns', link: '/en/core-concepts/route-patterns' },
                   { text: 'Context Object', link: '/en/core-concepts/context-object' },
                   { text: 'Request Handling', link: '/en/core-concepts/request-handling' },
+                  { text: 'Hot Reload', link: '/en/core-concepts/hot-reload' },
                   { text: 'Worker Pool', link: '/en/core-concepts/worker-pool' }
                 ]
               },
@@ -293,6 +186,7 @@ export default withMermaid(
                   { text: 'Pola Rute', link: '/id/core-concepts/route-patterns' },
                   { text: 'Objek Konteks', link: '/id/core-concepts/context-object' },
                   { text: 'Penanganan Request', link: '/id/core-concepts/request-handling' },
+                  { text: 'Hot Reload', link: '/id/core-concepts/hot-reload' },
                   { text: 'Worker Pool', link: '/id/core-concepts/worker-pool' }
                 ]
               },

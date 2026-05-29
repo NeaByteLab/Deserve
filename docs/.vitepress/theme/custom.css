@@ -1,0 +1,237 @@
+:root {
+  --vp-c-brand-1: #158f77;
+  --vp-c-brand-2: #20c9a6;
+  --vp-c-brand-3: #0f6b5a;
+  --vp-c-brand-soft: rgba(21, 143, 119, 0.14);
+}
+
+/* ── Hero section ── */
+
+.VPHomeHero .image-container,
+.VPHomeHero .image-bg,
+.VPHomeHero .VPImage.image-src {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+}
+
+.VPHomeHero .image img,
+.VPHomeHero .VPImage.image-src img {
+  margin-top: 5% !important;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain;
+}
+
+.VPHero .VPImage {
+  filter: drop-shadow(0 0 20px rgba(21, 143, 119, 0.15));
+  transition: filter 0.4s ease;
+}
+
+.VPHero .VPImage:hover {
+  filter: drop-shadow(0 0 28px rgba(21, 143, 119, 0.25));
+}
+
+.VPHero .name {
+  background: linear-gradient(135deg, var(--vp-c-brand-1) 0%, var(--vp-c-brand-2) 100%) !important;
+  background-clip: text !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+}
+
+.VPHero .tagline {
+  max-width: 520px;
+  line-height: 1.6;
+}
+
+.VPHero .actions .VPButton.brand {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.VPHero .actions .VPButton.brand:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(21, 143, 119, 0.2);
+}
+
+.VPHero .actions .VPButton.alt {
+  transition: transform 0.2s ease;
+}
+
+.VPHero .actions .VPButton.alt:hover {
+  transform: translateY(-2px);
+}
+
+/* ── Feature cards ── */
+
+.VPFeatures .VPFeature {
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 12px;
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+}
+
+.VPFeatures .VPFeature:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 32px rgba(21, 143, 119, 0.12);
+  border-color: var(--vp-c-brand-1);
+}
+
+.VPFeatures .VPFeature .icon {
+  font-size: 28px;
+}
+
+.VPFeatures .VPFeature .title {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.VPFeatures .VPFeature .details {
+  line-height: 1.65;
+  opacity: 0.85;
+}
+
+/* ── Code blocks ── */
+
+div[class*='language-'] {
+  border-radius: 10px;
+  border: 1px solid var(--vp-c-divider);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+div[class*='language-']:hover {
+  border-color: var(--vp-c-brand-soft);
+  box-shadow: 0 4px 16px rgba(21, 143, 119, 0.08);
+}
+
+div[class*='language-'] > button.copy {
+  border-radius: 6px;
+  transition: opacity 0.2s ease, background-color 0.2s ease;
+}
+
+div[class*='language-'] code {
+  font-size: 13.5px;
+  line-height: 1.7;
+}
+
+/* ── Sidebar ── */
+
+.VPSidebar .VPSidebarItem.level-0 .text {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.VPSidebar .VPSidebarItem .link:hover .text {
+  color: var(--vp-c-brand-1);
+  transition: color 0.15s ease;
+}
+
+.VPSidebar .VPSidebarItem.is-active > .item > .link > .text {
+  color: var(--vp-c-brand-1);
+  font-weight: 600;
+}
+
+/* ── Content area ── */
+
+.vp-doc h1 {
+  letter-spacing: -0.02em;
+  background: linear-gradient(135deg, var(--vp-c-brand-1) 0%, var(--vp-c-brand-2) 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.vp-doc h2 {
+  border-top: 1px solid var(--vp-c-divider);
+  padding-top: 24px;
+  margin-top: 40px;
+}
+
+.vp-doc a {
+  text-decoration-color: var(--vp-c-brand-soft);
+  text-underline-offset: 3px;
+  transition: text-decoration-color 0.2s ease;
+}
+
+.vp-doc a:hover {
+  text-decoration-color: var(--vp-c-brand-1);
+}
+
+/* ── Tables ── */
+
+.vp-doc table {
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--vp-c-divider);
+}
+
+.vp-doc table th {
+  background: var(--vp-c-brand-soft);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.vp-doc table tr:hover td {
+  background: var(--vp-c-bg-soft);
+}
+
+/* ── Tip / Warning / Info containers ── */
+
+.vp-doc .custom-block {
+  border-radius: 10px;
+  transition: box-shadow 0.3s ease;
+}
+
+.vp-doc .custom-block:hover {
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+}
+
+.vp-doc .custom-block.tip {
+  border-left: 4px solid var(--vp-c-brand-1);
+}
+
+/* ── Nav bar ── */
+
+.VPNav .VPNavBarTitle .title {
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+/* ── Footer ── */
+
+.VPFooter {
+  border-top: 1px solid var(--vp-c-divider);
+}
+
+/* ── Scrollbar ── */
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--vp-c-divider);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--vp-c-brand-soft);
+}
+
+/* ── Smooth transitions for dark/light mode ── */
+
+html {
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* ── Outline / On this page ── */
+
+.VPDocOutlineItem .outline-link.active {
+  color: var(--vp-c-brand-1);
+  font-weight: 600;
+  transition: color 0.15s ease;
+}
