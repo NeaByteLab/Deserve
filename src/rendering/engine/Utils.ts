@@ -1,3 +1,5 @@
+import * as Core from '@core/index.ts'
+
 /**
  * Engine helper utilities
  * @description Provides path lookup and escaping helpers
@@ -10,12 +12,7 @@ export class Utils {
    * @returns Escaped HTML-safe string
    */
   static escape(rawText: string): string {
-    return rawText
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;')
+    return Core.Error.escapeHtml(rawText)
   }
 
   /**
