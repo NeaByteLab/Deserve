@@ -48,6 +48,14 @@ Deno.test('Handler addMiddleware path prefix only applies to matching routes', a
   assertEquals(await resOther.text(), 'no')
 })
 
+Deno.test('Handler constructor with no options uses defaults', async () => {
+  const handler = new Routing.Handler()
+  const handle = handler.createHandler()
+  const res = await handle(new Request('http://localhost/'))
+  assertEquals(res.status, 404)
+  await res.body?.cancel()
+})
+
 Deno.test('Handler createPattern with .cjs extension', () => {
   const handler = new Routing.Handler()
   assertEquals(handler.createPattern('items/create.cjs'), '/items/create')
@@ -73,6 +81,21 @@ Deno.test('Handler maxRouteParamLength returns 414 when exceeded', async () => {
   const longId = 'a'.repeat(50)
   const res = await handler.createHandler()(new Request(`http://localhost/items/${longId}`))
   assertEquals(res.status, 414)
+})
+
+Deno.test('Handler maxRouteParamLength with zero disables check', async () => {
+  const handler = new Routing.Handler({ maxRouteParamLength: 0 })
+  const routerInstance = (
+    handler as unknown as { routerInstance: { add: (m: string, p: string, d: unknown) => void } }
+  ).routerInstance
+  routerInstance.add('GET', '/items/:id', {
+    handler: (ctx: Core.Context) => new Response(ctx.param('id') ?? ''),
+    pattern: '/items/:id'
+  })
+  const longId = 'a'.repeat(5000)
+  const res = await handler.createHandler()(new Request(`http://localhost/items/${longId}`))
+  assertEquals(res.status, 200)
+  await res.body?.cancel()
 })
 
 Deno.test('Handler maxUrlLength 414 returns HTML without Accept json', async () => {
@@ -159,6 +182,40 @@ Deno.test('Handler requestTimeoutMs returns 503 when exceeded', async () => {
   await new Promise(r => setTimeout(r, 30))
 })
 
+Deno.test('Handler route error with statusCode uses thrown statusCode', async () => {
+  const handler = new Routing.Handler()
+  const routerInstance = (
+    handler as unknown as { routerInstance: { add: (m: string, p: string, d: unknown) => void } }
+  ).routerInstance
+  routerInstance.add('GET', '/fail', {
+    handler: () => {
+      const err = new Error('bad request') as Error & { statusCode: number }
+      err.statusCode = 400
+      throw err
+    },
+    pattern: '/fail'
+  })
+  const res = await handler.createHandler()(new Request('http://localhost/fail'))
+  assertEquals(res.status, 400)
+  await res.body?.cancel()
+})
+
+Deno.test('Handler route error without statusCode defaults to 500', async () => {
+  const handler = new Routing.Handler()
+  const routerInstance = (
+    handler as unknown as { routerInstance: { add: (m: string, p: string, d: unknown) => void } }
+  ).routerInstance
+  routerInstance.add('GET', '/fail', {
+    handler: () => {
+      throw new Error('internal')
+    },
+    pattern: '/fail'
+  })
+  const res = await handler.createHandler()(new Request('http://localhost/fail'))
+  assertEquals(res.status, 500)
+  await res.body?.cancel()
+})
+
 Deno.test('Handler setErrorResponseBuilder overrides error response', async () => {
   const handler = new Routing.Handler()
   handler.setErrorResponseBuilder({
@@ -242,6 +299,18 @@ Deno.test('Handler#createPattern skips @ and _ segments', () => {
   assertEquals(handler.createPattern('_layout.ts'), null)
 })
 
+Deno.test('Handler#getViewEngine returns engine when viewsDir set', () => {
+  const viewsDir = fileURLToPath(new URL('../fixtures/views/', import.meta.url)).replace(/[\\/]$/, '')
+  const handler = new Routing.Handler({ viewsDir })
+  const engine = handler.getViewEngine()
+  assertEquals(engine !== undefined, true)
+})
+
+Deno.test('Handler#getViewEngine returns undefined when viewsDir not set', () => {
+  const handler = new Routing.Handler()
+  assertEquals(handler.getViewEngine(), undefined)
+})
+
 Deno.test('Handler#handleResponse when errorMiddleware returns custom uses it', async () => {
   const handler = new Routing.Handler()
   handler.setErrorMiddleware(async (_ctx, errorInfo) => {
@@ -300,6 +369,25 @@ Deno.test(
     assertEquals(html.includes('<script>'), false)
   }
 )
+
+Deno.test('Handler#removeRoute removes route so it returns 404', async () => {
+  const handler = new Routing.Handler()
+  const routerInstance = (
+    handler as unknown as { routerInstance: { add: (m: string, p: string, d: unknown) => void } }
+  ).routerInstance
+  routerInstance.add('GET', '/test', {
+    handler: () => new Response('ok'),
+    pattern: '/test'
+  })
+  const handle = handler.createHandler()
+  const res1 = await handle(new Request('http://localhost/test'))
+  assertEquals(res1.status, 200)
+  await res1.body?.cancel()
+  handler.removeRoute('/test')
+  const res2 = await handle(new Request('http://localhost/test'))
+  assertEquals(res2.status, 404)
+  await res2.body?.cancel()
+})
 
 Deno.test('Handler#validateModule throws when method is not function', () => {
   const handler = new Routing.Handler()
