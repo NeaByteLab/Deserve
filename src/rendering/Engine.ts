@@ -25,6 +25,26 @@ export class Engine implements Types.ViewEngine {
     this.defaultViewsDir = options.viewsDir
   }
 
+  /** Views directory for path resolution */
+  get viewsDir(): string {
+    return this.defaultViewsDir
+  }
+
+  /**
+   * Invalidate cached template by absolute path.
+   * @description Clears file and compile caches for the path.
+   * @param absPath - Absolute template file path
+   */
+  invalidateFile(absPath: string): void {
+    this.fileCache.delete(absPath)
+    this.compileCache.delete(absPath)
+  }
+
+  /** Reset discovered template paths */
+  refreshPaths(): void {
+    this.discoveredPaths = null
+  }
+
   /**
    * Render template with data
    * @description Loads template and produces final HTML
@@ -33,20 +53,8 @@ export class Engine implements Types.ViewEngine {
    * @returns Rendered HTML string
    * @throws {Error} When template path not discovered
    */
-  async render(templatePath: string, data: Record<string, unknown> = {}): Promise<string> {
-    if (this.discoveredPaths === null) {
-      this.discoveredPaths = await Rendering.Discover.discoverPaths(this.defaultViewsDir)
-    }
-    const discoveredTemplatePaths = this.discoveredPaths
-    const normalizedPath = templatePath.replace(/\\/g, '/')
-    const pathWithExt = normalizedPath.toLowerCase().endsWith('.dve')
-      ? normalizedPath
-      : `${normalizedPath}.dve`
-    if (!discoveredTemplatePaths.has(pathWithExt)) {
-      throw new Error(`Template "${templatePath}" not found in views directory`)
-    }
-    const absPath = EngineParts.Utils.join(this.defaultViewsDir, pathWithExt)
-    const compiled = await this.compileTemplate(absPath)
+  async render(templatePath: string, data: Types.TemplateData = {}): Promise<string> {
+    const compiled = await this.resolveTemplate(templatePath)
     return await this.renderNodes(compiled.ast, data, this.defaultViewsDir)
   }
 
@@ -58,7 +66,7 @@ export class Engine implements Types.ViewEngine {
    * @returns ReadableStream with HTML content
    * @throws {Error} When template not found
    */
-  streamRender(templatePath: string, data: Record<string, unknown> = {}): ReadableStream {
+  streamRender(templatePath: string, data: Types.TemplateData = {}): ReadableStream {
     const { readable, writable } = new TransformStream()
     this.renderNodesToStream(templatePath, data, writable).catch((error: Error) => {
       console.error('Stream rendering error:', error)
@@ -110,7 +118,7 @@ export class Engine implements Types.ViewEngine {
    */
   private async renderNodeToChunk(
     node: Types.AstNode,
-    data: Record<string, unknown>,
+    data: Types.TemplateData,
     viewsDir: string
   ): Promise<string | null> {
     if (node.type === 'text') {
@@ -129,7 +137,7 @@ export class Engine implements Types.ViewEngine {
     if (node.type === 'if') {
       const lookupValue = EngineParts.Eval.evaluate(node.path, data)
       const nodes = lookupValue ? node.thenNodes : node.elseNodes
-      return await this.renderNodesToString(nodes, data, viewsDir)
+      return await this.renderNodes(nodes, data, viewsDir)
     }
     if (node.type === 'each') {
       const lookupValue = EngineParts.Eval.evaluate(node.path, data)
@@ -140,7 +148,7 @@ export class Engine implements Types.ViewEngine {
       let output = ''
       for (let index = 0; index < length; index++) {
         const item = lookupValue[index]
-        const scopeData: Record<string, unknown> = {
+        const scopeData: Types.TemplateData = {
           ...data,
           [node.itemName]: item,
           '@index': index,
@@ -148,7 +156,7 @@ export class Engine implements Types.ViewEngine {
           '@last': index === length - 1,
           '@length': length
         }
-        output += await this.renderNodesToString(node.nodes, scopeData, viewsDir)
+        output += await this.renderNodes(node.nodes, scopeData, viewsDir)
       }
       return output
     }
@@ -165,55 +173,14 @@ export class Engine implements Types.ViewEngine {
    */
   private async renderNodes(
     ast: Types.AstNode[],
-    data: Record<string, unknown>,
+    data: Types.TemplateData,
     viewsDir: string
   ): Promise<string> {
     let outputHtml = ''
     for (const node of ast) {
-      if (node.type === 'text') {
-        outputHtml += node.value
-        continue
-      }
-      if (node.type === 'var') {
-        const lookupValue = EngineParts.Eval.evaluate(node.path, data)
-        const stringValue = lookupValue === null || lookupValue === undefined
-          ? ''
-          : String(lookupValue)
-        outputHtml += node.raw ? stringValue : EngineParts.Utils.escape(stringValue)
-        continue
-      }
-      if (node.type === 'include') {
-        outputHtml += await this.render(node.templatePath, data)
-        continue
-      }
-      if (node.type === 'if') {
-        const lookupValue = EngineParts.Eval.evaluate(node.path, data)
-        outputHtml += await this.renderNodes(
-          lookupValue ? node.thenNodes : node.elseNodes,
-          data,
-          viewsDir
-        )
-        continue
-      }
-      if (node.type === 'each') {
-        const lookupValue = EngineParts.Eval.evaluate(node.path, data)
-        if (!Array.isArray(lookupValue)) {
-          continue
-        }
-        const length = lookupValue.length
-        for (let index = 0; index < length; index++) {
-          const item = lookupValue[index]
-          const scopeData: Record<string, unknown> = {
-            ...data,
-            [node.itemName]: item,
-            '@index': index,
-            '@first': index === 0,
-            '@last': index === length - 1,
-            '@length': length
-          }
-          outputHtml += await this.renderNodes(node.nodes, scopeData, viewsDir)
-        }
-        continue
+      const chunk = await this.renderNodeToChunk(node, data, viewsDir)
+      if (chunk) {
+        outputHtml += chunk
       }
     }
     return outputHtml
@@ -228,25 +195,13 @@ export class Engine implements Types.ViewEngine {
    */
   private async renderNodesToStream(
     templatePath: string,
-    data: Record<string, unknown>,
+    data: Types.TemplateData,
     writable: WritableStream
   ): Promise<void> {
     const writer = writable.getWriter()
     const encoder = new TextEncoder()
     try {
-      if (this.discoveredPaths === null) {
-        this.discoveredPaths = await Rendering.Discover.discoverPaths(this.defaultViewsDir)
-      }
-      const discoveredTemplatePaths = this.discoveredPaths
-      const normalizedPath = templatePath.replace(/\\/g, '/')
-      const pathWithExt = normalizedPath.toLowerCase().endsWith('.dve')
-        ? normalizedPath
-        : `${normalizedPath}.dve`
-      if (!discoveredTemplatePaths.has(pathWithExt)) {
-        throw new Error(`Template "${templatePath}" not found in views directory`)
-      }
-      const absPath = EngineParts.Utils.join(this.defaultViewsDir, pathWithExt)
-      const compiled = await this.compileTemplate(absPath)
+      const compiled = await this.resolveTemplate(templatePath)
       for (const node of compiled.ast) {
         const chunk = await this.renderNodeToChunk(node, data, this.defaultViewsDir)
         if (chunk) {
@@ -259,25 +214,24 @@ export class Engine implements Types.ViewEngine {
   }
 
   /**
-   * Render nodes to string
-   * @description Renders multiple nodes to HTML string
-   * @param ast - Parsed template AST nodes
-   * @param data - Current scope data
-   * @param viewsDir - Root directory for includes
-   * @returns Rendered HTML string
+   * Resolve template path to compiled result.
+   * @description Discovers paths, normalizes, validates, and compiles.
+   * @param templatePath - Relative template path
+   * @returns Compiled template with AST
+   * @throws {Error} When template not found
    */
-  private async renderNodesToString(
-    ast: Types.AstNode[],
-    data: Record<string, unknown>,
-    viewsDir: string
-  ): Promise<string> {
-    let outputHtml = ''
-    for (const node of ast) {
-      const chunk = await this.renderNodeToChunk(node, data, viewsDir)
-      if (chunk) {
-        outputHtml += chunk
-      }
+  private async resolveTemplate(templatePath: string): Promise<Types.CompileResult> {
+    if (this.discoveredPaths === null) {
+      this.discoveredPaths = await Rendering.Discover.discoverPaths(this.defaultViewsDir)
     }
-    return outputHtml
+    const normalizedPath = templatePath.replace(/\\/g, '/')
+    const pathWithExt = normalizedPath.toLowerCase().endsWith('.dve')
+      ? normalizedPath
+      : `${normalizedPath}.dve`
+    if (!this.discoveredPaths.has(pathWithExt)) {
+      throw new Error(`Template "${templatePath}" not found in views directory`)
+    }
+    const absPath = EngineParts.Utils.join(this.defaultViewsDir, pathWithExt)
+    return await this.compileTemplate(absPath)
   }
 }
