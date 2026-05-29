@@ -17,6 +17,8 @@ export default withMermaid(
       ['meta', { property: 'og:type', content: 'website' }],
       ['meta', { name: 'viewport', content: 'width=device-width, initial-scale=1.0' }]
     ],
+    title: 'Deserve',
+    description: 'Web Framework for Deno Ecosystem',
     locales: {
       en: {
         lang: 'en-US',
