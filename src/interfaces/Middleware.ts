@@ -1,9 +1,6 @@
 import type * as Types from '@interfaces/index.ts'
 import type * as Core from '@core/index.ts'
 
-/** Middleware result: Response or undefined. */
-type MiddlewareResult = Response | undefined
-
 /** Middleware bound to optional path. */
 export interface MiddlewareEntry {
   /** Middleware function */
@@ -12,7 +9,7 @@ export interface MiddlewareEntry {
   path: string
 }
 
-/** Route match result: handler and pattern. */
+/** Route match result with handler. */
 export interface RouteMetadata {
   /** Route or static file handler */
   handler: RouteHandler | Types.StaticFileHandler
@@ -30,7 +27,7 @@ export interface RouteMetadata {
 export type Middleware = (
   ctx: Core.Context,
   next: () => Promise<Response | undefined>
-) => MiddlewareResult | Promise<MiddlewareResult>
+) => MiddlewareResult
 
 /**
  * Route handler receiving context.
@@ -38,4 +35,10 @@ export type Middleware = (
  * @param context - Request context
  * @returns Response sync or async
  */
-export type RouteHandler = (context: Core.Context) => Response | Promise<Response>
+export type RouteHandler = (context: Core.Context) => MaybeAsync<Response>
+
+/** Sync or async value. */
+type MaybeAsync<T> = T | Promise<T>
+
+/** Middleware result type alias. */
+type MiddlewareResult = MaybeAsync<Response | undefined>

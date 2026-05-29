@@ -1,5 +1,19 @@
 import type * as Core from '@core/index.ts'
 
+/** Error details passed to error middleware. */
+export interface ErrorInfo {
+  /** Thrown error when available */
+  error?: Error
+  /** HTTP method of the request */
+  method: string
+  /** Request pathname */
+  pathname: string
+  /** HTTP status code for error */
+  statusCode: number
+  /** Full request URL */
+  url: string
+}
+
 /**
  * Builds error response from status.
  * @description Produces Response for given status and error.
@@ -34,7 +48,7 @@ export type ErrorHandler = (
   ctx: Core.Context,
   statusCode: number,
   error: Error
-) => Response | Promise<Response>
+) => MaybeAsync<Response>
 
 /**
  * Custom handler before error response.
@@ -45,16 +59,8 @@ export type ErrorHandler = (
  */
 export type ErrorMiddleware = (
   ctx: Core.Context,
-  error: {
-    /** Thrown error when available */
-    error?: Error
-    /** HTTP method of the request */
-    method: string
-    /** Request pathname */
-    pathname: string
-    /** HTTP status code for error */
-    statusCode: number
-    /** Full request URL */
-    url: string
-  }
-) => Response | Promise<Response | null> | null
+  error: ErrorInfo
+) => MaybeAsync<Response | null> | null
+
+/** Sync or async value. */
+type MaybeAsync<T> = T | Promise<T>
