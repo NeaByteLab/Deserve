@@ -5,11 +5,21 @@ export interface WebSocketOptions {
   /** Path prefix that triggers upgrade */
   listener?: string
   /** Called when socket opens */
-  onConnect?: (socket: WebSocket, ctx: Core.Context) => void
+  onConnect?: SocketCallback
   /** Called when socket closes */
-  onDisconnect?: (socket: WebSocket, ctx: Core.Context) => void
+  onDisconnect?: SocketCallback
   /** Called on socket error */
-  onError?: (socket: WebSocket, event: Event, ctx: Core.Context) => void
+  onError?: SocketEventCallback
   /** Called on each message */
-  onMessage?: (socket: WebSocket, event: MessageEvent, ctx: Core.Context) => void
+  onMessage?: SocketEventCallback<MessageEvent>
 }
+
+/** Socket callback with context. */
+type SocketCallback = (socket: WebSocket, ctx: Core.Context) => void
+
+/** Socket event callback with payload. */
+type SocketEventCallback<E extends Event = Event> = (
+  socket: WebSocket,
+  event: E,
+  ctx: Core.Context
+) => void
