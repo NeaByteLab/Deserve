@@ -1,4 +1,5 @@
 import type * as Types from '@interfaces/index.ts'
+import * as Rendering from '@rendering/index.ts'
 import * as Routing from '@routing/index.ts'
 
 /**
@@ -43,21 +44,14 @@ export class Router {
   async serve(port?: number, hostname?: string, signal?: AbortSignal): Promise<void>
   async serve(port?: number, hostname?: string, signal?: AbortSignal): Promise<void> {
     await this.handler.scanRoutes(this.routesDir)
+    this.startWatchers()
     const portNum = port ?? (Number(Deno.env.get('PORT')) || 8000)
     const resolvedHost = hostname ?? '0.0.0.0'
+    const handler = this.handler.createHandler()
     if (signal) {
-      await Deno.serve({
-        port: portNum,
-        hostname: resolvedHost,
-        signal,
-        handler: this.handler.createHandler()
-      })
+      await Deno.serve({ port: portNum, hostname: resolvedHost, signal, handler })
     } else {
-      await Deno.serve({
-        port: portNum,
-        hostname: resolvedHost,
-        handler: this.handler.createHandler()
-      })
+      await Deno.serve({ port: portNum, hostname: resolvedHost, handler })
     }
   }
 
@@ -84,6 +78,15 @@ export class Router {
       this.handler.addMiddleware(pathOrMiddleware, ...handlers)
     } else {
       this.handler.addMiddleware('', pathOrMiddleware, ...handlers)
+    }
+  }
+
+  /** Start watchers for routes and templates */
+  private startWatchers(): void {
+    Routing.Watcher.watch(this.handler, this.routesDir).catch(() => {})
+    const viewEngine = this.handler.getViewEngine()
+    if (viewEngine instanceof Rendering.Engine) {
+      Rendering.Watcher.watch(viewEngine).catch(() => {})
     }
   }
 }
