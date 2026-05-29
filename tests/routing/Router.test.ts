@@ -3,6 +3,21 @@ import * as Routing from '@routing/index.ts'
 
 const echoWorkerUrl = new URL('../fixtures/echo_worker.ts', import.meta.url).href
 
+Deno.test('Router options accepts HandlerOptions fields', () => {
+  const router = new Routing.Router({
+    routesDir: './routes',
+    maxUrlLength: 4096,
+    maxRouteParamLength: 512,
+    requestTimeoutMs: 5000
+  })
+  const handler = (router as unknown as { handler: unknown }).handler as {
+    maxUrlLength?: number
+    maxRouteParamLength?: number
+    requestTimeoutMs?: number
+  }
+  assertEquals(handler.requestTimeoutMs, 5000)
+})
+
 Deno.test('Router options propagate to underlying handler (DX config)', () => {
   const router = new Routing.Router({
     routesDir: './routes',
@@ -25,6 +40,11 @@ Deno.test('Router#catch does not throw', () => {
   router.catch(async () => null)
 })
 
+Deno.test('Router#constructor with empty options uses defaults', () => {
+  const router = new Routing.Router({})
+  assertEquals(router instanceof Routing.Router, true)
+})
+
 Deno.test('Router#constructor with options creates instance', () => {
   const router = new Routing.Router({ routesDir: './my-routes' })
   assertEquals(router instanceof Routing.Router, true)
@@ -35,6 +55,11 @@ Deno.test('Router#constructor with worker option creates instance', () => {
     routesDir: './routes',
     worker: { scriptURL: echoWorkerUrl, poolSize: 1 }
   })
+  assertEquals(router instanceof Routing.Router, true)
+})
+
+Deno.test('Router#constructor without options uses defaults', () => {
+  const router = new Routing.Router()
   assertEquals(router instanceof Routing.Router, true)
 })
 

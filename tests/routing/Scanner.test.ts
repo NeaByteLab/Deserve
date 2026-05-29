@@ -1,6 +1,8 @@
 import { assertEquals } from '@std/assert'
+import type * as Types from '@interfaces/index.ts'
 import * as Core from '@core/index.ts'
 import * as Routing from '@routing/index.ts'
+import { FastRouter } from '@neabyte/fast-router'
 
 Deno.test('Scanner#createPattern [id] to :id', () => {
   const ext = Core.Constant.allowedExtensions
@@ -64,15 +66,60 @@ Deno.test('Scanner#createPattern with .tsx extension', () => {
   assertEquals(Routing.Scanner.createPattern('items/create.tsx', ext), '/items/create')
 })
 
+Deno.test('Scanner#createPattern with empty string returns null', () => {
+  const ext = Core.Constant.allowedExtensions
+  assertEquals(Routing.Scanner.createPattern('', ext), null)
+})
+
 Deno.test('Scanner#createPattern with hyphen in name', () => {
   const ext = Core.Constant.allowedExtensions
   assertEquals(Routing.Scanner.createPattern('items/my-file.ts', ext), '/items/my-file')
+})
+
+Deno.test('Scanner#createPattern with no extension returns null', () => {
+  const ext = Core.Constant.allowedExtensions
+  assertEquals(Routing.Scanner.createPattern('Makefile', ext), null)
 })
 
 Deno.test('Scanner#createPattern with tilde and plus in name', () => {
   const ext = Core.Constant.allowedExtensions
   assertEquals(Routing.Scanner.createPattern('items/my~file.ts', ext), '/items/my~file')
   assertEquals(Routing.Scanner.createPattern('items/my+file.ts', ext), '/items/my+file')
+})
+
+Deno.test('Scanner#registerHandlers adds function exports to router', () => {
+  const router = new FastRouter<Types.RouteMetadata>()
+  const getHandler = () => new Response('get')
+  const postHandler = () => new Response('post')
+  Routing.Scanner.registerHandlers(
+    router,
+    { GET: getHandler, POST: postHandler },
+    '/items',
+    Core.Constant.httpMethods
+  )
+  const getResult = router.find('GET', '/items')
+  assertEquals(getResult !== null, true)
+  const postResult = router.find('POST', '/items')
+  assertEquals(postResult !== null, true)
+})
+
+Deno.test('Scanner#registerHandlers skips non-function exports', () => {
+  const router = new FastRouter<Types.RouteMetadata>()
+  Routing.Scanner.registerHandlers(
+    router,
+    { GET: () => new Response('ok'), config: { timeout: 5000 } },
+    '/items',
+    Core.Constant.httpMethods
+  )
+  const getResult = router.find('GET', '/items')
+  assertEquals(getResult !== null, true)
+})
+
+Deno.test('Scanner#registerHandlers with empty module adds nothing', () => {
+  const router = new FastRouter<Types.RouteMetadata>()
+  Routing.Scanner.registerHandlers(router, {}, '/items', Core.Constant.httpMethods)
+  const result = router.find('GET', '/items')
+  assertEquals(result == null, true)
 })
 
 Deno.test('Scanner#validateModule throws when method export not function', () => {
@@ -108,6 +155,17 @@ Deno.test('Scanner#validateModule throws when non-function method alongside vali
   } catch (e) {
     thrown = true
     assertEquals((e as Error).message.includes('must be a function'), true)
+  }
+  assertEquals(thrown, true)
+})
+
+Deno.test('Scanner#validateModule with empty module object throws', () => {
+  let thrown = false
+  try {
+    Routing.Scanner.validateModule({}, 'routes/empty.ts', Core.Constant.httpMethods)
+  } catch (e) {
+    thrown = true
+    assertEquals((e as Error).message.includes('must export at least one HTTP method'), true)
   }
   assertEquals(thrown, true)
 })
