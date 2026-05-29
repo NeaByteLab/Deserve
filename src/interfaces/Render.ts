@@ -10,7 +10,7 @@ export interface ViewEngine {
    * @param data - Template scope data
    * @returns Rendered HTML string
    */
-  render(templatePath: string, data?: Record<string, unknown>): Promise<string>
+  render(templatePath: string, data?: TemplateData): Promise<string>
 
   /**
    * Stream template to HTML.
@@ -19,8 +19,11 @@ export interface ViewEngine {
    * @param data - Template scope data
    * @returns HTML readable stream
    */
-  streamRender(templatePath: string, data?: Record<string, unknown>): ReadableStream
+  streamRender(templatePath: string, data?: TemplateData): ReadableStream
 }
+
+/** Block-level AST node types. */
+export type AstBlockKind = Extract<AstNode, { nodes: AstNode[] } | { thenNodes: AstNode[] }>['type']
 
 /** DVE template AST node. */
 export type AstNode =
@@ -38,12 +41,12 @@ export type CompileResult = {
 
 /** DVE template parser stack frame. */
 export type DveStackFrame = {
-  /** Block type: if or each */
-  kind: 'if' | 'each'
-  /** Current AST node reference */
-  node: AstNode
   /** True when inside else branch */
   inElse: boolean
+  /** Block type derived from AstNode */
+  kind: AstBlockKind
+  /** Current AST node reference */
+  node: AstNode
 }
 
 /** Rendering engine constructor options. */
@@ -54,16 +57,22 @@ export type EngineOptions = {
 
 /** DVE expression AST node. */
 export type ExprNode =
-  | { type: 'literal'; value: unknown }
-  | { type: 'ident'; name: string }
-  | { type: 'member'; object: ExprNode; property: string }
-  | { type: 'unary'; op: '!' | '+' | '-'; arg: ExprNode }
   | { type: 'binary'; op: string; left: ExprNode; right: ExprNode }
+  | { type: 'ident'; name: string }
+  | { type: 'literal'; value: unknown }
+  | { type: 'member'; object: ExprNode; property: string }
   | { type: 'ternary'; test: ExprNode; consequent: ExprNode; alternate: ExprNode }
+  | { type: 'unary'; op: UnaryOp; arg: ExprNode }
 
 /** DVE expression evaluator token. */
 export type ExprToken =
-  | { kind: 'op'; value: string }
   | { kind: 'ident'; value: string }
   | { kind: 'number'; value: number }
+  | { kind: 'op'; value: string }
   | { kind: 'string'; value: string }
+
+/** Template scope data for rendering. */
+export type TemplateData = Record<string, unknown>
+
+/** Unary operator literals. */
+type UnaryOp = '!' | '+' | '-'
