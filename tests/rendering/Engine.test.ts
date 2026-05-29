@@ -2,6 +2,26 @@ import { assertEquals, assertRejects } from '@std/assert'
 import { fileURLToPath } from 'node:url'
 import * as Rendering from '@rendering/index.ts'
 
+Deno.test('Engine#invalidateFile clears cache so template is reloaded', async () => {
+  const viewsDir = fileURLToPath(new URL('../fixtures/views/', import.meta.url)).replace(/[\\/]$/, '')
+  const engine = new Rendering.Engine({ viewsDir })
+  const first = await engine.render('hello.dve', { name: 'A' })
+  assertEquals(first.trim(), 'Hello A.')
+  const absPath = `${viewsDir}/hello.dve`
+  engine.invalidateFile(absPath)
+  const second = await engine.render('hello.dve', { name: 'B' })
+  assertEquals(second.trim(), 'Hello B.')
+})
+
+Deno.test('Engine#refreshPaths resets discovered paths', async () => {
+  const viewsDir = fileURLToPath(new URL('../fixtures/views/', import.meta.url)).replace(/[\\/]$/, '')
+  const engine = new Rendering.Engine({ viewsDir })
+  await engine.render('hello.dve', { name: 'X' })
+  engine.refreshPaths()
+  const html = await engine.render('hello.dve', { name: 'Y' })
+  assertEquals(html.trim(), 'Hello Y.')
+})
+
 Deno.test('Engine#render appends .dve when omitted', async () => {
   const viewsDir = fileURLToPath(new URL('../fixtures/views/', import.meta.url)).replace(/[\\/]$/, '')
   const engine = new Rendering.Engine({ viewsDir })
@@ -212,12 +232,18 @@ Deno.test('Engine#render with backslash in path normalizes', async () => {
   assertEquals(html.trim(), 'Hello Backslash.')
 })
 
-Deno.test('Engine#streamRender returns ReadableStream response', () => {
+Deno.test('Engine#render with empty data object', async () => {
   const viewsDir = fileURLToPath(new URL('../fixtures/views/', import.meta.url)).replace(/[\\/]$/, '')
   const engine = new Rendering.Engine({ viewsDir })
-  const stream = engine.streamRender('hello.dve', { name: 'Stream' })
-  assertEquals(stream instanceof ReadableStream, true)
-  stream.cancel()
+  const html = await engine.render('hello.dve', {})
+  assertEquals(html.trim(), 'Hello .')
+})
+
+Deno.test('Engine#render with null variable value renders empty', async () => {
+  const viewsDir = fileURLToPath(new URL('../fixtures/views/', import.meta.url)).replace(/[\\/]$/, '')
+  const engine = new Rendering.Engine({ viewsDir })
+  const html = await engine.render('hello.dve', { name: null })
+  assertEquals(html.trim(), 'Hello .')
 })
 
 Deno.test({
@@ -239,4 +265,29 @@ Deno.test({
     assertEquals(result.trim(), 'Hello Test.')
   },
   sanitizeOps: false
+})
+
+Deno.test('Engine#streamRender returns ReadableStream response', () => {
+  const viewsDir = fileURLToPath(new URL('../fixtures/views/', import.meta.url)).replace(/[\\/]$/, '')
+  const engine = new Rendering.Engine({ viewsDir })
+  const stream = engine.streamRender('hello.dve', { name: 'Stream' })
+  assertEquals(stream instanceof ReadableStream, true)
+  stream.cancel()
+})
+
+Deno.test({
+  name: 'Engine#streamRender throws for missing template',
+  fn: async () => {
+    const engine = new Rendering.Engine({ viewsDir: '/nonexistent-' + Date.now() })
+    const stream = engine.streamRender('missing.dve', {})
+    const reader = stream.getReader()
+    const { done } = await reader.read()
+    assertEquals(done, true)
+  },
+  sanitizeOps: false
+})
+
+Deno.test('Engine#viewsDir returns configured directory', () => {
+  const engine = new Rendering.Engine({ viewsDir: '/tmp/views' })
+  assertEquals(engine.viewsDir, '/tmp/views')
 })
