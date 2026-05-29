@@ -8,6 +8,46 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- Hot reload for routes and templates via file system watchers (`WatchFs`, `Routing.Watcher`, `Rendering.Watcher`)
+- `Helper` utility class consolidating `headersToRecord` from `Redirect` and `Response` into a shared `Helper.toRecord` method
+- `Watcher` interface types (`WatchedEvent`, `WatchFsOptions`) in `src/interfaces/Watcher.ts`
+- `Engine.viewsDir` getter, `Engine.invalidateFile()` and `Engine.refreshPaths()` for cache invalidation during hot reload
+- `Handler.reloadRoute()` and `Handler.removeRoute()` for runtime route replacement
+- `Handler.getViewEngine()` accessor
+- `Scanner.registerHandlers()` static method extracted from inline scanning logic
+- `TemplateData` type alias replacing inline `Record<string, unknown>` across rendering API
+- `MaybeAsync<T>` type alias in `Error` and `Middleware` interfaces
+- `AstBlockKind`, `UnaryOp`, `SecurityHeaderKey`, `SecurityHeaderValue` type aliases for stricter typing
+- `SocketCallback` and `SocketEventCallback<E>` type aliases in WebSocket interface
+- `ErrorInfo` named interface replacing inline error object in `ErrorMiddleware`
+- Documentation pages for hot reload feature (EN and ID)
+- Indonesian landing page feature cards for middleware, template engine, and hot reload
+- VitePress custom theme directory (`docs/.vitepress/theme/`)
+- `docs/en/index.md` standalone English landing page
+- `@neabyte/utils-core@^0.2.0` dependency for `Async` debounce and `createSequential` utilities
+- Test coverage for `Engine` (empty data, null values, `viewsDir` getter, `streamRender` missing template), `Handler` (default constructor, `maxRouteParamLength` zero, error `statusCode` propagation, `getViewEngine`, `removeRoute`), `Router` (empty options, no options, `HandlerOptions` propagation), `Scanner` (`registerHandlers`, empty module, no extension, empty string), `Error` (`escapeHtml` quote escaping, `buildResponse` edge cases), `Redirect` (extra headers merging), `Response` (stream and custom response)
+
+### Changed
+
+- `RouterOptions` now extends `HandlerOptions` instead of duplicating fields
+- `SecurityHeadersOptions` refactored to `Partial<Record<SecurityHeaderKey, SecurityHeaderValue>>`
+- `Engine.render()` and `Engine.streamRender()` refactored to share `resolveTemplate()` private method, removing duplicated path resolution logic
+- `Engine.renderNodes()` now delegates to `renderNodeToChunk()` instead of duplicating node type handling
+- `Error.escapeHtml()` now escapes `"` and `'` in addition to `&`, `<`, `>`
+- `Utils.escape()` in rendering engine now delegates to `Core.Error.escapeHtml()` instead of duplicating logic
+- `Scanner.discoverRoutes()` uses extracted `registerHandlers()` instead of inline registration
+- `Router.serve()` starts route and template watchers automatically after scanning
+- VitePress config: removed duplicate `root` locale sidebar, changed root locale key from `root` to `en`, removed inline CSS styles, added viewport meta tag
+- Documentation code blocks changed from `` ```dve `` to `` ```html `` for better syntax highlighting
+- Indonesian landing page tagline updated
+- Alphabetical reordering of type union members in `ExprNode`, `ExprToken`, `AstNode`
+
+### Fixed
+
+- `Redirect` and `Response` no longer carry duplicate `headersToRecord` implementations
+
 ---
 
 ## [0.10.0] - 2026-05-23

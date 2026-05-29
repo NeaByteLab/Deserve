@@ -16,6 +16,7 @@ Build HTTP server effortlessly with zero configuration for productivity.
 - **Middleware** — Global or per path. CORS, auth, session, WebSocket.
 - **Static Files** — Serve directories with optional cache and etag.
 - **Error Handling** — Custom or default HTML/JSON error responses.
+- **Hot Reload** — Routes and templates reload automatically when files change.
 - **Worker Pool** — Offload heavy work to a pool so the server stays responsive.
 - **Frontend Optional** — Use any frontend. Deserve stays the server.
 
@@ -64,6 +65,7 @@ export function GET(ctx: Context) {
 
 - [Quick Start (Docs)](https://docs-deserve.neabyte.com/en/getting-started/quick-start)
 - [File-Based Routing](https://docs-deserve.neabyte.com/en/core-concepts/file-based-routing)
+- [Hot Reload](https://docs-deserve.neabyte.com/en/core-concepts/hot-reload)
 - [Example Implementation](example/README.md)
 
 ## Build & Test
