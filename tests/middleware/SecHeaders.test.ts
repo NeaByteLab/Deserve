@@ -19,19 +19,6 @@ Deno.test('securityHeaders can set multiple headers', async () => {
   assertEquals(ctx.responseHeadersMap['X-Frame-Options'], 'DENY')
 })
 
-Deno.test('securityHeaders sets configured header and calls next', async () => {
-  const middleware = Middleware.Mware.securityHeaders({ xContentTypeOptions: 'nosniff' })
-  const ctx = createTestContext()
-  const next = async (): Promise<Response> => new Response('ok')
-  const res = await middleware(ctx, next)
-  assertEquals(res !== undefined, true)
-  if (res) {
-    assertEquals(res.status, 200)
-    assertEquals(await res.text(), 'ok')
-  }
-  assertEquals(ctx.responseHeadersMap['X-Content-Type-Options'], 'nosniff')
-})
-
 Deno.test('securityHeaders sets Content-Security-Policy', async () => {
   const middleware = Middleware.Mware.securityHeaders({
     contentSecurityPolicy: "default-src 'self'"
@@ -87,6 +74,19 @@ Deno.test('securityHeaders sets all 13 headers when provided', async () => {
   assertEquals(ctx.responseHeadersMap['X-Frame-Options'], 'SAMEORIGIN')
   assertEquals(ctx.responseHeadersMap['X-Permitted-Cross-Domain-Policies'], 'none')
   assertEquals(ctx.responseHeadersMap['X-Powered-By'], 'Deserve')
+})
+
+Deno.test('securityHeaders sets configured header and calls next', async () => {
+  const middleware = Middleware.Mware.securityHeaders({ xContentTypeOptions: 'nosniff' })
+  const ctx = createTestContext()
+  const next = async (): Promise<Response> => new Response('ok')
+  const res = await middleware(ctx, next)
+  assertEquals(res !== undefined, true)
+  if (res) {
+    assertEquals(res.status, 200)
+    assertEquals(await res.text(), 'ok')
+  }
+  assertEquals(ctx.responseHeadersMap['X-Content-Type-Options'], 'nosniff')
 })
 
 Deno.test('securityHeaders with default options sets no headers', async () => {
