@@ -26,7 +26,7 @@ await router.serve(8000)
 
 Create template in `views/` folder:
 
-```dve
+```html
 <!-- views/welcome.dve -->
 <!DOCTYPE html>
 <html>
@@ -60,7 +60,7 @@ export function GET(ctx: Context): Response {
 
 ### Variables
 
-```dve
+```html
 <!-- Simple variable -->
 <p>{{username}}</p>
 
@@ -73,7 +73,7 @@ export function GET(ctx: Context): Response {
 
 ### Conditionals
 
-```dve
+```html
 {{#if user.isAdmin}}
 <button>Delete User</button>
 {{/if}} {{#if posts.length > 0}}
@@ -90,7 +90,7 @@ export function GET(ctx: Context): Response {
 
 ### Loops
 
-```dve
+```html
 {{#each users as u}}
 <div class="user">
   <!-- Access property from alias -->
@@ -112,7 +112,7 @@ export function GET(ctx: Context): Response {
 
 ### Includes
 
-```dve
+```html
 <!-- Include other template with > operator -->
 {{> header.dve}}
 
@@ -127,7 +127,7 @@ export function GET(ctx: Context): Response {
 
 DVE supports JavaScript-like expressions for lookups and operators:
 
-```dve
+```html
 <!-- Optional chaining and nullish coalescing -->
 <p>Hello {{ user?.name ?? 'Guest' }}.</p>
 
@@ -140,7 +140,7 @@ DVE supports JavaScript-like expressions for lookups and operators:
 
 ### Raw Output
 
-```dve
+```html
 <!-- Default: HTML escaped (safe from XSS) -->
 <p>{{userInput}}</p>
 
@@ -152,7 +152,7 @@ DVE supports JavaScript-like expressions for lookups and operators:
 
 ### Template Inheritance
 
-```dve
+```html
 <!-- views/layouts/base.dve -->
 <!DOCTYPE html>
 <html>
@@ -192,7 +192,7 @@ export function GET(ctx: Context): Response {
 }
 ```
 
-```dve
+```html
 <p>Date: {{formatDate(transaction.date)}}</p>
 <p>Amount: {{formatCurrency(transaction.amount)}}</p>
 ```

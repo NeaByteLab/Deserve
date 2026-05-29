@@ -26,7 +26,7 @@ await router.serve(8000)
 
 Buat template di `views/` folder:
 
-```dve
+```html
 <!-- views/welcome.dve -->
 <!DOCTYPE html>
 <html>
@@ -60,7 +60,7 @@ export function GET(ctx: Context): Response {
 
 ### Variables
 
-```dve
+```html
 <!-- Variabel sederhana -->
 <p>{{namaPengguna}}</p>
 
@@ -73,7 +73,7 @@ export function GET(ctx: Context): Response {
 
 ### Conditionals
 
-```dve
+```html
 {{#if pengguna.isAdmin}}
 <button>Hapus Pengguna</button>
 {{/if}} {{#if postingan.length > 0}}
@@ -90,7 +90,7 @@ export function GET(ctx: Context): Response {
 
 ### Loops
 
-```dve
+```html
 {{#each pengguna as p}}
 <div class="user">
   <!-- Akses properti dari alias -->
@@ -112,7 +112,7 @@ export function GET(ctx: Context): Response {
 
 ### Includes
 
-```dve
+```html
 <!-- Include template lain dengan operator > -->
 {{> header.dve}}
 
@@ -127,7 +127,7 @@ export function GET(ctx: Context): Response {
 
 DVE mendukung expression seperti JavaScript untuk lookup dan operator:
 
-```dve
+```html
 <!-- Optional chaining dan nullish coalescing -->
 <p>Halo {{ pengguna?.nama ?? 'Tamu' }}.</p>
 
@@ -140,7 +140,7 @@ DVE mendukung expression seperti JavaScript untuk lookup dan operator:
 
 ### Raw Output
 
-```dve
+```html
 <!-- Default: HTML di-escape (aman dari XSS) -->
 <p>{{inputPengguna}}</p>
 
@@ -152,7 +152,7 @@ DVE mendukung expression seperti JavaScript untuk lookup dan operator:
 
 ### Template Inheritance
 
-```dve
+```html
 <!-- views/layouts/base.dve -->
 <!DOCTYPE html>
 <html>
@@ -192,7 +192,7 @@ export function GET(ctx: Context): Response {
 }
 ```
 
-```dve
+```html
 <p>Tanggal: {{formatTanggal(transaksi.tanggal)}}</p>
 <p>Jumlah: {{formatMataUang(transaksi.jumlah)}}</p>
 ```

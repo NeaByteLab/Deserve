@@ -58,7 +58,7 @@ export function GET(ctx: Context): Response {
 
 Semua fitur DVE template bekerja dengan streaming:
 
-```dve
+```html
 <!-- views/streaming-demo.dve -->
 <!DOCTYPE html>
 <html>
