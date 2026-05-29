@@ -18,10 +18,10 @@ export class Context {
   private headerMap: Record<string, string> | undefined = undefined
   /** Parsed query string params; lazy. */
   private queryParams: Record<string, string> | undefined = undefined
-  /** Arbitrary state for middleware/handlers. */
-  private requestState: Record<string, unknown> = {}
   /** Incoming fetch Request. */
   private req: Request
+  /** Arbitrary state for middleware/handlers. */
+  private requestState: Record<string, unknown> = {}
   /** Response headers to send. */
   private responseHeaders: Record<string, string> = {}
   /** Matched route path params. */
@@ -282,7 +282,7 @@ export class Context {
    * @param data - Data for template
    * @returns Response with rendered HTML
    */
-  async render(templatePath: string, data: Record<string, unknown> = {}): Promise<Response> {
+  async render(templatePath: string, data: Types.TemplateData = {}): Promise<Response> {
     const view = this.state['view'] as Types.ViewEngine | undefined
     if (view === undefined) {
       throw new Error('View engine not configured, set viewsDir in RouterOptions')
@@ -341,7 +341,7 @@ export class Context {
    * @param data - Data for template
    * @returns Response with streaming HTML
    */
-  streamRender(templatePath: string, data: Record<string, unknown> = {}): Response {
+  streamRender(templatePath: string, data: Types.TemplateData = {}): Response {
     const view = this.state['view'] as Types.ViewEngine
     if (view === undefined) {
       throw new Error('View engine not configured, set viewsDir in RouterOptions')
