@@ -62,21 +62,6 @@ Deno.test('Context#blob then text throws already consumed', async () => {
   assertEquals(thrown, true)
 })
 
-Deno.test('Context#body parses form-urlencoded as FormData', async () => {
-  const ctx = createTestContext(
-    'http://localhost/',
-    {},
-    {
-      method: 'POST',
-      body: 'foo=bar&baz=qux',
-      headers: new Headers({ 'Content-Type': 'application/x-www-form-urlencoded' })
-    }
-  )
-  const formData = (await ctx.body()) as FormData
-  assertEquals(formData.get('foo'), 'bar')
-  assertEquals(formData.get('baz'), 'qux')
-})
-
 Deno.test('Context#body parses JSON and caches result', async () => {
   const ctx = createTestContext(
     'http://localhost/',
@@ -92,6 +77,21 @@ Deno.test('Context#body parses JSON and caches result', async () => {
   assertEquals(firstParsedBody.b, 'x')
   const secondParsedBody = await ctx.body()
   assertEquals(secondParsedBody, firstParsedBody)
+})
+
+Deno.test('Context#body parses form-urlencoded as FormData', async () => {
+  const ctx = createTestContext(
+    'http://localhost/',
+    {},
+    {
+      method: 'POST',
+      body: 'foo=bar&baz=qux',
+      headers: new Headers({ 'Content-Type': 'application/x-www-form-urlencoded' })
+    }
+  )
+  const formData = (await ctx.body()) as FormData
+  assertEquals(formData.get('foo'), 'bar')
+  assertEquals(formData.get('baz'), 'qux')
 })
 
 Deno.test('Context#body then formData throws when body already parsed as non-form', async () => {

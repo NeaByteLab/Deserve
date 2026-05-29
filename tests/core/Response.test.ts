@@ -20,6 +20,19 @@ Deno.test('Response#create custom options.headers overrides base', () => {
   assertEquals(res.headers.get('X-App'), 'override')
 })
 
+Deno.test('Response#create custom with Headers instance merges correctly', () => {
+  const res = send.custom(null, { headers: new Headers({ 'X-Test': 'yes' }) })
+  assertEquals(res.headers.get('X-App'), 'test')
+  assertEquals(res.headers.get('X-Test'), 'yes')
+})
+
+Deno.test('Response#create custom with array headers merges correctly', () => {
+  const headers: [string, string][] = [['X-Arr', 'val']]
+  const res = send.custom(null, { headers })
+  assertEquals(res.headers.get('X-App'), 'test')
+  assertEquals(res.headers.get('X-Arr'), 'val')
+})
+
 Deno.test('Response#create custom with no body returns empty response', async () => {
   const res = send.custom(null, { status: 204 })
   assertEquals(res.status, 204)
@@ -44,6 +57,11 @@ Deno.test('Response#create data with Uint8Array sets Content-Length', () => {
   const data = new TextEncoder().encode('hello')
   const res = send.data(data, 'file.bin')
   assertEquals(res.headers.get('Content-Length'), '5')
+})
+
+Deno.test('Response#create data with default content-type uses octet-stream', () => {
+  const res = send.data('hello', 'a.txt')
+  assertEquals(res.headers.get('Content-Type'), 'application/octet-stream')
 })
 
 Deno.test('Response#create file reads file and sets headers', async () => {
@@ -96,6 +114,12 @@ Deno.test('Response#create json with nested object', async () => {
   assertEquals(res.headers.get('Content-Type'), 'application/json')
   const body = await res.json()
   assertEquals(body, { nested: { array: [1, 2, 3] } })
+})
+
+Deno.test('Response#create redirect defaults to 302', () => {
+  const res = send.redirect('https://example.com/')
+  assertEquals(res.status, 302)
+  assertEquals(res.headers.get('Location'), 'https://example.com/')
 })
 
 Deno.test('Response#create redirect delegates to buildRedirect', () => {

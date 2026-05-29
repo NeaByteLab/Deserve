@@ -47,15 +47,6 @@ Deno.test('Static#serveStaticFile sets Cache-Control when configured', async () 
   await res.body?.cancel()
 })
 
-Deno.test('Static#serveStaticFile with etag sets ETag header', async () => {
-  const ctx = createTestContext('http://localhost/')
-  const basePath = fileURLToPath(new URL('../fixtures/static/', import.meta.url)).replace(/[\\/]$/, '')
-  const res = await Core.Static.serveStaticFile(ctx, { path: basePath, etag: true }, '/')
-  assertEquals(res.status, 200)
-  assertEquals(res.headers.get('ETag')?.startsWith('"'), true)
-  await res.body?.cancel()
-})
-
 Deno.test('Static#serveStaticFile with If-None-Match returns 304', async () => {
   const basePath = fileURLToPath(new URL('../fixtures/static/', import.meta.url)).replace(/[\\/]$/, '')
   const ctxFirst = createTestContext('http://localhost/')
@@ -74,4 +65,13 @@ Deno.test('Static#serveStaticFile with If-None-Match returns 304', async () => {
   )
   assertEquals(resSecond.status, 304)
   assertEquals(resSecond.headers.get('ETag'), etag)
+})
+
+Deno.test('Static#serveStaticFile with etag sets ETag header', async () => {
+  const ctx = createTestContext('http://localhost/')
+  const basePath = fileURLToPath(new URL('../fixtures/static/', import.meta.url)).replace(/[\\/]$/, '')
+  const res = await Core.Static.serveStaticFile(ctx, { path: basePath, etag: true }, '/')
+  assertEquals(res.status, 200)
+  assertEquals(res.headers.get('ETag')?.startsWith('"'), true)
+  await res.body?.cancel()
 })
