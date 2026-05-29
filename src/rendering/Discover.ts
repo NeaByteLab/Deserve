@@ -41,7 +41,7 @@ export class Discover {
         }
       }
     } catch {
-      // viewsDir may not exist yet; return empty set
+      // no-op
     }
   }
 }
