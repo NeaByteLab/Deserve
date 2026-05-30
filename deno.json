@@ -62,6 +62,7 @@
   },
   "imports": {
     "@neabyte/fast-router": "jsr:@neabyte/fast-router@^0.1.0",
+    "@neabyte/stackz": "jsr:@neabyte/stackz@^0.1.0",
     "@neabyte/superwatcher": "jsr:@neabyte/superwatcher@^0.1.1",
     "@neabyte/utils-core": "jsr:@neabyte/utils-core@^0.2.0",
     "@std/assert": "jsr:@std/assert@^1.0.19",
