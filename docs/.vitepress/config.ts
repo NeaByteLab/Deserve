@@ -54,6 +54,7 @@ export default withMermaid(
                   { text: 'Context Object', link: '/en/core-concepts/context-object' },
                   { text: 'Request Handling', link: '/en/core-concepts/request-handling' },
                   { text: 'Hot Reload', link: '/en/core-concepts/hot-reload' },
+                  { text: 'Multi-Service', link: '/en/core-concepts/multi-service' },
                   { text: 'Worker Pool', link: '/en/core-concepts/worker-pool' }
                 ]
               },
@@ -189,6 +190,7 @@ export default withMermaid(
                   { text: 'Objek Konteks', link: '/id/core-concepts/context-object' },
                   { text: 'Penanganan Request', link: '/id/core-concepts/request-handling' },
                   { text: 'Hot Reload', link: '/id/core-concepts/hot-reload' },
+                  { text: 'Multi-Service', link: '/id/core-concepts/multi-service' },
                   { text: 'Worker Pool', link: '/id/core-concepts/worker-pool' }
                 ]
               },
