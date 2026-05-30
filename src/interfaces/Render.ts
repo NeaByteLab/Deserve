@@ -18,6 +18,8 @@ export interface DveStackFrame {
 
 /** Rendering engine constructor options. */
 export interface EngineOptions {
+  /** Max iterations per #each block */
+  readonly maxIterations?: number
   /** Root directory for DVE templates */
   readonly viewsDir: string
 }

@@ -1,4 +1,4 @@
-import type * as Types from '@interfaces/index.ts'
+import type { ServeOptions } from '@interfaces/Serve.ts'
 import type * as Core from '@core/index.ts'
 
 /** Static route handler descriptor. */
@@ -29,5 +29,5 @@ export interface StaticHandler {
    * @param urlPath - URL path prefix
    * @returns Promise resolving to file response
    */
-  serve(ctx: Core.Context, options: Types.ServeOptions, urlPath: string): Promise<Response>
+  serve(ctx: Core.Context, options: ServeOptions, urlPath: string): Promise<Response>
 }

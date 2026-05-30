@@ -1,9 +1,13 @@
-import type * as Types from '@interfaces/index.ts'
+import type { ErrorResponseBuilder } from '@interfaces/Error.ts'
+import type { StaticHandler } from '@interfaces/Static.ts'
+import type { WorkerPoolOptions } from '@interfaces/Worker.ts'
 
 /** Request handler configuration options. */
 export interface HandlerOptions {
   /** Custom error response builder */
-  readonly errorResponseBuilder?: Types.ErrorResponseBuilder
+  readonly errorResponseBuilder?: ErrorResponseBuilder
+  /** Max iterations per #each block */
+  readonly maxIterations?: number
   /** Max route param length, 414 if exceeded */
   readonly maxRouteParamLength?: number
   /** Max URL length, 414 if exceeded */
@@ -11,11 +15,11 @@ export interface HandlerOptions {
   /** Timeout in ms, 503 on expiry */
   readonly requestTimeoutMs?: number
   /** Custom static file handler */
-  readonly staticHandler?: Types.StaticHandler
+  readonly staticHandler?: StaticHandler
   /** Root directory for .dve templates */
   readonly viewsDir?: string
   /** Worker pool for CPU-bound work */
-  readonly worker?: Types.WorkerPoolOptions
+  readonly worker?: WorkerPoolOptions
 }
 
 /** Pending route change entry for hot-reload. */

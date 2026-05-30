@@ -1,5 +1,5 @@
-import type * as Types from '@interfaces/index.ts'
 import type * as Core from '@core/index.ts'
+import type { StaticFileHandler } from '@interfaces/Static.ts'
 import type { MaybeAsync } from '@interfaces/Utility.ts'
 
 /** Middleware bound to optional path. */
@@ -13,7 +13,7 @@ export interface MiddlewareEntry {
 /** Route match result with handler. */
 export interface RouteMetadata {
   /** Route or static file handler */
-  readonly handler: RouteHandler | Types.StaticFileHandler
+  readonly handler: RouteHandler | StaticFileHandler
   /** Path pattern used for matching */
   readonly pattern: string
 }
