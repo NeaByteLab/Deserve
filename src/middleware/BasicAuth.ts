@@ -20,10 +20,10 @@ export class BasicAuth {
     }
     return async (
       ctx: Core.Context,
-      next: () => Promise<Response | undefined>
-    ): Promise<Response | undefined> => {
+      next: Types.NextFn
+    ): Types.AsyncMiddlewareResult => {
       ctx.setHeader('WWW-Authenticate', 'Basic realm="Secure Area"')
-      const authHeader = ctx.header('authorization') as string | undefined
+      const authHeader = ctx.header('authorization')
       if (!authHeader || !authHeader.startsWith('Basic ')) {
         return await ctx.handleError(401, new Error('Unauthorized'))
       }
@@ -53,7 +53,7 @@ export class BasicAuth {
 
   /**
    * Constant-time string comparison for credentials.
-   * @description Compares two strings in constant time to avoid timing leaks.
+   * @description Compares two strings in constant time.
    * @param a - First string
    * @param b - Second string
    * @returns True when equal

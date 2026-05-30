@@ -6,7 +6,7 @@ import type * as Core from '@core/index.ts'
  * @description Session and set/clear in ctx.state; payload signed with HMAC.
  */
 export class Session {
-  /** Default cookie name, maxAge, path, sameSite, httpOnly */
+  /** Default session cookie options */
   private static readonly defaultOptions: Types.SessionCookieOpts = {
     cookieName: 'session',
     maxAge: 86400,
@@ -30,14 +30,14 @@ export class Session {
     const sessionOptions = { ...Session.defaultOptions, ...rest } as Types.SessionCookieOpts
     return async (
       ctx: Core.Context,
-      next: () => Promise<Response | undefined>
-    ): Promise<Response | undefined> => {
+      next: Types.NextFn
+    ): Types.AsyncMiddlewareResult => {
       const rawCookie = ctx.cookie(sessionOptions.cookieName)
       const cookieValue = typeof rawCookie === 'string' ? rawCookie : undefined
       ctx.state['session'] = cookieValue
         ? await Session.decodePayload(cookieValue, cookieSecret)
         : null
-      ctx.state['setSession'] = async (data: Types.SessionData) => {
+      ctx.state['setSession'] = async (data: Types.DataRecord) => {
         const encodedPayload = await Session.encodePayload(data, cookieSecret)
         ctx.setHeader(
           'Set-Cookie',
@@ -135,7 +135,7 @@ export class Session {
   private static async decodePayload(
     encodedValue: string,
     secret: string
-  ): Promise<Types.SessionData | null> {
+  ): Promise<Types.DataRecord | null> {
     try {
       const value = encodedValue.includes('%') ? decodeURIComponent(encodedValue) : encodedValue
       const dot = value.lastIndexOf('.')
@@ -163,7 +163,7 @@ export class Session {
       }
       const payloadBytes = Session.base64UrlDecode(payloadB64)
       const payloadStr = new TextDecoder().decode(payloadBytes)
-      return JSON.parse(payloadStr) as Types.SessionData
+      return JSON.parse(payloadStr) as Types.DataRecord
     } catch {
       return null
     }
@@ -177,7 +177,7 @@ export class Session {
    * @returns Signed cookie value string
    */
   private static async encodePayload(
-    sessionData: Types.SessionData,
+    sessionData: Types.DataRecord,
     secret: string
   ): Promise<string> {
     const payloadStr = JSON.stringify(sessionData)
