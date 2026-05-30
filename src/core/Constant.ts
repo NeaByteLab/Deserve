@@ -1,10 +1,19 @@
+import type * as Types from '@interfaces/index.ts'
+
 /**
  * Shared route and MIME constants.
  * @description File extensions and content-type map for routing and static.
  */
 export class Constant {
   /** File extensions allowed for route modules */
-  static readonly allowedExtensions = ['cjs', 'js', 'jsx', 'mjs', 'ts', 'tsx']
+  static readonly allowedExtensions: readonly Types.RouteFileExtension[] = [
+    'cjs',
+    'js',
+    'jsx',
+    'mjs',
+    'ts',
+    'tsx'
+  ]
   /** Extension to MIME type map for static files */
   static readonly contentTypes: Record<string, string> = {
     html: 'text/html',
@@ -90,5 +99,13 @@ export class Constant {
     serviceworker: 'application/javascript'
   }
   /** HTTP methods used for route registration */
-  static readonly httpMethods = ['DELETE', 'GET', 'HEAD', 'OPTIONS', 'PATCH', 'POST', 'PUT']
+  static readonly httpMethods: readonly Types.HttpMethod[] = [
+    'DELETE',
+    'GET',
+    'HEAD',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT'
+  ]
 }
