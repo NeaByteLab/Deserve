@@ -23,22 +23,26 @@ export class Session {
    * @throws {Deno.errors.InvalidData} When cookieSecret is missing or empty
    */
   static create(options: Types.SessionOptions): Types.Middleware {
-    const { cookieSecret, ...rest } = options
-    if (!cookieSecret || cookieSecret.length === 0) {
+    if (!options.cookieSecret || options.cookieSecret.length === 0) {
       throw new Deno.errors.InvalidData('Session cookieSecret must be a non-empty string')
     }
-    const sessionOptions = { ...Session.defaultOptions, ...rest } as Types.SessionCookieOpts
+    const sessionOptions: Types.SessionCookieOpts = {
+      cookieName: options.cookieName ?? Session.defaultOptions.cookieName,
+      maxAge: options.maxAge ?? Session.defaultOptions.maxAge,
+      path: options.path ?? Session.defaultOptions.path,
+      sameSite: options.sameSite ?? Session.defaultOptions.sameSite,
+      httpOnly: options.httpOnly ?? Session.defaultOptions.httpOnly
+    }
     return async (
       ctx: Core.Context,
       next: Types.NextFn
     ): Types.AsyncMiddlewareResult => {
-      const rawCookie = ctx.cookie(sessionOptions.cookieName)
-      const cookieValue = typeof rawCookie === 'string' ? rawCookie : undefined
+      const cookieValue = ctx.cookie(sessionOptions.cookieName)
       ctx.state['session'] = cookieValue
-        ? await Session.decodePayload(cookieValue, cookieSecret)
+        ? await Session.decodePayload(cookieValue, options.cookieSecret)
         : null
       ctx.state['setSession'] = async (data: Types.DataRecord) => {
-        const encodedPayload = await Session.encodePayload(data, cookieSecret)
+        const encodedPayload = await Session.encodePayload(data, options.cookieSecret)
         ctx.setHeader(
           'Set-Cookie',
           Session.buildSetCookieHeader(sessionOptions.cookieName, encodedPayload, sessionOptions)
@@ -65,11 +69,7 @@ export class Session {
     const pad = base64.length % 4
     const padded = pad ? base64 + '='.repeat(4 - pad) : base64
     const binary = atob(padded)
-    const bytes = new Uint8Array(binary.length)
-    for (let i = 0; i < binary.length; i++) {
-      bytes[i] = binary.charCodeAt(i)
-    }
-    return bytes
+    return Uint8Array.from(binary, (ch) => ch.charCodeAt(0))
   }
 
   /**
@@ -79,13 +79,7 @@ export class Session {
    * @returns Base64url encoded string
    */
   private static base64UrlEncode(bytes: Uint8Array): string {
-    let binary = ''
-    for (let i = 0; i < bytes.length; i++) {
-      const byte = bytes[i]
-      if (byte !== undefined) {
-        binary += String.fromCharCode(byte)
-      }
-    }
+    const binary = Array.from(bytes, (b) => String.fromCharCode(b)).join('')
     return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
   }
 

@@ -20,7 +20,7 @@ export class Utils {
         const err = error as Types.StatusError
         const status = err.statusCode ?? 500
         const message = err.message || 'Unknown error'
-        return await ctx.handleError(status, new Error(`${label} - ${message}`))
+        return await ctx.handleError(status, new Deno.errors.Http(`${label} ${message}`))
       }
     }
   }

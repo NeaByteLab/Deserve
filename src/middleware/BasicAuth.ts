@@ -14,10 +14,10 @@ export class BasicAuth {
    * @throws {Deno.errors.InvalidData} When users array is empty
    */
   static create(options: Types.BasicAuthOptions): Types.Middleware {
-    const { users } = options
-    if (!users || users.length === 0) {
+    if (!options.users || options.users.length === 0) {
       throw new Deno.errors.InvalidData('BasicAuth requires at least one user in the users array')
     }
+    const users = options.users
     return async (
       ctx: Core.Context,
       next: Types.NextFn
@@ -25,28 +25,40 @@ export class BasicAuth {
       ctx.setHeader('WWW-Authenticate', 'Basic realm="Secure Area"')
       const authHeader = ctx.header('authorization')
       if (!authHeader || !authHeader.startsWith('Basic ')) {
-        return await ctx.handleError(401, new Error('Unauthorized'))
+        return await ctx.handleError(
+          401,
+          new Deno.errors.PermissionDenied('Missing or invalid Authorization header')
+        )
       }
       try {
         const credentials = atob(authHeader.slice(6))
         const colonIndex = credentials.indexOf(':')
         if (colonIndex <= 0 || colonIndex === credentials.length - 1) {
-          return await ctx.handleError(401, new Error('Unauthorized'))
+          return await ctx.handleError(
+            401,
+            new Deno.errors.PermissionDenied('Malformed Basic Auth credentials')
+          )
         }
         let isValid = false
-        for (const userCredential of users) {
-          const expected = `${userCredential.username}:${userCredential.password}`
-          if (BasicAuth.constantTimeEqual(credentials, expected)) {
+        for (const user of users) {
+          if (BasicAuth.constantTimeEqual(credentials, `${user.username}:${user.password}`)) {
             isValid = true
           }
         }
         if (!isValid) {
-          return await ctx.handleError(401, new Error('Unauthorized'))
+          return await ctx.handleError(
+            401,
+            new Deno.errors.PermissionDenied('Invalid username or password')
+          )
         }
         return await next()
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-        return await ctx.handleError(401, new Error(`BasicAuth failed with ${errorMessage}`))
+        return await ctx.handleError(
+          401,
+          new Deno.errors.PermissionDenied(
+            `BasicAuth failed because ${error instanceof Error ? error.message : 'unknown error'}`
+          )
+        )
       }
     }
   }

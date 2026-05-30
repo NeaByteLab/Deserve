@@ -31,10 +31,10 @@ export class SecHeaders {
    */
   static create(options: Types.SecurityHeadersOptions = {}): Types.Middleware {
     return Middleware.Utils.wrapMiddleware('Security headers error', async (ctx, next) => {
-      for (const { key, name } of SecHeaders.headerEntries) {
-        const value = options[key]
+      for (const entry of SecHeaders.headerEntries) {
+        const value = options[entry.key]
         if (value !== false && value !== undefined) {
-          ctx.setHeader(name, value)
+          ctx.setHeader(entry.name, value)
         }
       }
       return await next()

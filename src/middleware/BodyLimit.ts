@@ -18,12 +18,13 @@ export class BodyLimit {
       if (ctx.request.method === 'GET' || ctx.request.method === 'HEAD') {
         return await next()
       }
-      const hasContentLength = ctx.headers.has('content-length')
-      const hasTransferEncoding = ctx.headers.has('transfer-encoding')
-      if (hasContentLength && !hasTransferEncoding) {
+      if (ctx.headers.has('content-length') && !ctx.headers.has('transfer-encoding')) {
         const contentLength = parseInt(ctx.headers.get('content-length') || '0', 10)
         if (contentLength > maxSize) {
-          return await ctx.handleError(413, new Error('Request entity too large'))
+          return await ctx.handleError(
+            413,
+            new Deno.errors.InvalidData(`Request body exceeds ${maxSize} bytes limit`)
+          )
         }
       }
       const body = ctx.request.body
@@ -68,7 +69,9 @@ export class BodyLimit {
             total += value.length
             if (total > maxBytes) {
               reader.cancel()
-              const sizeError = new Error('Request entity too large') as Types.StatusError
+              const sizeError = new Deno.errors.InvalidData(
+                `Request body exceeds ${maxBytes} bytes limit`
+              ) as Types.StatusError
               sizeError.statusCode = 413
               controller.error(sizeError)
               return

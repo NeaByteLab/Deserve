@@ -21,9 +21,7 @@ export class WebSocket {
         if (!listener) {
           return await next()
         }
-        const upgradeHeader = ctx.header('upgrade')
-        const upgradeValue = typeof upgradeHeader === 'string' ? upgradeHeader : undefined
-        if (upgradeValue?.toLowerCase() !== 'websocket') {
+        if (ctx.header('upgrade')?.toLowerCase() !== 'websocket') {
           return await next()
         }
         if (!ctx.pathname.startsWith(listener)) {
