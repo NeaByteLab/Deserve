@@ -25,19 +25,15 @@ export class Cors {
     const credentials = options.credentials ?? false
     const maxAge = options.maxAge ?? 86400
     return Middleware.Utils.wrapMiddleware('CORS error', async (ctx, next) => {
-      const requestOrigin = ctx.header('origin') as string | undefined
+      const requestOrigin = ctx.header('origin')
       if (!requestOrigin) {
         return await next()
       }
       let allowedOrigin: string | null = null
-      if (origin === '*') {
-        allowedOrigin = '*'
-      } else if (Array.isArray(origin)) {
-        if (origin.includes(requestOrigin)) {
-          allowedOrigin = requestOrigin
-        }
-      } else {
+      if (typeof origin === 'string') {
         allowedOrigin = origin
+      } else if (origin.includes(requestOrigin)) {
+        allowedOrigin = requestOrigin
       }
       if (ctx.request.method === 'OPTIONS') {
         if (allowedOrigin) {
@@ -51,9 +47,9 @@ export class Cors {
           if (exposedHeaders.length > 0) {
             ctx.setHeader('Access-Control-Expose-Headers', exposedHeaders.join(', '))
           }
-          return await ctx.handleError(204, new Error('No Content'))
+          return ctx.send.custom(null, { status: 204 })
         }
-        return await ctx.handleError(403, new Error('Forbidden'))
+        return ctx.send.custom(null, { status: 403 })
       }
       if (allowedOrigin) {
         ctx.setHeader('Access-Control-Allow-Origin', allowedOrigin)
