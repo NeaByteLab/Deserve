@@ -31,6 +31,8 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- `WebSocket.onDisconnect` callback now receives `CloseEvent` as second argument, exposing `event.code`, `event.reason`, and `event.wasClean`
+- `WebSocket.onDisconnect` type changed from `SocketCallback` to `SocketEventCallback<CloseEvent>`
 - File watchers migrated from internal `WatchFs` to `@neabyte/superwatcher` with ignore-based extension filtering, Map-based event dedup, and atomic write detection
 - `Routing.Watcher.watch()` and `Rendering.Watcher.watch()` changed from `async` to synchronous
 - `Router.startWatchers()` no longer wraps watcher calls in `.catch()` since watchers are now synchronous
