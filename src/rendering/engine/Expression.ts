@@ -1,8 +1,8 @@
 import type * as Types from '@interfaces/index.ts'
 
 /**
- * DVE expression parser
- * @description Builds expression AST from token list
+ * DVE expression parser.
+ * @description Builds expression AST from token list.
  */
 export class Expression {
   /** Current token stream index */
@@ -16,8 +16,8 @@ export class Expression {
   constructor(private readonly tokens: Types.ExprToken[]) {}
 
   /**
-   * Assert no remaining tokens
-   * @description Throws if unconsumed tokens remain
+   * Assert no remaining tokens.
+   * @description Throws if unconsumed tokens remain.
    * @throws {Error} When unexpected tokens remain
    */
   assertEnd(): void {
@@ -27,8 +27,8 @@ export class Expression {
   }
 
   /**
-   * Parse tokens into expression AST
-   * @description Parses ternary down to primary nodes
+   * Parse tokens into expression AST.
+   * @description Parses ternary down to primary nodes.
    * @returns Expression AST node
    */
   parse(): Types.ExprNode {
@@ -52,7 +52,7 @@ export class Expression {
    * @param value - Expected operator string
    * @throws {Error} When token is not the operator
    */
-  private expectOp(value: string): void {
+  private expectOp(value: Types.TokenOp): void {
     const currentToken = this.consume()
     if (!currentToken || currentToken.kind !== 'op' || currentToken.value !== value) {
       throw new Error(`Expected '${value}' in DVE expression`)
@@ -65,7 +65,7 @@ export class Expression {
    * @param value - Operator to match
    * @returns True when matched and consumed
    */
-  private matchOp(value: string): boolean {
+  private matchOp(value: Types.TokenOp): boolean {
     const currentToken = this.peek()
     if (currentToken?.kind === 'op' && currentToken.value === value) {
       this.tokenIndex++
@@ -295,7 +295,7 @@ export class Expression {
     ) {
       this.consume()
       const argNode = this.parseUn()
-      return { type: 'unary', op: currentToken.value as '!' | '+' | '-', arg: argNode }
+      return { type: 'unary', op: currentToken.value as Types.UnaryOp, arg: argNode }
     }
     return this.parseMem()
   }

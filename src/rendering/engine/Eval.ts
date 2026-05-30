@@ -2,8 +2,8 @@ import type * as Types from '@interfaces/index.ts'
 import * as EngineParts from '@rendering/engine/index.ts'
 
 /**
- * DVE expression evaluator
- * @description Evaluates expression AST against scope object
+ * DVE expression evaluator.
+ * @description Evaluates expression AST against scope object.
  */
 export class Eval {
   /** Simple dotted path regex */
@@ -11,14 +11,14 @@ export class Eval {
     /^[a-zA-Z_$][a-zA-Z0-9_$]*(\.[a-zA-Z_$][a-zA-Z0-9_$]*)*$/
 
   /**
-   * Evaluate expression in scope
-   * @description Tokenizes, parses, and evaluates expression
+   * Evaluate expression in scope.
+   * @description Tokenizes, parses, and evaluates expression.
    * @param expression - Expression source text
    * @param scope - Scope data for identifiers
    * @returns Evaluated expression value
    * @throws {Error} When expression parse fails
    */
-  static evaluate(expression: string, scope: Record<string, unknown>): unknown {
+  static evaluate(expression: string, scope: Types.DataRecord): unknown {
     const trimmedExpression = expression.trim()
     if (!trimmedExpression) {
       return undefined
@@ -40,7 +40,7 @@ export class Eval {
    * @param scope - Scope data for identifiers
    * @returns Evaluated value
    */
-  private static evalNode(exprNode: Types.ExprNode, scope: Record<string, unknown>): unknown {
+  private static evalNode(exprNode: Types.ExprNode, scope: Types.DataRecord): unknown {
     if (exprNode.type === 'literal') {
       return exprNode.value
     }
@@ -67,7 +67,7 @@ export class Eval {
       if (typeof objectValue !== 'object') {
         return undefined
       }
-      return (objectValue as Record<string, unknown>)[exprNode.property]
+      return (objectValue as Types.DataRecord)[exprNode.property]
     }
     if (exprNode.type === 'unary') {
       const argValue = Eval.evalNode(exprNode.arg, scope)
