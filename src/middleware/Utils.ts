@@ -17,7 +17,7 @@ export class Utils {
       try {
         return await middleware(ctx, next)
       } catch (error) {
-        const err = error as Error & { statusCode?: number }
+        const err = error as Types.StatusError
         const status = err.statusCode ?? 500
         const message = err.message || 'Unknown error'
         return await ctx.handleError(status, new Error(`${label} - ${message}`))

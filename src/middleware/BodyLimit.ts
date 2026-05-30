@@ -13,7 +13,7 @@ export class BodyLimit {
    * @returns Middleware that enforces limit
    */
   static create(options: Types.BodyLimitOptions): Types.Middleware {
-    const maxSize = options.limit ?? 1024 * 1024
+    const maxSize = options.limit
     return Middleware.Utils.wrapMiddleware('Body limit error', async (ctx, next) => {
       if (ctx.request.method === 'GET' || ctx.request.method === 'HEAD') {
         return await next()
@@ -68,9 +68,7 @@ export class BodyLimit {
             total += value.length
             if (total > maxBytes) {
               reader.cancel()
-              const sizeError = new Error('Request entity too large') as Error & {
-                statusCode?: number
-              }
+              const sizeError = new Error('Request entity too large') as Types.StatusError
               sizeError.statusCode = 413
               controller.error(sizeError)
               return
