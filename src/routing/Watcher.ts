@@ -1,3 +1,4 @@
+import type * as Types from '@interfaces/index.ts'
 import { Superwatcher } from '@neabyte/superwatcher'
 import { createSequential } from '@neabyte/utils-core'
 import * as Core from '@core/index.ts'
@@ -20,7 +21,7 @@ export class Watcher {
    */
   static watch(handler: Routing.Handler, routesDir: string): void {
     const extensions = Core.Constant.allowedExtensions
-    const extensionSet = new Set(extensions)
+    const extensionSet: Set<string> = new Set(extensions)
     const resolvedDir = nodePath.resolve(routesDir)
     const reloader = createSequential(async () => {
       for (const routePath of pendingRemovals) {
@@ -35,7 +36,7 @@ export class Watcher {
       pendingChanges.clear()
       pendingRemovals.clear()
     })
-    const pendingChanges = new Map<string, { fullPath: string; routePath: string }>()
+    const pendingChanges = new Map<string, Types.RouteChangeEntry>()
     const pendingRemovals = new Set<string>()
     const watcher = new Superwatcher({
       path: resolvedDir,
