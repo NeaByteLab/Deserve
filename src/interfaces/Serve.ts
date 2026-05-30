@@ -1,9 +1,9 @@
 /** Options for static file serving. */
 export interface ServeOptions {
   /** Max-age in seconds for Cache-Control */
-  cacheControl?: number
+  readonly cacheControl?: number
   /** Enable ETag generation and 304 */
-  etag?: boolean
+  readonly etag?: boolean
   /** File system path for static root */
-  path: string
+  readonly path: string
 }

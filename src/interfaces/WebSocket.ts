@@ -3,22 +3,26 @@ import type * as Core from '@core/index.ts'
 /** WebSocket upgrade middleware options. */
 export interface WebSocketOptions {
   /** Path prefix that triggers upgrade */
-  listener?: string
+  readonly listener?: string
   /** Called when socket opens */
-  onConnect?: SocketCallback
+  readonly onConnect?: SocketCallback<Event>
   /** Called when socket closes */
-  onDisconnect?: SocketEventCallback<CloseEvent>
+  readonly onDisconnect?: SocketCallback<CloseEvent>
   /** Called on socket error */
-  onError?: SocketEventCallback
+  readonly onError?: SocketCallback<Event>
   /** Called on each message */
-  onMessage?: SocketEventCallback<MessageEvent>
+  readonly onMessage?: SocketCallback<MessageEvent>
 }
 
-/** Socket callback with context. */
-type SocketCallback = (socket: WebSocket, ctx: Core.Context) => void
-
-/** Socket event callback with payload. */
-type SocketEventCallback<E extends Event = Event> = (
+/**
+ * Socket lifecycle callback with event.
+ * @description Handles WebSocket event with context access.
+ * @template E - Event type, defaults to Event
+ * @param socket - Active WebSocket connection
+ * @param event - Fired event payload
+ * @param ctx - Request context
+ */
+export type SocketCallback<E extends Event = Event> = (
   socket: WebSocket,
   event: E,
   ctx: Core.Context

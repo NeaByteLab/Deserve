@@ -1,17 +1,18 @@
+import type { MaybeAsync } from '@interfaces/Utility.ts'
 import type * as Core from '@core/index.ts'
 
 /** Error details passed to error middleware. */
 export interface ErrorInfo {
-  /** Thrown error when available */
-  error?: Error
+  /** Thrown error instance */
+  readonly error: Error
   /** HTTP method of the request */
-  method: string
+  readonly method: string
   /** Request pathname */
-  pathname: string
+  readonly pathname: string
   /** HTTP status code for error */
-  statusCode: number
+  readonly statusCode: number
   /** Full request URL */
-  url: string
+  readonly url: string
 }
 
 /**
@@ -34,6 +35,12 @@ export interface ErrorResponseBuilder {
     error: Error,
     errorMiddleware: ErrorMiddleware | null
   ): Promise<Response>
+}
+
+/** Error with optional HTTP status code. */
+export interface StatusError extends Error {
+  /** HTTP status code when available */
+  statusCode?: number
 }
 
 /**
@@ -61,6 +68,3 @@ export type ErrorMiddleware = (
   ctx: Core.Context,
   error: ErrorInfo
 ) => MaybeAsync<Response | null> | null
-
-/** Sync or async value. */
-type MaybeAsync<T> = T | Promise<T>

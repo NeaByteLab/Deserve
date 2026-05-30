@@ -1,21 +1,25 @@
 import type * as Types from '@interfaces/index.ts'
 import type * as Core from '@core/index.ts'
+import type { MaybeAsync } from '@interfaces/Utility.ts'
 
 /** Middleware bound to optional path. */
 export interface MiddlewareEntry {
   /** Middleware function */
-  handler: Middleware
+  readonly handler: Middleware
   /** Path prefix or exact match */
-  path: string
+  readonly path: string
 }
 
 /** Route match result with handler. */
 export interface RouteMetadata {
   /** Route or static file handler */
-  handler: RouteHandler | Types.StaticFileHandler
+  readonly handler: RouteHandler | Types.StaticFileHandler
   /** Path pattern used for matching */
-  pattern: string
+  readonly pattern: string
 }
+
+/** Async-only middleware result derived from MiddlewareResult. */
+export type AsyncMiddlewareResult = Promise<Awaited<MiddlewareResult>>
 
 /**
  * Middleware function with context.
@@ -24,10 +28,13 @@ export interface RouteMetadata {
  * @param next - Calls next middleware in chain
  * @returns Response or undefined, sync or async
  */
-export type Middleware = (
-  ctx: Core.Context,
-  next: () => Promise<Response | undefined>
-) => MiddlewareResult
+export type Middleware = (ctx: Core.Context, next: NextFn) => MiddlewareResult
+
+/** Middleware result type alias. */
+export type MiddlewareResult = MaybeAsync<Response | undefined>
+
+/** Next function passed to middleware. */
+export type NextFn = () => AsyncMiddlewareResult
 
 /**
  * Route handler receiving context.
@@ -36,9 +43,3 @@ export type Middleware = (
  * @returns Response sync or async
  */
 export type RouteHandler = (context: Core.Context) => MaybeAsync<Response>
-
-/** Sync or async value. */
-type MaybeAsync<T> = T | Promise<T>
-
-/** Middleware result type alias. */
-type MiddlewareResult = MaybeAsync<Response | undefined>

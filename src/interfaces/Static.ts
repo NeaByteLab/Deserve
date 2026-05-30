@@ -1,6 +1,21 @@
 import type * as Types from '@interfaces/index.ts'
 import type * as Core from '@core/index.ts'
 
+/** Static route handler descriptor. */
+export interface StaticFileHandler {
+  /**
+   * Execute static file serve.
+   * @description Handles static file request and returns response.
+   * @param ctx - Request context
+   * @returns Promise resolving to file response
+   */
+  readonly execute: (ctx: Core.Context) => Promise<Response>
+  /** Marks this as a static route */
+  readonly staticRoute: true
+  /** URL path prefix for static files */
+  readonly urlPath: string
+}
+
 /**
  * Serves static files from path.
  * @description Handles file resolution and response.
@@ -15,14 +30,4 @@ export interface StaticHandler {
    * @returns Promise resolving to file response
    */
   serve(ctx: Core.Context, options: Types.ServeOptions, urlPath: string): Promise<Response>
-}
-
-/** Static route handler descriptor. */
-export type StaticFileHandler = {
-  /** Executes static serve for the request */
-  execute: (ctx: Core.Context) => Promise<Response>
-  /** Marks this as a static route */
-  staticRoute: true
-  /** URL path prefix for static files */
-  urlPath: string
 }

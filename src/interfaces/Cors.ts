@@ -1,15 +1,17 @@
+import type { HttpMethod } from '@interfaces/Handler.ts'
+
 /** CORS middleware options. */
 export interface CorsOptions {
   /** Allowed request headers */
-  allowedHeaders?: string[]
+  readonly allowedHeaders?: readonly string[]
   /** Allow credentials */
-  credentials?: boolean
+  readonly credentials?: boolean
   /** Headers exposed to client */
-  exposedHeaders?: string[]
+  readonly exposedHeaders?: readonly string[]
   /** Preflight cache max-age in seconds */
-  maxAge?: number
+  readonly maxAge?: number
   /** Allowed methods */
-  methods?: string[]
+  readonly methods?: readonly HttpMethod[]
   /** Allowed origin(s) or '*' */
-  origin?: string | string[]
+  readonly origin?: string | readonly string[]
 }

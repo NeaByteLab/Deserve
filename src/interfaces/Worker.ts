@@ -1,9 +1,17 @@
+/** Worker message payload with optional error. */
+export interface WorkerMessageData {
+  /** True when worker signals an error */
+  readonly error?: boolean
+  /** Error or result message */
+  readonly message?: string
+}
+
 /** Worker pool creation options. */
 export interface WorkerPoolOptions {
   /** Number of workers, default 4 */
-  poolSize?: number
+  readonly poolSize?: number
   /** Module URL for worker script */
-  scriptURL: string
+  readonly scriptURL: string
 }
 
 /** Handle to run worker tasks. */

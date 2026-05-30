@@ -1,13 +1,13 @@
 /** Basic Auth middleware options. */
 export interface BasicAuthOptions {
   /** Allowed username/password pairs */
-  users: BasicAuthUser[]
+  readonly users: readonly BasicAuthUser[]
 }
 
 /** Single Basic Auth user credential. */
 export interface BasicAuthUser {
   /** Login name */
-  username: string
+  readonly username: string
   /** Password */
-  password: string
+  readonly password: string
 }
