@@ -11,12 +11,12 @@ export class BasicAuth {
    * @description Validates Authorization header against user list.
    * @param options - List of username/password pairs
    * @returns Middleware that returns 401 when invalid
-   * @throws {Error} When users array is empty
+   * @throws {Deno.errors.InvalidData} When users array is empty
    */
   static create(options: Types.BasicAuthOptions): Types.Middleware {
     const { users } = options
     if (!users || users.length === 0) {
-      throw new Error('BasicAuth requires at least one user in the users array')
+      throw new Deno.errors.InvalidData('BasicAuth requires at least one user in the users array')
     }
     return async (
       ctx: Core.Context,

@@ -3,8 +3,8 @@ import * as Rendering from '@rendering/index.ts'
 import * as EngineParts from '@rendering/engine/index.ts'
 
 /**
- * Template rendering engine
- * @description Compiles and renders DVE templates with cache
+ * Template rendering engine.
+ * @description Compiles and renders DVE templates with cache.
  */
 export class Engine implements Types.ViewEngine {
   /** Default views directory */
@@ -17,8 +17,8 @@ export class Engine implements Types.ViewEngine {
   private discoveredPaths: Set<string> | null = null
 
   /**
-   * Create new engine instance
-   * @description Stores default viewsDir from options
+   * Create new engine instance.
+   * @description Stores default viewsDir from options.
    * @param options - Engine configuration options
    */
   constructor(options: Types.EngineOptions) {
@@ -40,18 +40,17 @@ export class Engine implements Types.ViewEngine {
     this.compileCache.delete(absPath)
   }
 
-  /** Reset discovered template paths */
-  refreshPaths(): void {
+  /** Reset discovered template paths */ refreshPaths(): void {
     this.discoveredPaths = null
   }
 
   /**
-   * Render template with data
-   * @description Loads template and produces final HTML
+   * Render template with data.
+   * @description Loads template and produces final HTML.
    * @param templatePath - Relative template path
    * @param data - Template scope data
    * @returns Rendered HTML string
-   * @throws {Error} When template path not discovered
+   * @throws {Deno.errors.NotFound} When template path not discovered
    */
   async render(templatePath: string, data: Types.TemplateData = {}): Promise<string> {
     const compiled = await this.resolveTemplate(templatePath)
@@ -64,7 +63,7 @@ export class Engine implements Types.ViewEngine {
    * @param templatePath - Relative template path
    * @param data - Template scope data
    * @returns ReadableStream with HTML content
-   * @throws {Error} When template not found
+   * @throws {Deno.errors.NotFound} When template not found
    */
   streamRender(templatePath: string, data: Types.TemplateData = {}): ReadableStream {
     const { readable, writable } = new TransformStream()
@@ -75,8 +74,8 @@ export class Engine implements Types.ViewEngine {
   }
 
   /**
-   * Compile template and cache
-   * @description Parses template text into AST nodes
+   * Compile template and cache.
+   * @description Parses template text into AST nodes.
    * @param absTemplatePath - Absolute path to template
    * @returns Compile result with AST
    */
@@ -93,8 +92,8 @@ export class Engine implements Types.ViewEngine {
   }
 
   /**
-   * Load template text with cache
-   * @description Loads file contents from disk once
+   * Load template text with cache.
+   * @description Loads file contents from disk once.
    * @param absPath - Absolute template file path
    * @returns Template file contents
    */
@@ -109,8 +108,8 @@ export class Engine implements Types.ViewEngine {
   }
 
   /**
-   * Render node to chunk
-   * @description Renders individual node to HTML chunk
+   * Render node to chunk.
+   * @description Renders individual node to HTML chunk.
    * @param node - AST node to render
    * @param data - Template scope data
    * @param viewsDir - Root directory for includes
@@ -164,8 +163,8 @@ export class Engine implements Types.ViewEngine {
   }
 
   /**
-   * Render AST nodes to HTML
-   * @description Evaluates variables, includes, and blocks
+   * Render AST nodes to HTML.
+   * @description Evaluates variables, includes, and blocks.
    * @param ast - Parsed template AST nodes
    * @param data - Current scope data
    * @param viewsDir - Root directory for includes
@@ -187,8 +186,8 @@ export class Engine implements Types.ViewEngine {
   }
 
   /**
-   * Render template nodes to stream
-   * @description Streams HTML output progressively
+   * Render template nodes to stream.
+   * @description Streams HTML output progressively.
    * @param templatePath - Relative template path
    * @param data - Template scope data
    * @param writable - Writable stream for output
@@ -218,7 +217,7 @@ export class Engine implements Types.ViewEngine {
    * @description Discovers paths, normalizes, validates, and compiles.
    * @param templatePath - Relative template path
    * @returns Compiled template with AST
-   * @throws {Error} When template not found
+   * @throws {Deno.errors.NotFound} When template not found
    */
   private async resolveTemplate(templatePath: string): Promise<Types.CompileResult> {
     if (this.discoveredPaths === null) {
@@ -229,7 +228,7 @@ export class Engine implements Types.ViewEngine {
       ? normalizedPath
       : `${normalizedPath}.dve`
     if (!this.discoveredPaths.has(pathWithExt)) {
-      throw new Error(`Template "${templatePath}" not found in views directory`)
+      throw new Deno.errors.NotFound(`Template "${templatePath}" not found in views directory`)
     }
     const absPath = EngineParts.Utils.join(this.defaultViewsDir, pathWithExt)
     return await this.compileTemplate(absPath)

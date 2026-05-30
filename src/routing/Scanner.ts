@@ -117,7 +117,7 @@ export class Scanner {
    * @param module - Loaded route module object
    * @param routePath - Path for error messages
    * @param methods - Valid HTTP method names
-   * @throws {Error} When no method or non-function export
+   * @throws {Deno.errors.InvalidData} When no method or non-function export
    */
   static validateModule(
     module: Record<string, unknown>,
@@ -126,14 +126,14 @@ export class Scanner {
   ): void {
     const exportedMethods = Object.keys(module).filter((key) => methods.includes(key))
     if (exportedMethods.length === 0) {
-      throw new Error(
+      throw new Deno.errors.InvalidData(
         `Route "${routePath}" must export at least one HTTP method (${methods.join(', ')})`
       )
     }
     for (const [key, value] of Object.entries(module)) {
       if (methods.includes(key)) {
         if (typeof value !== 'function') {
-          throw new Error(
+          throw new TypeError(
             `Route "${routePath}" export "${key}" must be a function, got ${typeof value}`
           )
         }

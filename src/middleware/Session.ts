@@ -20,12 +20,12 @@ export class Session {
    * @description Populates ctx.state with session and helpers; requires cookieSecret.
    * @param options - Session options with required cookieSecret
    * @returns Middleware that populates ctx.state.session
-   * @throws {Error} When cookieSecret is missing or empty
+   * @throws {Deno.errors.InvalidData} When cookieSecret is missing or empty
    */
   static create(options: Types.SessionOptions): Types.Middleware {
     const { cookieSecret, ...rest } = options
     if (!cookieSecret || cookieSecret.length === 0) {
-      throw new Error('Session cookieSecret must be a non-empty string')
+      throw new Deno.errors.InvalidData('Session cookieSecret must be a non-empty string')
     }
     const sessionOptions = { ...Session.defaultOptions, ...rest } as Types.SessionCookieOpts
     return async (

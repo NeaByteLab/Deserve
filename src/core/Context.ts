@@ -6,27 +6,27 @@ import * as Core from '@core/index.ts'
  * @description Parses body once; exposes headers, cookies, state.
  */
 export class Context {
-  /** Parsed body; undefined until parsed. */
+  /** Parsed body; undefined until parsed */
   private bodyData: unknown = undefined
-  /** Format body was parsed as. */
+  /** Format body was parsed as */
   private bodyParsedAs: 'arraybuffer' | 'blob' | 'form' | 'json' | 'text' | null = null
-  /** Parsed cookie name-to-value map; lazy. */
+  /** Parsed cookie name-to-value map; lazy */
   private cookieMap: Record<string, string> | undefined = undefined
-  /** Custom error handler when set. */
+  /** Custom error handler when set */
   private errorHandler: Types.ErrorHandler | undefined = undefined
-  /** Lowercased request header map; lazy. */
+  /** Lowercased request header map; lazy */
   private headerMap: Record<string, string> | undefined = undefined
-  /** Parsed query string params; lazy. */
+  /** Parsed query string params; lazy */
   private queryParams: Record<string, string> | undefined = undefined
-  /** Incoming fetch Request. */
+  /** Incoming fetch Request */
   private req: Request
-  /** Arbitrary state for middleware/handlers. */
+  /** Arbitrary state for middleware/handlers */
   private requestState: Record<string, unknown> = {}
-  /** Response headers to send. */
+  /** Response headers to send */
   private responseHeaders: Record<string, string> = {}
-  /** Matched route path params. */
+  /** Matched route path params */
   private routeParams: Record<string, string>
-  /** Parsed request URL. */
+  /** Parsed request URL */
   private urlObj: URL
 
   /**
@@ -285,7 +285,9 @@ export class Context {
   async render(templatePath: string, data: Types.TemplateData = {}): Promise<Response> {
     const view = this.state['view'] as Types.ViewEngine | undefined
     if (view === undefined) {
-      throw new Error('View engine not configured, set viewsDir in RouterOptions')
+      throw new Deno.errors.NotSupported(
+        'View engine not configured, set viewsDir in RouterOptions'
+      )
     }
     const html = await view.render(templatePath, data)
     return this.send.html(html)
@@ -344,7 +346,9 @@ export class Context {
   streamRender(templatePath: string, data: Types.TemplateData = {}): Response {
     const view = this.state['view'] as Types.ViewEngine
     if (view === undefined) {
-      throw new Error('View engine not configured, set viewsDir in RouterOptions')
+      throw new Deno.errors.NotSupported(
+        'View engine not configured, set viewsDir in RouterOptions'
+      )
     }
     const stream = view.streamRender(templatePath, data)
     return this.send.stream(stream, undefined, 'text/html; charset=utf-8')
@@ -365,14 +369,14 @@ export class Context {
     return this.bodyData as string
   }
 
-  /** Throws if body was already consumed. */
+  /** Throws if body was already consumed */
   private ensureBodyNotConsumed(): void {
     if (this.bodyParsedAs !== null) {
-      throw new Error('Request body already consumed')
+      throw new Deno.errors.BadResource('Request body already consumed')
     }
   }
 
-  /** Parse Cookie header into key-value map. */
+  /** Parse Cookie header into key-value map */
   private parseCookies(): void {
     const result: Record<string, string> = {}
     const cookieHeader = this.req.headers.get('cookie')
@@ -387,14 +391,14 @@ export class Context {
     this.cookieMap = result
   }
 
-  /** Parse request headers into lowercased map. */
+  /** Parse request headers into lowercased map */
   private parseHeaders(): void {
     this.headerMap = Object.fromEntries(
       Array.from(this.req.headers.entries(), ([key, value]) => [key.toLowerCase(), value])
     )
   }
 
-  /** Parse URL search params into map. */
+  /** Parse URL search params into map */
   private parseQuery(): void {
     this.queryParams = Object.fromEntries(this.urlObj.searchParams.entries())
   }
