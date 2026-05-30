@@ -1,4 +1,4 @@
-import type { Engine } from '@rendering/Engine.ts'
+import type * as Types from '@interfaces/index.ts'
 import { Superwatcher } from '@neabyte/superwatcher'
 import * as EngineParts from '@rendering/engine/index.ts'
 import nodePath from 'node:path'
@@ -16,7 +16,7 @@ export class Watcher {
    * @description Uses Superwatcher with cache invalidation.
    * @param engine - Engine instance to invalidate
    */
-  static watch(engine: Engine): void {
+  static watch(engine: Types.WatchableEngine): void {
     const viewsDir = engine.viewsDir
     const resolvedDir = nodePath.resolve(viewsDir)
     const watcher = new Superwatcher({
