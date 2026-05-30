@@ -35,7 +35,10 @@ export class Static {
       const fullPath = `${baseNormalized}/${filePath}`.replace(/\\/g, '/')
       const fileInfo = await Deno.stat(fullPath).catch(() => null)
       if (!fileInfo || !fileInfo.isFile) {
-        return await ctx.handleError(404, new Error('File not found'))
+        return await ctx.handleError(
+          404,
+          new Deno.errors.NotFound(`Static file "${filePath}" was not found`)
+        )
       }
       let baseResolved: string
       let fileResolved: string
@@ -43,7 +46,10 @@ export class Static {
         baseResolved = (await Deno.realPath(baseNormalized)).replace(/[\\/]+$/, '') + '/'
         fileResolved = await Deno.realPath(fullPath)
       } catch {
-        return await ctx.handleError(404, new Error('File not found'))
+        return await ctx.handleError(
+          404,
+          new Deno.errors.NotFound(`Static file path "${filePath}" cannot be resolved`)
+        )
       }
       const normalizedBase = baseResolved.replace(/\\/g, '/')
       const normalizedFile = fileResolved.replace(/\\/g, '/')
@@ -51,19 +57,24 @@ export class Static {
         normalizedFile !== normalizedBase.slice(0, -1) &&
         !normalizedFile.startsWith(normalizedBase)
       ) {
-        return await ctx.handleError(404, new Error('File not found'))
+        return await ctx.handleError(
+          404,
+          new Deno.errors.NotFound(`Static file "${filePath}" is outside the base directory`)
+        )
       }
       const extension = filePath.split('.').pop()?.toLowerCase() ?? ''
       const contentType = Core.Constant.contentTypes[extension] ?? 'application/octet-stream'
       const file = await Deno.open(fileResolved, { read: true })
       let etag: string | null = null
       if (options.etag) {
-        const hashBuffer = await crypto.subtle.digest(
+        const digest = await crypto.subtle.digest(
           'SHA-256',
           new TextEncoder().encode(`${fileInfo.size}-${fileInfo.mtime?.getTime()}`)
         )
-        const hashArray = Array.from(new Uint8Array(hashBuffer))
-        const hashHex = hashArray.map((byte) => byte.toString(16).padStart(2, '0')).join('')
+        const hashHex = Array.from(
+          new Uint8Array(digest),
+          (byte) => byte.toString(16).padStart(2, '0')
+        ).join('')
         etag = `"${hashHex}"`
       }
       if (etag && ctx.request.headers.get('If-None-Match') === etag) {

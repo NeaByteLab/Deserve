@@ -65,7 +65,9 @@ export class Response {
             file.close()
           }
           const errorMessage = error instanceof globalThis.Error ? error.message : 'Unknown error'
-          throw new globalThis.Error(`Failed to read file ${errorMessage}`)
+          throw new Deno.errors.NotFound(
+            `Failed to read file "${filePath}" because ${errorMessage}`
+          )
         }
       },
       html(html: string, options?: ResponseInit): globalThis.Response {

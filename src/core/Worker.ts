@@ -41,16 +41,18 @@ export class Worker {
    * @description Sends payload via postMessage; worker posts result back.
    * @param payload - Serializable payload for the worker
    * @returns Promise resolving to worker result
+   * @throws {Deno.errors.BadResource} When pool empty or worker missing
+   * @throws {Deno.errors.InvalidData} When worker returns error payload
    */
   run<T = unknown>(payload: unknown): Promise<T> {
     if (this.workers.length === 0) {
-      return Promise.reject(new Error('Worker pool has no workers'))
+      return Promise.reject(new Deno.errors.BadResource('Worker pool has no available workers'))
     }
     const index = this.nextIndex % this.workers.length
     this.nextIndex++
     const worker = this.workers[index]
     if (!worker) {
-      return Promise.reject(new Error('Worker pool worker missing'))
+      return Promise.reject(new Deno.errors.BadResource('Worker pool worker at index is missing'))
     }
     return new Promise<T>((resolve, reject) => {
       const onMessage = (event: MessageEvent) => {
@@ -58,7 +60,11 @@ export class Worker {
         worker.removeEventListener('error', onError)
         const messageData = event.data as Types.WorkerMessageData
         if (messageData && typeof messageData === 'object' && messageData.error === true) {
-          reject(new Error(messageData.message ?? 'Worker returned an error with no message'))
+          reject(
+            new Deno.errors.InvalidData(
+              messageData.message ?? 'Worker returned an error with no message'
+            )
+          )
         } else {
           resolve(event.data as T)
         }
@@ -66,7 +72,7 @@ export class Worker {
       const onError = () => {
         worker.removeEventListener('message', onMessage)
         worker.removeEventListener('error', onError)
-        reject(new Error('Worker terminated unexpectedly before responding'))
+        reject(new Deno.errors.BadResource('Worker terminated unexpectedly before responding'))
       }
       worker.addEventListener('message', onMessage)
       worker.addEventListener('error', onError)
