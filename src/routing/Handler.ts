@@ -7,7 +7,7 @@ import nodeUrl from 'node:url'
 
 /**
  * Core request handler: middleware, routing, static.
- * @description Scans routes, runs middleware chain, dispatches to route or static.
+ * @description Scans routes, runs middleware, dispatches to handler.
  */
 export class Handler {
   /** Default max route param length */
@@ -23,25 +23,25 @@ export class Handler {
   private static readonly defaultStaticHandler: Types.StaticHandler = {
     serve: (ctx, options, urlPath) => Core.Static.serveStaticFile(ctx, options, urlPath)
   }
-  /** Middleware list with optional path prefix. */
+  /** Middleware list with path prefix */
   private entryMiddleware: Types.MiddlewareEntry[] = []
-  /** Custom error handler or null when unset. */
+  /** Custom error handler when set */
   private errorMiddleware: Types.ErrorMiddleware | null = null
-  /** Error response builder (default or custom). */
+  /** Error response builder instance */
   private errorResponseBuilder: Types.ErrorResponseBuilder
-  /** Fast router for route matching. */
+  /** Fast router for route matching */
   private routerInstance = new FastRouter<Types.RouteMetadata>()
-  /** Max length per route param; 414 when exceeded */
+  /** Max route param length */
   private maxRouteParamLength: number | undefined
-  /** Max request URL length; 414 when exceeded */
+  /** Max request URL length */
   private maxUrlLength: number | undefined
-  /** Request timeout in ms; 503 when exceeded when set. */
+  /** Request timeout in milliseconds */
   private requestTimeoutMs: number | undefined
-  /** Static file handler; default or custom. */
+  /** Static file handler instance */
   private staticHandler: Types.StaticHandler
-  /** Optional worker pool when worker option is set. */
+  /** Optional worker pool instance */
   private workerPool: Core.Worker | undefined
-  /** Optional view engine when viewsDir is set. */
+  /** Optional view engine instance */
   private viewEngine: Types.ViewEngine | undefined
 
   /**
@@ -124,7 +124,10 @@ export class Handler {
         if (middlewareResult !== undefined) {
           return middlewareResult
         }
-        const routeResult = this.routerInstance.find(req.method, url.pathname)
+        let routeResult = this.routerInstance.find(req.method, url.pathname)
+        if (!routeResult && req.method === 'HEAD') {
+          routeResult = this.routerInstance.find('GET', url.pathname)
+        }
         if (routeResult) {
           const metadata = 'data' in routeResult ? routeResult.data : null
           if (!metadata) {
@@ -153,28 +156,43 @@ export class Handler {
           try {
             return await (handler as Types.RouteHandler)(ctx)
           } catch (routeError) {
-            const thrownError = routeError as Error & { statusCode?: number }
+            const thrownError = routeError as Types.StatusError
             return await ctx.handleError(thrownError.statusCode ?? 500, thrownError)
           }
         }
         return await ctx.handleError(404, new Error('Route not found'))
       } catch (handlerError) {
-        const thrownError = handlerError as Error & { statusCode?: number }
+        const thrownError = handlerError as Types.StatusError
         return await ctx.handleError(thrownError.statusCode ?? 500, thrownError)
       }
     }
     const timeoutMs = this.requestTimeoutMs
     return async (req: Request) => {
-      if (timeoutMs !== undefined && timeoutMs > 0) {
-        const timeoutResponse = new Promise<Response>((resolve) => {
-          setTimeout(
-            () => resolve(new Response(null, { status: 503, statusText: 'Service Unavailable' })),
-            timeoutMs
-          )
+      const response = await (async () => {
+        if (timeoutMs !== undefined && timeoutMs > 0) {
+          const timeoutResponse = new Promise<Response>((resolve) => {
+            setTimeout(
+              () => resolve(new Response(null, { status: 503, statusText: 'Service Unavailable' })),
+              timeoutMs
+            )
+          })
+          return await Promise.race([run(req), timeoutResponse])
+        }
+        return await run(req)
+      })()
+      if (req.method === 'HEAD') {
+        const headHeaders = new Headers(response.headers)
+        if (!headHeaders.has('content-length') && response.body) {
+          const body = await response.arrayBuffer()
+          headHeaders.set('content-length', String(body.byteLength))
+        }
+        return new Response(null, {
+          status: response.status,
+          statusText: response.statusText,
+          headers: headHeaders
         })
-        return await Promise.race([run(req), timeoutResponse])
       }
-      return await run(req)
+      return response
     }
   }
 
@@ -329,7 +347,7 @@ export class Handler {
   private async executeMiddlewares(
     ctx: Core.Context,
     pathname: string
-  ): Promise<Response | undefined> {
+  ): Types.AsyncMiddlewareResult {
     const applicableMiddlewares = this.entryMiddleware.filter((middlewareEntry) => {
       if (middlewareEntry.path === '' || middlewareEntry.path === '*') {
         return true
@@ -341,7 +359,7 @@ export class Handler {
       return pathname === middlewareEntry.path || pathname.startsWith(middlewareEntry.path + '/')
     })
     let middlewareIndex = 0
-    const next = async (): Promise<Response | undefined> => {
+    const next: Types.NextFn = async () => {
       if (middlewareIndex >= applicableMiddlewares.length) {
         return undefined
       }
