@@ -60,7 +60,7 @@ Deno.test('Error#buildResponse with errorMiddleware returning null uses default'
   )
   assertEquals(res.status, 502)
   const body = (await res.json()) as { error: string }
-  assertEquals(body.error, 'bad')
+  assertEquals(body.error, 'Bad Gateway')
 })
 
 Deno.test('Error#buildResponse with errorMiddleware returning response uses it', async () => {
@@ -101,7 +101,7 @@ Deno.test('Error#buildResponse with sync errorMiddleware returning null', async 
   const res = await Core.Error.buildResponse(ctx, 500, new globalThis.Error('fail'), () => null)
   assertEquals(res.status, 500)
   const body = (await res.json()) as { error: string }
-  assertEquals(body.error, 'fail')
+  assertEquals(body.error, 'Internal Server Error')
 })
 
 Deno.test(
@@ -114,7 +114,7 @@ Deno.test(
     assertEquals(res.headers.get('Content-Type'), 'text/html')
     const html = await res.text()
     assertEquals(html.includes('500'), true)
-    assertEquals(html.includes('oops'), true)
+    assertEquals(html.includes('Internal Server Error'), true)
   }
 )
 

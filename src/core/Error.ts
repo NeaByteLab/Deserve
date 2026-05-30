@@ -6,9 +6,18 @@ import type * as Core from '@core/index.ts'
  * @description Runs error middleware then JSON or HTML by Accept.
  */
 export class Error {
+  /** Default server error status messages */
+  private static readonly serverErrorMessages: Readonly<Record<number, string>> = {
+    500: 'Internal Server Error',
+    501: 'Not Implemented',
+    502: 'Bad Gateway',
+    503: 'Service Unavailable',
+    504: 'Gateway Timeout'
+  }
+
   /**
-   * Build error response with middleware and format.
-   * @description Tries error middleware then JSON or HTML.
+   * Build error response with format.
+   * @description Tries middleware then JSON or HTML; masks 5xx.
    * @param ctx - Request context
    * @param statusCode - HTTP status code
    * @param error - Thrown error
@@ -33,18 +42,21 @@ export class Error {
         return customResponse
       }
     }
+    const safeMessage = statusCode >= 500
+      ? (Error.serverErrorMessages[statusCode] ?? 'Internal Server Error')
+      : error.message
     const isJson = ctx.request.headers.get('accept')?.includes('application/json')
     if (isJson) {
       return ctx.send.json(
         {
-          error: error.message,
+          error: safeMessage,
           path: ctx.pathname,
           statusCode
         },
         { status: statusCode }
       )
     }
-    return ctx.send.html(Error.defaultErrorHtml(statusCode, error.message), {
+    return ctx.send.html(Error.defaultErrorHtml(statusCode, safeMessage), {
       status: statusCode
     })
   }
