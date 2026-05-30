@@ -16,7 +16,7 @@ export class Eval {
    * @param expression - Expression source text
    * @param scope - Scope data for identifiers
    * @returns Evaluated expression value
-   * @throws {Error} When expression parse fails
+   * @throws {Deno.errors.InvalidData} When expression parse fails
    */
   static evaluate(expression: string, scope: Types.DataRecord): unknown {
     const trimmedExpression = expression.trim()
@@ -34,7 +34,7 @@ export class Eval {
   }
 
   /**
-   * Evaluate single AST node in scope.
+   * Evaluate single AST node.
    * @description Recursively evaluates literal, ident, member, ops.
    * @param exprNode - Expression AST node
    * @param scope - Scope data for identifiers
@@ -57,7 +57,7 @@ export class Eval {
       if (exprNode.name === 'undefined') {
         return undefined
       }
-      return scope[exprNode.name]
+      return Object.hasOwn(scope, exprNode.name) ? scope[exprNode.name] : undefined
     }
     if (exprNode.type === 'member') {
       const objectValue = Eval.evalNode(exprNode.object, scope)
@@ -65,6 +65,9 @@ export class Eval {
         return undefined
       }
       if (typeof objectValue !== 'object') {
+        return undefined
+      }
+      if (!Object.hasOwn(objectValue as Types.DataRecord, exprNode.property)) {
         return undefined
       }
       return (objectValue as Types.DataRecord)[exprNode.property]

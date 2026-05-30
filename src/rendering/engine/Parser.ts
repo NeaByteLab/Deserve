@@ -1,15 +1,16 @@
 import type * as Types from '@interfaces/index.ts'
 
 /**
- * DVE template parser
- * @description Converts template text into AST nodes
+ * DVE template parser.
+ * @description Converts template text into AST nodes.
  */
 export class Parser {
   /**
-   * Parse template into AST
-   * @description Extracts tags and builds block structures
+   * Parse template into AST.
+   * @description Extracts tags and builds block structures.
    * @param templateText - Raw template content
    * @returns List of AST nodes
+   * @throws {Deno.errors.InvalidData} When template has unclosed blocks
    */
   static parse(templateText: string): Types.AstNode[] {
     const astNodes: Types.AstNode[] = []
@@ -75,7 +76,7 @@ export class Parser {
       if (tagContent === 'else') {
         const stackFrame = frameStack[frameStack.length - 1]
         if (!stackFrame || stackFrame.kind !== 'if') {
-          throw new Error('Unexpected {{else}} without matching {{#if}} block')
+          throw new Deno.errors.InvalidData('Unexpected {{else}} without matching {{#if}} block')
         }
         stackFrame.inElse = true
         continue
@@ -83,7 +84,7 @@ export class Parser {
       if (tagContent === '/if') {
         const stackFrame = frameStack[frameStack.length - 1]
         if (!stackFrame || stackFrame.kind !== 'if') {
-          throw new Error('Unexpected {{/if}} without matching {{#if}} block')
+          throw new Deno.errors.InvalidData('Unexpected {{/if}} without matching {{#if}} block')
         }
         frameStack.pop()
         continue
@@ -106,7 +107,7 @@ export class Parser {
       if (tagContent === '/each') {
         const stackFrame = frameStack[frameStack.length - 1]
         if (!stackFrame || stackFrame.kind !== 'each') {
-          throw new Error('Unexpected {{/each}} without matching {{#each}} block')
+          throw new Deno.errors.InvalidData('Unexpected {{/each}} without matching {{#each}} block')
         }
         frameStack.pop()
         continue
@@ -119,7 +120,7 @@ export class Parser {
     if (frameStack.length > 0) {
       const unclosedFrame = frameStack[frameStack.length - 1]
       const label = unclosedFrame?.kind === 'each' ? '#each' : '#if'
-      throw new Error(`Unclosed {{${label}}} block in DVE template`)
+      throw new Deno.errors.InvalidData(`Unclosed {{${label}}} block in DVE template`)
     }
     return astNodes
   }

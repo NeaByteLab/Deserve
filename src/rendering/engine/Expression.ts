@@ -18,11 +18,11 @@ export class Expression {
   /**
    * Assert no remaining tokens.
    * @description Throws if unconsumed tokens remain.
-   * @throws {Error} When unexpected tokens remain
+   * @throws {Deno.errors.InvalidData} When unexpected tokens remain
    */
   assertEnd(): void {
     if (this.tokenIndex < this.tokens.length) {
-      throw new Error('Unexpected token in DVE expression')
+      throw new Deno.errors.InvalidData('Unexpected token in DVE expression')
     }
   }
 
@@ -50,12 +50,12 @@ export class Expression {
    * Consume token and require operator.
    * @description Throws if current token is not given op.
    * @param value - Expected operator string
-   * @throws {Error} When token is not the operator
+   * @throws {Deno.errors.InvalidData} When token is not the operator
    */
   private expectOp(value: Types.TokenOp): void {
     const currentToken = this.consume()
     if (!currentToken || currentToken.kind !== 'op' || currentToken.value !== value) {
-      throw new Error(`Expected '${value}' in DVE expression`)
+      throw new Deno.errors.InvalidData(`Expected '${value}' in DVE expression`)
     }
   }
 
@@ -146,7 +146,7 @@ export class Expression {
       if (this.matchOp('.')) {
         const propToken = this.consume()
         if (!propToken || propToken.kind !== 'ident') {
-          throw new Error('Expected identifier after "." in DVE expression')
+          throw new Deno.errors.InvalidData('Expected identifier after "." in DVE expression')
         }
         exprNode = { type: 'member', object: exprNode, property: propToken.value }
         continue
@@ -154,7 +154,7 @@ export class Expression {
       if (this.matchOp('?.')) {
         const propToken = this.consume()
         if (!propToken || propToken.kind !== 'ident') {
-          throw new Error('Expected identifier after "?." in DVE expression')
+          throw new Deno.errors.InvalidData('Expected identifier after "?." in DVE expression')
         }
         exprNode = { type: 'member', object: exprNode, property: propToken.value }
         continue
@@ -217,12 +217,12 @@ export class Expression {
    * Parse primary expression.
    * @description Literals, idents, or parenthesized expr.
    * @returns Expression AST node
-   * @throws {Error} When invalid primary or unexpected end
+   * @throws {Deno.errors.InvalidData} When invalid primary or unexpected end
    */
   private parsePrim(): Types.ExprNode {
     const currentToken = this.consume()
     if (!currentToken) {
-      throw new Error('Unexpected end of DVE expression')
+      throw new Deno.errors.InvalidData('Unexpected end of DVE expression')
     }
     if (currentToken.kind === 'number') {
       return { type: 'literal', value: currentToken.value }
@@ -238,7 +238,7 @@ export class Expression {
       this.expectOp(')')
       return innerNode
     }
-    throw new Error('Invalid primary in DVE expression')
+    throw new Deno.errors.InvalidData('Invalid primary in DVE expression')
   }
 
   /**

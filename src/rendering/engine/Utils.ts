@@ -49,8 +49,10 @@ export class Utils {
       if (typeof currentValue !== 'object') {
         return undefined
       }
-      const currentRecord = currentValue as Types.DataRecord
-      currentValue = currentRecord[pathSegment]
+      if (!Object.hasOwn(currentValue as Types.DataRecord, pathSegment)) {
+        return undefined
+      }
+      currentValue = (currentValue as Types.DataRecord)[pathSegment]
     }
     return currentValue
   }
