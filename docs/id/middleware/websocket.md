@@ -75,12 +75,11 @@ onMessage: (socket: WebSocket, event: MessageEvent, ctx: Context) => {
 
 ### `onDisconnect`
 
-Menangani pemutusan koneksi WebSocket:
+Menangani pemutusan koneksi WebSocket. `CloseEvent` menyediakan `code`, `reason`, dan `wasClean`:
 
 ```typescript
-onDisconnect: (socket: WebSocket, ctx: Context) => {
-  console.log('Klien terputus:', ctx.url)
-  // Bersihkan resource, hapus dari room, dll.
+onDisconnect: (socket: WebSocket, event: CloseEvent, ctx: Context) => {
+  console.log('Klien terputus:', event.code, event.reason, event.wasClean)
 }
 ```
 
@@ -145,8 +144,8 @@ router.use(
         )
       }
     },
-    onDisconnect: (socket, ctx) => {
-      console.log(`WebSocket terputus: ${ctx.url}`)
+    onDisconnect: (socket, event, ctx) => {
+      console.log(`WebSocket terputus: ${ctx.url} code=${event.code} reason=${event.reason}`)
     },
     onError: (socket, event, ctx) => {
       console.error(`Error WebSocket pada ${ctx.url}:`, event)

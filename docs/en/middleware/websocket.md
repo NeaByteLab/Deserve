@@ -75,12 +75,11 @@ onMessage: (socket: WebSocket, event: MessageEvent, ctx: Context) => {
 
 ### `onDisconnect`
 
-Handle WebSocket disconnections:
+Handle WebSocket disconnections. The `CloseEvent` provides `code`, `reason`, and `wasClean`:
 
 ```typescript
-onDisconnect: (socket: WebSocket, ctx: Context) => {
-  console.log('Client disconnected:', ctx.url)
-  // Clean up resources, remove from rooms, etc.
+onDisconnect: (socket: WebSocket, event: CloseEvent, ctx: Context) => {
+  console.log('Client disconnected:', event.code, event.reason, event.wasClean)
 }
 ```
 
@@ -142,8 +141,8 @@ router.use(
         )
       }
     },
-    onDisconnect: (socket, ctx) => {
-      console.log(`WebSocket disconnected: ${ctx.url}`)
+    onDisconnect: (socket, event, ctx) => {
+      console.log(`WebSocket disconnected: ${ctx.url} code=${event.code} reason=${event.reason}`)
     },
     onError: (socket, event, ctx) => {
       console.error(`WebSocket error on ${ctx.url}:`, event)
