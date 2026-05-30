@@ -2,16 +2,6 @@ import type * as Types from '@interfaces/index.ts'
 import * as Loader from '@middleware/Loaders.ts'
 
 /**
- * Wrap middleware with try/catch and label.
- * @description Catches errors and calls ctx.handleError with label.
- * @param label - Prefix for error message on throw
- * @param middleware - Middleware to run
- * @returns Middleware that delegates and catches
- */
-export const wrapMiddleware: (label: string, middleware: Types.Middleware) => Types.Middleware =
-  Loader.Utils.wrapMiddleware.bind(Loader.Utils)
-
-/**
  * Prebuilt middleware factories.
  * @description Common middleware creators for auth, CORS, session.
  */
@@ -33,6 +23,16 @@ export const Mware = {
   websocket: (options?: Types.WebSocketOptions): Types.Middleware =>
     Loader.WebSocket.create(options)
 }
+
+/**
+ * Wrap middleware with try/catch and label.
+ * @description Catches errors and calls ctx.handleError with label.
+ * @param label - Prefix for error message on throw
+ * @param middleware - Middleware to run
+ * @returns Middleware that delegates and catches
+ */
+export const wrapMiddleware: (label: string, middleware: Types.Middleware) => Types.Middleware =
+  Loader.Utils.wrapMiddleware.bind(Loader.Utils)
 
 /** Re-exports middleware public API. */
 export * from '@middleware/Loaders.ts'
