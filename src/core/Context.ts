@@ -382,26 +382,24 @@ export class Context {
     }
   }
 
-  /** Parse Cookie header into map */
+  /** Parse cookies, first occurrence wins */
   private parseCookies(): void {
     const result: Record<string, string> = {}
     const cookieHeader = this.req.headers.get('cookie')
     if (cookieHeader) {
-      cookieHeader.split(';').forEach((cookiePart) => {
+      for (const cookiePart of cookieHeader.split(';')) {
         const [key, ...valueParts] = cookiePart.trim().split('=')
-        if (key) {
+        if (key && !Object.hasOwn(result, key)) {
           result[key] = valueParts.join('=')
         }
-      })
+      }
     }
     this.cookieMap = result
   }
 
-  /** Parse request headers into lowercased map */
+  /** Parse request headers into map */
   private parseHeaders(): void {
-    this.headerMap = Object.fromEntries(
-      Array.from(this.req.headers.entries(), ([key, value]) => [key.toLowerCase(), value])
-    )
+    this.headerMap = Object.fromEntries(this.req.headers)
   }
 
   /** Parse URL search params into map */
