@@ -10,104 +10,105 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
-- `@neabyte/superwatcher@^0.1.1` dependency for file watching with debounce, event dedup, and atomic write detection
+- `maxIterations` option on `EngineOptions` and `HandlerOptions` - limits `#each` loop iterations to prevent event loop starvation from unbounded template rendering (default 100,000). Exceeding the limit throws `Deno.errors.InvalidData` with a 500 response
 - Hot reload for routes and templates via file system watchers (`Routing.Watcher`, `Rendering.Watcher`)
 - `Helper` utility class consolidating `headersToRecord` from `Redirect` and `Response` into a shared `Helper.toRecord` method
 - `Engine.viewsDir` getter, `Engine.invalidateFile()` and `Engine.refreshPaths()` for cache invalidation during hot reload
 - `Handler.reloadRoute()` and `Handler.removeRoute()` for runtime route replacement
 - `Handler.getViewEngine()` accessor
 - `Scanner.registerHandlers()` static method extracted from inline scanning logic
-- `MaybeAsync<T>` type alias in `Error` and `Middleware` interfaces
-- `AstBlockKind`, `UnaryOp`, `SecurityHeaderKey`, `SecurityHeaderValue` type aliases for stricter typing
-- `SocketCallback` and `SocketEventCallback<E>` type aliases in WebSocket interface
-- `ErrorInfo` named interface replacing inline error object in `ErrorMiddleware`
-- `Utility.ts` module with shared `MaybeAsync<T>` and `DataRecord` type aliases
-- `HttpMethod` literal union type constraining HTTP method strings
-- `RouteFileExtension` literal union type for allowed route file extensions
-- `RouteChangeEntry` interface for hot-reload pending route changes
-- `RedirectStatus`, `RedirectBuilder`, `RedirectInit` types for redirect response typing
-- `BodyParsedFormat` exported type alias for body parser format tracking
-- `NextFn`, `MiddlewareResult`, `AsyncMiddlewareResult` exported type aliases for middleware chain typing
 - `WatchableEngine` interface for template cache invalidation
-- `AstBlockNode` extracted type for block-level AST nodes containing children
-- `AstNodeType`, `ExprNodeType`, `ExprTokenKind` discriminant type aliases
-- `ArithmeticSign` shared type for `+`/`-` operators used in unary and binary expressions
-- `BinaryOp`, `StructuralOp`, `TokenOp` operator literal types for expression tokens
 - Method overload signatures for `Context.cookie()`, `Context.header()`, `Context.query()`
 - Documentation pages for hot reload feature (EN and ID)
 - Indonesian landing page feature cards for middleware, template engine, and hot reload
-- VitePress custom theme directory (`docs/.vitepress/theme/`)
-- `docs/en/index.md` standalone English landing page
-- `@neabyte/utils-core@^0.2.0` dependency for `Async` debounce and `createSequential` utilities
-- Test coverage for `Engine` (empty data, null values, `viewsDir` getter, `streamRender` missing template), `Handler` (default constructor, `maxRouteParamLength` zero, error `statusCode` propagation, `getViewEngine`, `removeRoute`), `Router` (empty options, no options, `HandlerOptions` propagation), `Scanner` (`registerHandlers`, empty module, no extension, empty string), `Error` (`escapeHtml` quote escaping, `buildResponse` edge cases), `Redirect` (extra headers merging), `Response` (stream and custom response)
+- VitePress custom theme directory (`docs/.vitepress/theme/`) and `docs/en/index.md` standalone English landing page
+- Test coverage for `Engine`, `Handler`, `Router`, `Scanner`, `Error`, `Redirect`, `Response`
+
+#### Dependencies
+
+- `@neabyte/stackz@^0.1.0` for formatted stack traces in route reload and scan error logging
+- `@neabyte/superwatcher@^0.1.1` for file watching with debounce, event dedup, and atomic write detection
+- `@neabyte/utils-core@^0.2.0` for `Async` debounce and `createSequential` utilities
+
+#### Types
+
+- `MaybeAsync<T>`, `DataRecord` type aliases in shared `Utility.ts` module
+- `HttpMethod` literal union, `RouteFileExtension` literal union
+- `RouteChangeEntry` interface for hot-reload pending route changes
+- `RedirectStatus`, `RedirectBuilder`, `RedirectInit` types for redirect response typing
+- `BodyParsedFormat`, `NextFn`, `MiddlewareResult`, `AsyncMiddlewareResult` exported type aliases
+- `AstBlockNode`, `AstNodeType`, `ExprNodeType`, `ExprTokenKind` discriminant type aliases
+- `AstBlockKind`, `UnaryOp`, `ArithmeticSign`, `BinaryOp`, `StructuralOp`, `TokenOp` operator literal types
+- `SecurityHeaderKey`, `SecurityHeaderValue` type aliases
+- `SocketCallback`, `SocketEventCallback<E>` type aliases in WebSocket interface
+- `ErrorInfo` named interface replacing inline error object in `ErrorMiddleware`
 
 ### Changed
 
-- `TemplateData` renamed to `DataRecord` and moved to shared `Utility.ts` module
-- `MaybeAsync<T>` moved from file-local types in `Error.ts` and `Middleware.ts` to shared `Utility.ts`
-- All interface properties across `Auth`, `BodyLimit`, `Cors`, `Handler`, `Middleware`, `Render`, `Session`, `Serve`, `WebSocket` made `readonly`
-- `Constant.allowedExtensions` typed as `readonly RouteFileExtension[]` (was `string[]`)
-- `Constant.httpMethods` typed as `readonly HttpMethod[]` (was `string[]`)
-- `Context.redirect()` param `status` typed as `RedirectStatus` (was `number`), `init` typed as `RedirectInit`
-- `Response.create()` param `buildRedirect` typed as `RedirectBuilder` (was inline function type)
-- `Redirect.buildResponse()` param `status` typed as `RedirectStatus` (was `number`)
-- `Worker` message data typed as `WorkerMessageData` (was inline object type)
-- `CorsOptions.methods` typed as `readonly HttpMethod[]` (was `string[]`)
-- `ErrorInfo.error` changed from optional to required
-- `StatusError` changed from `type` to `interface extends Error`
-- `SendHelpers` changed from `type` to `interface`
-- `StaticFileHandler` changed from `type` to `interface`
-- `AstNode` union members made `readonly` on immutable fields
-- `ExprNode` literal value narrowed from `unknown` to `string | number`
-- `ExprToken` op value typed as `TokenOp` (was `string`)
-- `DveStackFrame.node` typed as `AstBlockNode` (was `AstNode`)
-- `AstBlockKind` derived from `AstBlockNode` (was `Extract` on full `AstNode`)
-- `Expression.matchOp()` param typed as `TokenOp` (was `string`)
-- `BasicAuth` and `Session` middleware return typed as `AsyncMiddlewareResult`
-- `Handler.executeMiddlewares()` return typed as `AsyncMiddlewareResult`
-- `SendHelpers.redirect` signature updated with `RedirectInit` param
-- `Handler.createHandler()` now strips response body for HEAD requests, returning headers-only response
-- `Handler.createHandler()` falls back to GET handler when HEAD method has no registered route
-- CORS middleware returns `ctx.send.custom(null, { status: 204 })` for preflight instead of `ctx.handleError(204, ...)`
-- CORS middleware returns `ctx.send.custom(null, { status: 403 })` for forbidden origin instead of `ctx.handleError(403, ...)`
-- JSDoc briefs and descriptions standardized to 6/9 word rule with periods
-- Alphabetical sort order applied to all module-level declarations and class members
-- `WebSocket.onDisconnect` callback now receives `CloseEvent` as second argument, exposing `event.code`, `event.reason`, and `event.wasClean`
-- `WebSocket.onDisconnect` type changed from `SocketCallback` to `SocketEventCallback<CloseEvent>`
-- File watchers migrated from internal `WatchFs` to `@neabyte/superwatcher` with ignore-based extension filtering, Map-based event dedup, and atomic write detection
-- `Routing.Watcher.watch()` and `Rendering.Watcher.watch()` changed from `async` to synchronous
-- `Router.startWatchers()` no longer wraps watcher calls in `.catch()` since watchers are now synchronous
-- Error types upgraded to `Deno.errors` for semantic error handling:
-  - `Context.render()`/`streamRender()`: `Error` → `Deno.errors.NotSupported` (view engine not configured)
-  - `Context.ensureBodyNotConsumed()`: `Error` → `Deno.errors.BadResource` (body already consumed)
-  - `Engine.resolveTemplate()`: `Error` → `Deno.errors.NotFound` (template not found)
-  - `Scanner.validateModule()`: `Error` → `Deno.errors.InvalidData` (no HTTP method) and `TypeError` (export not a function)
-  - `BasicAuth.create()`: `Error` → `Deno.errors.InvalidData` (empty users array)
-  - `Session.create()`: `Error` → `Deno.errors.InvalidData` (empty cookieSecret)
-- `RouterOptions` now extends `HandlerOptions` instead of duplicating fields
-- `SecurityHeadersOptions` refactored to `Partial<Record<SecurityHeaderKey, SecurityHeaderValue>>`
-- `Engine.render()` and `Engine.streamRender()` refactored to share `resolveTemplate()` private method, removing duplicated path resolution logic
+#### Error Handling
+
+- Error types upgraded to `Deno.errors` for semantic error handling across `Context`, `Engine`, `Scanner`, `BasicAuth`, `Session`, `Worker`, `Response`, `Handler`, `Static`, `Tokenizer`
+- `Error.buildResponse()` now sanitizes 5xx error messages using a static `serverErrorMessages` map instead of exposing raw internal error details
+- `Handler.reloadRoute()` and `Scanner.discoverRoutes()` error logging now uses `Stackz.format()` for detailed formatted stack traces
+
+#### Template Engine
+
+- `Utils.lookup()` blocks prototype chain access via `Object.hasOwn` check - only own properties are accessible in templates
+- `Engine.render()` and `Engine.streamRender()` refactored to share `resolveTemplate()` private method
 - `Engine.renderNodes()` now delegates to `renderNodeToChunk()` instead of duplicating node type handling
 - `Error.escapeHtml()` now escapes `"` and `'` in addition to `&`, `<`, `>`
 - `Utils.escape()` in rendering engine now delegates to `Core.Error.escapeHtml()` instead of duplicating logic
+
+#### Routing and Middleware
+
+- `Handler.createHandler()` now strips response body for HEAD requests and falls back to GET handler when no HEAD route is registered
+- CORS middleware returns `ctx.send.custom(null, ...)` for preflight (204) and forbidden origin (403) instead of `ctx.handleError()`
+- `Context.parseCookies()` uses `for...of` and keeps only the first occurrence per RFC 6265
+- `Context.parseHeaders()` simplified to `Object.fromEntries(this.req.headers)`
+- `Router` constructor simplified - passes options directly to `Handler` instead of destructuring
 - `Scanner.discoverRoutes()` uses extracted `registerHandlers()` instead of inline registration
 - `Router.serve()` starts route and template watchers automatically after scanning
-- VitePress config: removed duplicate `root` locale sidebar, changed root locale key from `root` to `en`, removed inline CSS styles, added viewport meta tag
-- Documentation code blocks changed from `` ```dve `` to `` ```html `` for better syntax highlighting
+- File watchers migrated from internal `WatchFs` to `@neabyte/superwatcher`
+
+#### Interface and Type Refinements
+
+- `TemplateData` renamed to `DataRecord` and moved to shared `Utility.ts` module
+- `MaybeAsync<T>` moved from file-local types to shared `Utility.ts`
+- All interface properties made `readonly`
+- `RouterOptions` now extends `HandlerOptions` instead of duplicating fields
+- `StatusError` changed from `type` to `interface extends Error`
+- `SendHelpers` and `StaticFileHandler` changed from `type` to `interface`
+- `WebSocket.onDisconnect` type changed to `SocketEventCallback<CloseEvent>`, now receives `CloseEvent` as second argument
+- `SecurityHeadersOptions` refactored to `Partial<Record<SecurityHeaderKey, SecurityHeaderValue>>`
+
+#### Code Style
+
+- JSDoc briefs and descriptions standardized to 6/9 word rule with periods
+- Alphabetical sort order applied to all module-level declarations and class members
+- `Handler.ts`, `Middleware.ts`, `Static.ts` interfaces refactored from barrel imports to direct named imports
+- `Static.serve()` ETag hash generation simplified to a single `Array.from` with map callback
+- `Watcher` uses `pendingChanges.values()` instead of destructured iteration
+- VitePress config cleanup and documentation code blocks changed from ` ```dve ` to ` ```html `
 - Indonesian landing page tagline updated
 
 ### Removed
 
-- `WatchFs` class from `src/core/WatchFs.ts` — replaced by `@neabyte/superwatcher`
-- `WatchedEvent` and `WatchFsOptions` types from `src/interfaces/Watcher.ts` — no longer needed
-- `TemplateData` type alias — replaced by `DataRecord` in `Utility.ts`
+- `WatchFs` class from `src/core/WatchFs.ts` - replaced by `@neabyte/superwatcher`
+- `WatchedEvent` and `WatchFsOptions` types from `src/interfaces/Watcher.ts`
+- `TemplateData` type alias - replaced by `DataRecord` in `Utility.ts`
 
 ### Fixed
 
+- **Security**: Recursive `{{> include}}` crashes server process - self-referencing templates or circular include chains (A→B→A) caused infinite recursion, exhausting V8 heap memory (~4GB) and killing the Deno process. `Engine.render()` now tracks include depth and throws `Deno.errors.InvalidData` when exceeding 64 levels
+- **Security**: Prototype chain leakage in DVE template `Utils.lookup()` - accessing `{{constructor}}`, `{{__proto__}}`, or `{{toString}}` in templates leaked native function references from the JavaScript prototype chain. Now blocked by `Object.hasOwn` check that only allows own properties, naturally preventing prototype chain traversal
+- **Security**: Cookie last-write-wins allowed session fixation - duplicate cookie names (e.g. injected via subdomain or XSS) would overwrite the legitimate value. `parseCookies()` now keeps only the first occurrence per RFC 6265
+- **Security**: Internal error details leaked to clients on 5xx responses - raw parser messages, template engine errors, and file system paths were exposed in JSON and HTML error responses. Server errors now return generic status text from a static lookup map
+- DVE template `Utils.lookup()` no longer blocks own properties named `constructor`, `toString`, etc. - the previous `unsafeProperties` blocklist prevented rendering user data with these key names even when explicitly set. Replaced with `Object.hasOwn` which allows own properties while still blocking prototype-inherited ones
+- DVE expression tokenizer now supports scientific notation (`1e2`, `2.5e3`, `1e-3`, `5E2`) - previously `{{1e308 + 1e308}}` crashed with 500 because the tokenizer parsed `1` as number and `e308` as identifier
 - `Redirect` and `Response` no longer carry duplicate `headersToRecord` implementations
-- HEAD requests no longer hang — response body is stripped and Content-Length omitted so clients don't wait for bytes that never arrive
+- HEAD requests no longer hang - response body is stripped and Content-Length omitted so clients don't wait for bytes that never arrive
 - HEAD requests now fall back to GET handler when no HEAD route is registered, matching standard HTTP semantics
-- CORS preflight no longer returns 500 — `ctx.handleError(204, ...)` created a JSON body on null-body status 204, causing Deno to throw. Now uses `ctx.send.custom(null, { status: 204 })` directly
+- CORS preflight no longer returns 500 - `ctx.handleError(204, ...)` created a JSON body on null-body status 204, causing Deno to throw. Now uses `ctx.send.custom(null, { status: 204 })` directly
 
 ---
 
@@ -128,7 +129,7 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 
 - DVE template parsing is now strict: unmatched `{{else}}`, `{{/if}}`, `{{/each}}` and unclosed `{{#if}}`/`{{#each}}` blocks throw errors instead of being silently ignored
-- Remove `options` parameter from `ViewEngine.render()` — the engine always uses its configured `viewsDir`
+- Remove `options` parameter from `ViewEngine.render()` - the engine always uses its configured `viewsDir`
 - Remove `optional` flag from `ExprNode` member access (expression AST simplification)
 - Simplify `Router` constructor using object destructuring instead of manual property copying
 - Simplify `Worker.createPool` using `Array.from` instead of manual loop
@@ -142,7 +143,7 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
-- Windows path handling in static file serving — backslash separators are now normalized correctly
+- Windows path handling in static file serving - backslash separators are now normalized correctly
 - Filename extraction in `Response.file()` now splits on both `/` and `\` for cross-platform compatibility
 - Cross-platform test path resolution using `fileURLToPath` instead of raw URL strings
 - TypeScript parameter compatibility in `streamRender()` method
