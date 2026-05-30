@@ -7,7 +7,7 @@ export interface WebSocketOptions {
   /** Called when socket opens */
   onConnect?: SocketCallback
   /** Called when socket closes */
-  onDisconnect?: SocketCallback
+  onDisconnect?: SocketEventCallback<CloseEvent>
   /** Called on socket error */
   onError?: SocketEventCallback
   /** Called on each message */

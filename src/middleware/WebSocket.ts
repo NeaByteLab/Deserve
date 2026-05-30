@@ -36,8 +36,8 @@ export class WebSocket {
         socket.addEventListener('message', (event) => {
           options.onMessage?.(socket, event, ctx)
         })
-        socket.addEventListener('close', () => {
-          options.onDisconnect?.(socket, ctx)
+        socket.addEventListener('close', (event) => {
+          options.onDisconnect?.(socket, event, ctx)
         })
         socket.addEventListener('error', (event) => {
           options.onError?.(socket, event, ctx)
