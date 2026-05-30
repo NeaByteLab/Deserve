@@ -56,7 +56,7 @@ export class Worker {
       const onMessage = (event: MessageEvent) => {
         worker.removeEventListener('message', onMessage)
         worker.removeEventListener('error', onError)
-        const messageData = event.data as { error?: boolean; message?: string }
+        const messageData = event.data as Types.WorkerMessageData
         if (messageData && typeof messageData === 'object' && messageData.error === true) {
           reject(new Error(messageData.message ?? 'Worker returned an error with no message'))
         } else {
