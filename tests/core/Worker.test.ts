@@ -31,6 +31,16 @@ Deno.test('Worker#createPool with poolSize 2 round-robins', async () => {
   }
 })
 
+Deno.test('Worker#createPool with poolSize less than 1 uses 1', async () => {
+  const pool = Core.Worker.createPool({ scriptURL: echoWorkerUrl, poolSize: -5 })
+  try {
+    const result = await pool.run('works')
+    assertEquals(result, 'works')
+  } finally {
+    pool.terminate()
+  }
+})
+
 Deno.test('Worker#run after terminate rejects with no workers', async () => {
   const pool = Core.Worker.createPool({ scriptURL: echoWorkerUrl, poolSize: 1 })
   pool.terminate()
@@ -56,4 +66,10 @@ Deno.test('Worker#run rejects when worker posts error shape', async () => {
   } finally {
     pool.terminate()
   }
+})
+
+Deno.test('Worker#terminate can be called multiple times safely', () => {
+  const pool = Core.Worker.createPool({ scriptURL: echoWorkerUrl, poolSize: 1 })
+  pool.terminate()
+  pool.terminate()
 })

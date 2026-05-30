@@ -49,6 +49,20 @@ Deno.test('bodyLimit Content-Length one byte over limit returns 413', async () =
   }
 })
 
+Deno.test('bodyLimit Content-Length zero passes through', async () => {
+  const middleware = Middleware.Mware.bodyLimit({ limit: 100 })
+  const ctx = createTestContext('http://localhost/', {
+    method: 'POST',
+    headers: new Headers({ 'Content-Length': '0' })
+  })
+  const next = async (): Promise<Response> => new Response('ok')
+  const res = await middleware(ctx, next)
+  assertEquals(res !== undefined, true)
+  if (res) {
+    assertEquals(await res.text(), 'ok')
+  }
+})
+
 Deno.test('bodyLimit default limit is 1MB when not specified', async () => {
   const middleware = Middleware.Mware.bodyLimit({ limit: undefined } as unknown as {
     limit: number
@@ -62,6 +76,20 @@ Deno.test('bodyLimit default limit is 1MB when not specified', async () => {
   assertEquals(res !== undefined, true)
   if (res) {
     assertEquals(await res.text(), 'ok')
+  }
+})
+
+Deno.test('bodyLimit DELETE method is checked', async () => {
+  const middleware = Middleware.Mware.bodyLimit({ limit: 10 })
+  const ctx = createTestContext('http://localhost/', {
+    method: 'DELETE',
+    headers: new Headers({ 'Content-Length': '100' })
+  })
+  const next = async (): Promise<Response> => new Response()
+  const res = await middleware(ctx, next)
+  assertEquals(res !== undefined, true)
+  if (res) {
+    assertEquals(res.status, 413)
   }
 })
 
@@ -188,6 +216,44 @@ Deno.test('bodyLimit streaming body over limit triggers 413', async () => {
   if (res) {
     assertEquals(res.status, 413)
     await res.body?.cancel()
+  }
+})
+
+Deno.test('bodyLimit streaming body with single chunk under limit passes', async () => {
+  const middleware = Middleware.Mware.bodyLimit({ limit: 10 })
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode('hello'))
+      controller.close()
+    }
+  })
+  const ctx = createTestContext('http://localhost/', {
+    method: 'POST',
+    body: stream,
+    duplex: 'half'
+  } as RequestInit)
+  const next = async (): Promise<Response> => {
+    await ctx.request.text()
+    return new Response('ok')
+  }
+  const res = await middleware(ctx, next)
+  assertEquals(res !== undefined, true)
+  if (res) {
+    assertEquals(await res.text(), 'ok')
+  }
+})
+
+Deno.test('bodyLimit with limit 0 rejects any body', async () => {
+  const middleware = Middleware.Mware.bodyLimit({ limit: 0 })
+  const ctx = createTestContext('http://localhost/', {
+    method: 'POST',
+    headers: new Headers({ 'Content-Length': '1' })
+  })
+  const next = async (): Promise<Response> => new Response()
+  const res = await middleware(ctx, next)
+  assertEquals(res !== undefined, true)
+  if (res) {
+    assertEquals(res.status, 413)
   }
 })
 

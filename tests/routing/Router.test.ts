@@ -40,9 +40,21 @@ Deno.test('Router#catch does not throw', () => {
   router.catch(async () => null)
 })
 
+Deno.test('Router#constructor defaults routesDir to ./routes', () => {
+  const router = new Routing.Router()
+  const routesDir = (router as unknown as { routesDir: string }).routesDir
+  assertEquals(routesDir, './routes')
+})
+
 Deno.test('Router#constructor with empty options uses defaults', () => {
   const router = new Routing.Router({})
   assertEquals(router instanceof Routing.Router, true)
+})
+
+Deno.test('Router#constructor with only routesDir passes undefined to Handler', () => {
+  const router = new Routing.Router({ routesDir: './my-routes' })
+  const handler = (router as unknown as { handler: Routing.Handler }).handler
+  assertEquals(handler instanceof Routing.Handler, true)
 })
 
 Deno.test('Router#constructor with options creates instance', () => {
@@ -71,6 +83,14 @@ Deno.test('Router#static does not throw', () => {
 Deno.test('Router#use with middleware only (no path) does not throw', () => {
   const router = new Routing.Router({ routesDir: './routes' })
   router.use(async (_ctx, next) => await next())
+})
+
+Deno.test('Router#use with multiple middleware functions does not throw', () => {
+  const router = new Routing.Router({ routesDir: './routes' })
+  router.use(
+    async (_ctx, next) => await next(),
+    async (_ctx, next) => await next()
+  )
 })
 
 Deno.test('Router#use with path and middleware does not throw', () => {

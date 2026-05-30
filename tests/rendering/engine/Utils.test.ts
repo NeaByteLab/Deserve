@@ -21,6 +21,10 @@ Deno.test('Utils#escape handles all special chars together', () => {
   assertEquals(Utils.escape('&<>"\' '), '&amp;&lt;&gt;&quot;&#39; ')
 })
 
+Deno.test('Utils#escape passes through plain text unchanged', () => {
+  assertEquals(Utils.escape('hello world'), 'hello world')
+})
+
 Deno.test('Utils#escape returns empty string for empty input', () => {
   assertEquals(Utils.escape(''), '')
 })
@@ -39,6 +43,14 @@ Deno.test('Utils#join strips leading slashes from relative', () => {
 
 Deno.test('Utils#join strips trailing slashes from root', () => {
   assertEquals(Utils.join('/views///', 'hello.dve'), '/views/hello.dve')
+})
+
+Deno.test('Utils#join with empty relative', () => {
+  assertEquals(Utils.join('/views', ''), '/views/')
+})
+
+Deno.test('Utils#join with empty root', () => {
+  assertEquals(Utils.join('', 'file.dve'), '/file.dve')
 })
 
 Deno.test('Utils#lookup handles empty segments in path', () => {
@@ -72,4 +84,16 @@ Deno.test('Utils#lookup returns undefined for undefined object', () => {
 
 Deno.test('Utils#lookup returns undefined when traversing non-object', () => {
   assertEquals(Utils.lookup({ a: 42 }, 'a.b'), undefined)
+})
+
+Deno.test('Utils#lookup with array data and numeric string key', () => {
+  assertEquals(Utils.lookup([10, 20, 30], '1'), 20)
+})
+
+Deno.test('Utils#lookup with mid-chain null', () => {
+  assertEquals(Utils.lookup({ a: { b: null } }, 'a.b.c'), undefined)
+})
+
+Deno.test('Utils#lookup with path containing spaces around dots', () => {
+  assertEquals(Utils.lookup({ a: { b: 1 } }, 'a . b'), 1)
 })

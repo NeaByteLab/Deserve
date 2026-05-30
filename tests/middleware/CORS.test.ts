@@ -7,6 +7,40 @@ function createTestContext(url = 'http://localhost/', requestInit?: RequestInit)
   return new Core.Context(request, new URL(url), {})
 }
 
+Deno.test('cors credentials with array origin matching sets Allow-Credentials', async () => {
+  const middleware = Middleware.Mware.cors({
+    origin: ['https://one.com', 'https://two.com'],
+    credentials: true
+  })
+  const ctx = createTestContext('http://localhost/', {
+    method: 'GET',
+    headers: new Headers({ Origin: 'https://two.com' })
+  })
+  const next = async (): Promise<Response> => new Response('ok')
+  const res = await middleware(ctx, next)
+  assertEquals(res !== undefined, true)
+  assertEquals(ctx.responseHeadersMap['Access-Control-Allow-Origin'], 'https://two.com')
+  assertEquals(ctx.responseHeadersMap['Access-Control-Allow-Credentials'], 'true')
+  if (res) {
+    assertEquals(await res.text(), 'ok')
+  }
+})
+
+Deno.test('cors credentials with wildcard origin does not set Allow-Credentials on OPTIONS', async () => {
+  const middleware = Middleware.Mware.cors({ origin: '*', credentials: true })
+  const ctx = createTestContext('http://localhost/', {
+    method: 'OPTIONS',
+    headers: new Headers({ Origin: 'https://any.com' })
+  })
+  const next = async (): Promise<Response> => new Response()
+  const res = await middleware(ctx, next)
+  assertEquals(res !== undefined, true)
+  if (res) {
+    assertEquals(res.status, 204)
+    assertEquals(res.headers.get('Access-Control-Allow-Credentials'), null)
+  }
+})
+
 Deno.test('cors credentials=true with origin=* does not set Allow-Credentials', async () => {
   const middleware = Middleware.Mware.cors({ origin: '*', credentials: true })
   const ctx = createTestContext('http://localhost/', {
@@ -39,6 +73,24 @@ Deno.test('cors credentials=true with specific origin sets Allow-Credentials', a
   assertEquals(ctx.responseHeadersMap['Access-Control-Allow-Credentials'], 'true')
   if (res) {
     assertEquals(await res.text(), 'ok')
+  }
+})
+
+Deno.test('cors exposedHeaders on OPTIONS preflight sets Expose-Headers', async () => {
+  const middleware = Middleware.Mware.cors({
+    origin: 'https://a.com',
+    exposedHeaders: ['X-Custom']
+  })
+  const ctx = createTestContext('http://localhost/', {
+    method: 'OPTIONS',
+    headers: new Headers({ Origin: 'https://a.com' })
+  })
+  const next = async (): Promise<Response> => new Response()
+  const res = await middleware(ctx, next)
+  assertEquals(res !== undefined, true)
+  if (res) {
+    assertEquals(res.status, 204)
+    assertEquals(res.headers.get('Access-Control-Expose-Headers'), 'X-Custom')
   }
 })
 
@@ -75,6 +127,21 @@ Deno.test('cors GET when origin allowed sets header and calls next', async () =>
   assertEquals(ctx.responseHeadersMap['Access-Control-Allow-Origin'], 'https://single.com')
 })
 
+Deno.test('cors non-matching array origin on non-OPTIONS does not set allow origin', async () => {
+  const middleware = Middleware.Mware.cors({ origin: ['https://allowed.com'] })
+  const ctx = createTestContext('http://localhost/', {
+    method: 'POST',
+    headers: new Headers({ Origin: 'https://denied.com' })
+  })
+  const next = async (): Promise<Response> => new Response('ok')
+  const res = await middleware(ctx, next)
+  assertEquals(res !== undefined, true)
+  assertEquals(ctx.responseHeadersMap['Access-Control-Allow-Origin'], undefined)
+  if (res) {
+    assertEquals(await res.text(), 'ok')
+  }
+})
+
 Deno.test('cors non-matching single origin does not set allow origin', async () => {
   const middleware = Middleware.Mware.cors({ origin: 'https://only-this.com' })
   const ctx = createTestContext('http://localhost/', {
@@ -88,6 +155,21 @@ Deno.test('cors non-matching single origin does not set allow origin', async () 
     assertEquals(await res.text(), 'ok')
   }
   assertEquals(ctx.responseHeadersMap['Access-Control-Allow-Origin'], 'https://only-this.com')
+})
+
+Deno.test('cors OPTIONS preflight with wildcard origin returns 204', async () => {
+  const middleware = Middleware.Mware.cors({ origin: '*' })
+  const ctx = createTestContext('http://localhost/', {
+    method: 'OPTIONS',
+    headers: new Headers({ Origin: 'https://any.com' })
+  })
+  const next = async (): Promise<Response> => new Response()
+  const res = await middleware(ctx, next)
+  assertEquals(res !== undefined, true)
+  if (res) {
+    assertEquals(res.status, 204)
+    assertEquals(res.headers.get('Access-Control-Allow-Origin'), '*')
+  }
 })
 
 Deno.test('cors OPTIONS sets allow methods/headers/max-age', async () => {
@@ -229,6 +311,20 @@ Deno.test('cors with default options allows any origin', async () => {
   const res = await middleware(ctx, next)
   assertEquals(res !== undefined, true)
   assertEquals(ctx.responseHeadersMap['Access-Control-Allow-Origin'], '*')
+  if (res) {
+    assertEquals(await res.text(), 'ok')
+  }
+})
+
+Deno.test('cors with empty origin header calls next without setting CORS headers', async () => {
+  const middleware = Middleware.Mware.cors({ origin: 'https://a.com' })
+  const ctx = createTestContext('http://localhost/', {
+    method: 'GET',
+    headers: new Headers({ Origin: '' })
+  })
+  const next = async (): Promise<Response> => new Response('ok')
+  const res = await middleware(ctx, next)
+  assertEquals(res !== undefined, true)
   if (res) {
     assertEquals(await res.text(), 'ok')
   }

@@ -94,6 +94,22 @@ Deno.test('Context#body parses form-urlencoded as FormData', async () => {
   assertEquals(formData.get('baz'), 'qux')
 })
 
+Deno.test('Context#body parses multipart/form-data', async () => {
+  const multipartBody =
+    `------TestBoundary\r\nContent-Disposition: form-data; name="field1"\r\n\r\nvalue1\r\n------TestBoundary--\r\n`
+  const ctx = createTestContext(
+    'http://localhost/',
+    {},
+    {
+      method: 'POST',
+      body: multipartBody,
+      headers: new Headers({ 'Content-Type': `multipart/form-data; boundary=----TestBoundary` })
+    }
+  )
+  const formData = (await ctx.body()) as FormData
+  assertEquals(formData.get('field1'), 'value1')
+})
+
 Deno.test('Context#body then formData throws when body already parsed as non-form', async () => {
   const ctx = createTestContext(
     'http://localhost/',
@@ -133,6 +149,19 @@ Deno.test('Context#body with plain text content-type returns string', async () =
   )
   const body = await ctx.body()
   assertEquals(body, 'just text')
+})
+
+Deno.test('Context#cookie caching returns same map on repeated calls', () => {
+  const ctx = createTestContext(
+    'http://localhost/',
+    {},
+    { headers: new Headers({ Cookie: 'a=1; b=2' }) }
+  )
+  const first = ctx.cookie() as Record<string, string>
+  const second = ctx.cookie() as Record<string, string>
+  assertEquals(first, second)
+  assertEquals(first['a'], '1')
+  assertEquals(first['b'], '2')
 })
 
 Deno.test('Context#cookie returns value by key', () => {
@@ -205,6 +234,27 @@ Deno.test('Context#formData returns cached on second call', async () => {
   assertEquals(first, second)
 })
 
+Deno.test('Context#formData then blob throws already consumed', async () => {
+  const ctx = createTestContext(
+    'http://localhost/',
+    {},
+    {
+      method: 'POST',
+      body: 'key=value',
+      headers: new Headers({ 'Content-Type': 'application/x-www-form-urlencoded' })
+    }
+  )
+  await ctx.formData()
+  let thrown = false
+  try {
+    await ctx.blob()
+  } catch (e) {
+    thrown = true
+    assertEquals((e as Error).message, 'Request body already consumed')
+  }
+  assertEquals(thrown, true)
+})
+
 Deno.test('Context#handleError when errorHandler throws propagates', async () => {
   const request = new Request('http://localhost/')
   const ctx = new Core.Context(request, new URL('http://localhost/'), {}, (_ctx, _code, _err) => {
@@ -228,6 +278,14 @@ Deno.test('Context#handleError with handler uses custom response', async () => {
   const res = await ctx.handleError(418, new Error('teapot'))
   assertEquals(res.status, 418)
   assertEquals(await res.text(), 'custom 418')
+})
+
+Deno.test('Context#handleError without handler returns null body with status', async () => {
+  const ctx = createTestContext('http://localhost/')
+  const res = await ctx.handleError(503, new Error('unavailable'))
+  assertEquals(res.status, 503)
+  const body = await res.text()
+  assertEquals(body, '')
 })
 
 Deno.test('Context#handleError without handler returns response with status only', async () => {
@@ -286,6 +344,27 @@ Deno.test('Context#json returns cached on second call', async () => {
   const first = await ctx.json()
   const second = await ctx.json()
   assertEquals(first, second)
+})
+
+Deno.test('Context#json then arrayBuffer throws already consumed', async () => {
+  const ctx = createTestContext(
+    'http://localhost/',
+    {},
+    {
+      method: 'POST',
+      body: JSON.stringify({ x: 1 }),
+      headers: new Headers({ 'Content-Type': 'application/json' })
+    }
+  )
+  await ctx.json()
+  let thrown = false
+  try {
+    await ctx.arrayBuffer()
+  } catch (e) {
+    thrown = true
+    assertEquals((e as Error).message, 'Request body already consumed')
+  }
+  assertEquals(thrown, true)
 })
 
 Deno.test('Context#json then text throws already consumed', async () => {
@@ -373,6 +452,18 @@ Deno.test('Context#redirect with status uses given status', () => {
   assertEquals(res.status, 301)
 })
 
+Deno.test('Context#render throws Deno.errors.NotSupported', async () => {
+  const ctx = createTestContext('http://localhost/')
+  let thrown = false
+  try {
+    await ctx.render('hello.dve')
+  } catch (e) {
+    thrown = true
+    assertEquals(e instanceof Deno.errors.NotSupported, true)
+  }
+  assertEquals(thrown, true)
+})
+
 Deno.test('Context#render throws when view engine not configured', async () => {
   const ctx = createTestContext('http://localhost/')
   let thrown = false
@@ -451,6 +542,12 @@ Deno.test('Context#setHeader merges into response', () => {
   assertEquals(res.headers.get('Content-Type'), 'text/html')
 })
 
+Deno.test('Context#setHeaders returns this for chaining', () => {
+  const ctx = createTestContext('http://localhost/')
+  const result = ctx.setHeaders({ 'X-A': '1', 'X-B': '2' })
+  assertEquals(result, ctx)
+})
+
 Deno.test('Context#setHeaders sets multiple headers', () => {
   const ctx = createTestContext('http://localhost/')
   ctx.setHeaders({ 'X-A': '1', 'X-B': '2' })
@@ -471,6 +568,18 @@ Deno.test('Context#state is mutable and shared', () => {
   assertEquals(ctx.state['session'], undefined)
   ctx.state['session'] = { user: 'x' }
   assertEquals((ctx.state['session'] as { user: string })?.user, 'x')
+})
+
+Deno.test('Context#streamRender throws Deno.errors.NotSupported', () => {
+  const ctx = createTestContext('http://localhost/')
+  let thrown = false
+  try {
+    ctx.streamRender('hello.dve')
+  } catch (e) {
+    thrown = true
+    assertEquals(e instanceof Deno.errors.NotSupported, true)
+  }
+  assertEquals(thrown, true)
 })
 
 Deno.test('Context#streamRender throws when view engine not configured', () => {
@@ -496,6 +605,19 @@ Deno.test('Context#text returns cached on second call', async () => {
   const first = await ctx.text()
   const second = await ctx.text()
   assertEquals(first, second)
+})
+
+Deno.test('Context#text then arrayBuffer throws already consumed', async () => {
+  const ctx = createTestContext('http://localhost/', {}, { method: 'POST', body: 'data' })
+  await ctx.text()
+  let thrown = false
+  try {
+    await ctx.arrayBuffer()
+  } catch (e) {
+    thrown = true
+    assertEquals((e as Error).message, 'Request body already consumed')
+  }
+  assertEquals(thrown, true)
 })
 
 Deno.test('Context#url returns request url', () => {

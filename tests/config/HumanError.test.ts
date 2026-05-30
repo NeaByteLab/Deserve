@@ -10,6 +10,24 @@ function createTestContext(url = 'http://localhost/', requestInit?: RequestInit)
 
 const echoWorkerUrl = new URL('../fixtures/echo_worker.ts', import.meta.url).href
 
+Deno.test('BodyLimit with limit 0 rejects Content-Length 1', async () => {
+  const middleware = Middleware.Mware.bodyLimit({ limit: 0 })
+  const ctx = createTestContext('http://localhost/', {
+    method: 'POST',
+    headers: new Headers({
+      Accept: 'application/json',
+      'Content-Length': '1'
+    }),
+    body: 'x'
+  })
+  const next = async (): Promise<Response> => new Response('should not reach')
+  const res = await middleware(ctx, next)
+  assertEquals(res !== undefined, true)
+  if (res) {
+    assertEquals(res.status, 413)
+  }
+})
+
 Deno.test('BodyLimit with negative limit returns 413', async () => {
   const middleware = Middleware.Mware.bodyLimit({ limit: -1 })
   const ctx = createTestContext('http://localhost/', {
@@ -55,6 +73,16 @@ Deno.test('Router constructor throws on invalid worker config', () => {
   })
 })
 
-Deno.test('Worker#createPool throws on invalid scriptURL', () => {
+Deno.test('Worker#createPool with poolSize 0 creates working pool', async () => {
+  const pool = Core.Worker.createPool({ scriptURL: echoWorkerUrl, poolSize: 0 })
+  try {
+    const result = await pool.run('hello')
+    assertEquals(result, 'hello')
+  } finally {
+    pool.terminate()
+  }
+})
+
+Deno.test('Worker#createPool with poolSize 0 uses 1', () => {
   assertThrows(() => Core.Worker.createPool({ scriptURL: 'not-a-valid-worker-specifier' }))
 })

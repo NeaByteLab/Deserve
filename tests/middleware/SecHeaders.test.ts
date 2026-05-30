@@ -7,6 +7,21 @@ function createTestContext(url = 'http://localhost/', requestInit?: RequestInit)
   return new Core.Context(request, new URL(url), {})
 }
 
+Deno.test('securityHeaders calls next and returns response', async () => {
+  const middleware = Middleware.Mware.securityHeaders({
+    xFrameOptions: 'DENY'
+  })
+  const ctx = createTestContext()
+  const next = async (): Promise<Response> => new Response('protected', { status: 200 })
+  const res = await middleware(ctx, next)
+  assertEquals(res !== undefined, true)
+  if (res) {
+    assertEquals(res.status, 200)
+    assertEquals(await res.text(), 'protected')
+  }
+  assertEquals(ctx.responseHeadersMap['X-Frame-Options'], 'DENY')
+})
+
 Deno.test('securityHeaders can set multiple headers', async () => {
   const middleware = Middleware.Mware.securityHeaders({
     referrerPolicy: 'strict-origin-when-cross-origin',
@@ -19,27 +34,26 @@ Deno.test('securityHeaders can set multiple headers', async () => {
   assertEquals(ctx.responseHeadersMap['X-Frame-Options'], 'DENY')
 })
 
-Deno.test('securityHeaders sets Content-Security-Policy', async () => {
+Deno.test('securityHeaders only specified headers are set others remain undefined', async () => {
   const middleware = Middleware.Mware.securityHeaders({
-    contentSecurityPolicy: "default-src 'self'"
+    xContentTypeOptions: 'nosniff'
   })
   const ctx = createTestContext()
   const next = async (): Promise<Response> => new Response()
   await middleware(ctx, next)
-  assertEquals(ctx.responseHeadersMap['Content-Security-Policy'], "default-src 'self'")
-})
-
-Deno.test('securityHeaders sets Strict-Transport-Security', async () => {
-  const middleware = Middleware.Mware.securityHeaders({
-    strictTransportSecurity: 'max-age=31536000; includeSubDomains'
-  })
-  const ctx = createTestContext()
-  const next = async (): Promise<Response> => new Response()
-  await middleware(ctx, next)
-  assertEquals(
-    ctx.responseHeadersMap['Strict-Transport-Security'],
-    'max-age=31536000; includeSubDomains'
-  )
+  assertEquals(ctx.responseHeadersMap['X-Content-Type-Options'], 'nosniff')
+  assertEquals(ctx.responseHeadersMap['Content-Security-Policy'], undefined)
+  assertEquals(ctx.responseHeadersMap['Cross-Origin-Embedder-Policy'], undefined)
+  assertEquals(ctx.responseHeadersMap['Cross-Origin-Opener-Policy'], undefined)
+  assertEquals(ctx.responseHeadersMap['Cross-Origin-Resource-Policy'], undefined)
+  assertEquals(ctx.responseHeadersMap['Origin-Agent-Cluster'], undefined)
+  assertEquals(ctx.responseHeadersMap['Referrer-Policy'], undefined)
+  assertEquals(ctx.responseHeadersMap['Strict-Transport-Security'], undefined)
+  assertEquals(ctx.responseHeadersMap['X-DNS-Prefetch-Control'], undefined)
+  assertEquals(ctx.responseHeadersMap['X-Download-Options'], undefined)
+  assertEquals(ctx.responseHeadersMap['X-Frame-Options'], undefined)
+  assertEquals(ctx.responseHeadersMap['X-Permitted-Cross-Domain-Policies'], undefined)
+  assertEquals(ctx.responseHeadersMap['X-Powered-By'], undefined)
 })
 
 Deno.test('securityHeaders sets all 13 headers when provided', async () => {
@@ -89,6 +103,29 @@ Deno.test('securityHeaders sets configured header and calls next', async () => {
   assertEquals(ctx.responseHeadersMap['X-Content-Type-Options'], 'nosniff')
 })
 
+Deno.test('securityHeaders sets Content-Security-Policy', async () => {
+  const middleware = Middleware.Mware.securityHeaders({
+    contentSecurityPolicy: "default-src 'self'"
+  })
+  const ctx = createTestContext()
+  const next = async (): Promise<Response> => new Response()
+  await middleware(ctx, next)
+  assertEquals(ctx.responseHeadersMap['Content-Security-Policy'], "default-src 'self'")
+})
+
+Deno.test('securityHeaders sets Strict-Transport-Security', async () => {
+  const middleware = Middleware.Mware.securityHeaders({
+    strictTransportSecurity: 'max-age=31536000; includeSubDomains'
+  })
+  const ctx = createTestContext()
+  const next = async (): Promise<Response> => new Response()
+  await middleware(ctx, next)
+  assertEquals(
+    ctx.responseHeadersMap['Strict-Transport-Security'],
+    'max-age=31536000; includeSubDomains'
+  )
+})
+
 Deno.test('securityHeaders with default options sets no headers', async () => {
   const middleware = Middleware.Mware.securityHeaders()
   const ctx = createTestContext()
@@ -119,4 +156,14 @@ Deno.test('securityHeaders with option false does not set header', async () => {
   const next = async (): Promise<Response> => new Response()
   await middleware(ctx, next)
   assertEquals(ctx.responseHeadersMap['X-Content-Type-Options'], undefined)
+})
+
+Deno.test('securityHeaders xPoweredBy overrides default server identity', async () => {
+  const middleware = Middleware.Mware.securityHeaders({
+    xPoweredBy: 'CustomServer'
+  })
+  const ctx = createTestContext()
+  const next = async (): Promise<Response> => new Response()
+  await middleware(ctx, next)
+  assertEquals(ctx.responseHeadersMap['X-Powered-By'], 'CustomServer')
 })

@@ -1,6 +1,26 @@
 import { assertEquals } from '@std/assert'
 import * as Core from '@core/index.ts'
 
+Deno.test(
+  'Error#buildResponse Accept with multiple types including json returns JSON',
+  async () => {
+    const request = new Request('http://localhost/multi', {
+      headers: new Headers({ Accept: 'text/html, application/json' })
+    })
+    const ctx = new Core.Context(request, new URL('http://localhost/multi'), {})
+    const res = await Core.Error.buildResponse(
+      ctx,
+      400,
+      new globalThis.Error('bad request'),
+      null
+    )
+    assertEquals(res.status, 400)
+    assertEquals(res.headers.get('Content-Type'), 'application/json')
+    const body = (await res.json()) as { error: string }
+    assertEquals(body.error, 'bad request')
+  }
+)
+
 Deno.test('Error#buildResponse with errorMiddleware receives correct error info', async () => {
   const request = new Request('http://localhost/test-path', { method: 'POST' })
   const ctx = new Core.Context(request, new URL('http://localhost/test-path'), {})
@@ -56,6 +76,21 @@ Deno.test('Error#buildResponse with errorMiddleware returning response uses it',
   assertEquals(res, customRes)
   assertEquals(await res.text(), 'custom body')
   assertEquals(res.status, 499)
+})
+
+Deno.test('Error#buildResponse with errorMiddleware that throws propagates error', async () => {
+  const request = new Request('http://localhost/')
+  const ctx = new Core.Context(request, new URL('http://localhost/'), {})
+  let thrown = false
+  try {
+    await Core.Error.buildResponse(ctx, 500, new globalThis.Error('original'), () => {
+      throw new globalThis.Error('middleware threw')
+    })
+  } catch (e) {
+    thrown = true
+    assertEquals((e as globalThis.Error).message, 'middleware threw')
+  }
+  assertEquals(thrown, true)
 })
 
 Deno.test('Error#buildResponse with sync errorMiddleware returning null', async () => {
@@ -133,4 +168,8 @@ Deno.test('Error#escapeHtml passes through string with no special chars', () => 
 
 Deno.test('Error#escapeHtml returns empty string for empty input', () => {
   assertEquals(Core.Error.escapeHtml(''), '')
+})
+
+Deno.test('Error#escapeHtml with only special characters', () => {
+  assertEquals(Core.Error.escapeHtml('&<>"\''), '&amp;&lt;&gt;&quot;&#39;')
 })

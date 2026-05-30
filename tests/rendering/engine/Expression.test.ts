@@ -27,6 +27,11 @@ Deno.test('Expression#parse binary multiplication', () => {
   assertEquals(node.type, 'binary')
 })
 
+Deno.test('Expression#parse chained member access', () => {
+  const node = parseExpr('a.b.c.d')
+  assertEquals(node.type, 'member')
+})
+
 Deno.test('Expression#parse empty tokens throws', () => {
   assertThrows(
     () => {
@@ -54,6 +59,24 @@ Deno.test('Expression#parse expected identifier after dot throws', () => {
 Deno.test('Expression#parse identifier', () => {
   const node = parseExpr('foo')
   assertEquals(node.type, 'ident')
+})
+
+Deno.test('Expression#parse inequality operators', () => {
+  for (const op of ['!==', '!=', '==']) {
+    const node = parseExpr(`a ${op} b`)
+    assertEquals(node.type, 'binary')
+    assertEquals((node as { op: string }).op, op)
+  }
+})
+
+Deno.test('Expression#parse invalid primary token throws', () => {
+  assertThrows(() => parseExpr(')'), Error, 'Invalid primary')
+})
+
+Deno.test('Expression#parse left-associative addition', () => {
+  const node = parseExpr('a + b + c')
+  assertEquals(node.type, 'binary')
+  assertEquals((node as { left: { type: string } }).left.type, 'binary')
 })
 
 Deno.test('Expression#parse logical AND and OR', () => {
@@ -114,9 +137,19 @@ Deno.test('Expression#parse string literal', () => {
   assertEquals(node.type, 'literal')
 })
 
+Deno.test('Expression#parse subtraction operator', () => {
+  const node = parseExpr('a - b')
+  assertEquals(node.type, 'binary')
+  assertEquals((node as { op: string }).op, '-')
+})
+
 Deno.test('Expression#parse ternary', () => {
   const node = parseExpr('a ? b : c')
   assertEquals(node.type, 'ternary')
+})
+
+Deno.test('Expression#parse ternary missing colon throws', () => {
+  assertThrows(() => parseExpr('a ? b c'), Error, "Expected ':'")
 })
 
 Deno.test('Expression#parse unary minus', () => {

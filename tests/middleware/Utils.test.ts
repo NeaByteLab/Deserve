@@ -1,3 +1,4 @@
+import type * as Types from '@interfaces/index.ts'
 import { assertEquals } from '@std/assert'
 import * as Core from '@core/index.ts'
 import * as Middleware from '@middleware/index.ts'
@@ -13,7 +14,7 @@ function createTestContext(
 
 Deno.test('Utils#wrapMiddleware calls handleError when middleware throws', async () => {
   const inner = async (): Promise<Response | undefined> => {
-    const err = new Error('inner fail') as Error & { statusCode?: number }
+    const err = new Error('inner fail') as Types.StatusError
     err.statusCode = 422
     throw err
   }
@@ -103,5 +104,49 @@ Deno.test('Utils#wrapMiddleware preserves middleware response', async () => {
   if (res) {
     assertEquals(res.status, 201)
     assertEquals(await res.text(), 'custom')
+  }
+})
+
+Deno.test('Utils#wrapMiddleware uses label in error message', async () => {
+  const inner = async (): Promise<Response | undefined> => {
+    throw new Error('something broke')
+  }
+  const wrapped = Middleware.Utils.wrapMiddleware('MyLabel', inner)
+  const request = new Request('http://localhost/')
+  const ctx = new Core.Context(
+    request,
+    new URL('http://localhost/'),
+    {},
+    async (_ctx, status, err) => new Response(err instanceof Error ? err.message : '', { status })
+  )
+  const next = async (): Promise<Response> => new Response()
+  const res = await wrapped(ctx, next)
+  assertEquals(res !== undefined, true)
+  if (res) {
+    const text = await res.text()
+    assertEquals(text.includes('MyLabel'), true)
+    assertEquals(text.includes('something broke'), true)
+  }
+})
+
+Deno.test('Utils#wrapMiddleware uses statusCode from thrown error', async () => {
+  const inner = async (): Promise<Response | undefined> => {
+    const err = new Error('forbidden action') as Types.StatusError
+    err.statusCode = 403
+    throw err
+  }
+  const wrapped = Middleware.Utils.wrapMiddleware('AuthCheck', inner)
+  const request = new Request('http://localhost/')
+  const ctx = new Core.Context(
+    request,
+    new URL('http://localhost/'),
+    {},
+    async (_ctx, status, err) => new Response(err instanceof Error ? err.message : '', { status })
+  )
+  const next = async (): Promise<Response> => new Response()
+  const res = await wrapped(ctx, next)
+  assertEquals(res !== undefined, true)
+  if (res) {
+    assertEquals(res.status, 403)
   }
 })

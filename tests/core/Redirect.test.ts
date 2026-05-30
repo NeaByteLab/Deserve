@@ -53,6 +53,12 @@ Deno.test('Redirect#buildResponse with array extraHeaders', () => {
   assertEquals(res.headers.get('Location'), 'https://example.com/done')
 })
 
+Deno.test('Redirect#buildResponse with http:// absolute URL leaves unchanged', () => {
+  const res = Core.Redirect.buildResponse('https://example.com/', {}, 'http://other.com/go', 301)
+  assertEquals(res.status, 301)
+  assertEquals(res.headers.get('Location'), 'http://other.com/go')
+})
+
 Deno.test('Redirect#buildResponse with no extraHeaders uses only responseHeaders', () => {
   const res = Core.Redirect.buildResponse(
     'https://example.com/',
@@ -74,6 +80,12 @@ Deno.test('Redirect#buildResponse with plain object extraHeaders', () => {
   )
   assertEquals(res.headers.get('X-Obj'), 'val')
   assertEquals(res.headers.get('Location'), 'https://example.com/done')
+})
+
+Deno.test('Redirect#buildResponse with relative URL no leading slash resolves', () => {
+  const res = Core.Redirect.buildResponse('https://example.com/foo/bar', {}, 'other', 302)
+  assertEquals(res.status, 302)
+  assertEquals(res.headers.get('Location'), 'https://example.com/foo/other')
 })
 
 Deno.test('Redirect#buildResponse with relative URL resolves against requestUrl', () => {

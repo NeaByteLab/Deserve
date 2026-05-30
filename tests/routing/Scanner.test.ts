@@ -10,6 +10,11 @@ Deno.test('Scanner#createPattern [id] to :id', () => {
   assertEquals(Routing.Scanner.createPattern('users/[id]/edit.tsx', ext), '/users/:id/edit')
 })
 
+Deno.test('Scanner#createPattern case-insensitive index detection', () => {
+  const ext = Core.Constant.allowedExtensions
+  assertEquals(Routing.Scanner.createPattern('INDEX.TS', ext), '/')
+})
+
 Deno.test('Scanner#createPattern index to /', () => {
   const ext = Core.Constant.allowedExtensions
   assertEquals(Routing.Scanner.createPattern('index.ts', ext), '/')
@@ -76,6 +81,14 @@ Deno.test('Scanner#createPattern with hyphen in name', () => {
   assertEquals(Routing.Scanner.createPattern('items/my-file.ts', ext), '/items/my-file')
 })
 
+Deno.test('Scanner#createPattern with multiple segments and param', () => {
+  const ext = Core.Constant.allowedExtensions
+  assertEquals(
+    Routing.Scanner.createPattern('api/users/[userId]/posts.ts', ext),
+    '/api/users/:userId/posts'
+  )
+})
+
 Deno.test('Scanner#createPattern with no extension returns null', () => {
   const ext = Core.Constant.allowedExtensions
   assertEquals(Routing.Scanner.createPattern('Makefile', ext), null)
@@ -120,6 +133,26 @@ Deno.test('Scanner#registerHandlers with empty module adds nothing', () => {
   Routing.Scanner.registerHandlers(router, {}, '/items', Core.Constant.httpMethods)
   const result = router.find('GET', '/items')
   assertEquals(result == null, true)
+})
+
+Deno.test('Scanner#validateModule throws Deno.errors.InvalidData for no method', () => {
+  let caughtError: unknown = null
+  try {
+    Routing.Scanner.validateModule({ foo: 1 }, 'routes/foo.ts', Core.Constant.httpMethods)
+  } catch (e) {
+    caughtError = e
+  }
+  assertEquals(caughtError instanceof Deno.errors.InvalidData, true)
+})
+
+Deno.test('Scanner#validateModule throws TypeError for non-function method', () => {
+  let caughtError: unknown = null
+  try {
+    Routing.Scanner.validateModule({ GET: 123 }, 'routes/foo.ts', Core.Constant.httpMethods)
+  } catch (e) {
+    caughtError = e
+  }
+  assertEquals(caughtError instanceof TypeError, true)
 })
 
 Deno.test('Scanner#validateModule throws when method export not function', () => {

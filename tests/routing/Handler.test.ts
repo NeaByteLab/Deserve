@@ -1,3 +1,4 @@
+import type * as Types from '@interfaces/index.ts'
 import { assertEquals } from '@std/assert'
 import { fileURLToPath } from 'node:url'
 import * as Core from '@core/index.ts'
@@ -126,6 +127,16 @@ Deno.test('Handler maxUrlLength returns 414 when exceeded', async () => {
   assertEquals(res.status, 414)
 })
 
+Deno.test('Handler maxUrlLength with zero disables check', async () => {
+  const handler = new Routing.Handler({ maxUrlLength: 0 })
+  handler.addMiddleware('', async () => new Response('ok'))
+  const longPath = 'a'.repeat(50000)
+  const handle = handler.createHandler()
+  const res = await handle(new Request(`http://localhost/${longPath}`))
+  assertEquals(res.status, 200)
+  await res.body?.cancel()
+})
+
 Deno.test('Handler middleware * matches all paths', async () => {
   const handler = new Routing.Handler()
   handler.addMiddleware('*', async (ctx, next) => {
@@ -156,6 +167,22 @@ Deno.test('Handler middleware chain runs in order', async () => {
   const handle = handler.createHandler()
   await handle(new Request('http://localhost/'))
   assertEquals(order, [1, 2, 3])
+})
+
+Deno.test('Handler middleware returns response stops chain', async () => {
+  const handler = new Routing.Handler()
+  let secondCalled = false
+  handler.addMiddleware('', async () => {
+    return new Response('stopped')
+  })
+  handler.addMiddleware('', async (_ctx, next) => {
+    secondCalled = true
+    return await next()
+  })
+  const handle = handler.createHandler()
+  const res = await handle(new Request('http://localhost/'))
+  assertEquals(await res.text(), 'stopped')
+  assertEquals(secondCalled, false)
 })
 
 Deno.test('Handler middleware wildcard /** matches deep paths', async () => {
@@ -189,7 +216,7 @@ Deno.test('Handler route error with statusCode uses thrown statusCode', async ()
   ).routerInstance
   routerInstance.add('GET', '/fail', {
     handler: () => {
-      const err = new Error('bad request') as Error & { statusCode: number }
+      const err = new Error('bad request') as Types.StatusError
       err.statusCode = 400
       throw err
     },
@@ -214,6 +241,20 @@ Deno.test('Handler route error without statusCode defaults to 500', async () => 
   const res = await handler.createHandler()(new Request('http://localhost/fail'))
   assertEquals(res.status, 500)
   await res.body?.cancel()
+})
+
+Deno.test('Handler setErrorMiddleware sets custom error handler', async () => {
+  const handler = new Routing.Handler()
+  let errorMiddlewareCalled = false
+  handler.setErrorMiddleware(async (_ctx, errorInfo) => {
+    errorMiddlewareCalled = true
+    return new Response('custom not found', { status: errorInfo.statusCode })
+  })
+  const handle = handler.createHandler()
+  const res = await handle(new Request('http://localhost/nonexistent'))
+  assertEquals(res.status, 404)
+  assertEquals(errorMiddlewareCalled, true)
+  assertEquals(await res.text(), 'custom not found')
 })
 
 Deno.test('Handler setErrorResponseBuilder overrides error response', async () => {
@@ -247,6 +288,17 @@ Deno.test('Handler without timeout does not return 503', async () => {
   const res = await handler.createHandler()(new Request('http://localhost/'))
   assertEquals(res.status, 200)
   assertEquals(await res.text(), 'ok')
+})
+
+Deno.test('Handler#addStaticRoute serves static files', async () => {
+  const staticBasePath = fileURLToPath(new URL('../fixtures/static/', import.meta.url)).replace(/[\\/]$/, '')
+  const handler = new Routing.Handler()
+  handler.addStaticRoute('/static', { path: staticBasePath })
+  const handle = handler.createHandler()
+  const res = await handle(new Request('http://localhost/static/index.html'))
+  assertEquals(res.status, 200)
+  const text = await res.text()
+  assertEquals(text.includes('static fixture'), true)
 })
 
 Deno.test('Handler#createHandler with worker option sets ctx.state.worker', async () => {
@@ -369,6 +421,11 @@ Deno.test(
     assertEquals(html.includes('<script>'), false)
   }
 )
+
+Deno.test('Handler#removeRoute for non-existent pattern does not throw', () => {
+  const handler = new Routing.Handler()
+  handler.removeRoute('/never-added')
+})
 
 Deno.test('Handler#removeRoute removes route so it returns 404', async () => {
   const handler = new Routing.Handler()

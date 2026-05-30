@@ -21,6 +21,10 @@ Deno.test('Eval#evaluate arithmetic subtraction', () => {
   assertEquals(Eval.evaluate('a - b', { a: 10, b: 3 }), 7)
 })
 
+Deno.test('Eval#evaluate chained nullish coalescing', () => {
+  assertEquals(Eval.evaluate('a ?? b ?? c', { c: 'found' }), 'found')
+})
+
 Deno.test('Eval#evaluate complex nested expression', () => {
   assertEquals(Eval.evaluate('a > 0 ? a * 2 : -a', { a: 5 }), 10)
   assertEquals(Eval.evaluate('a > 0 ? a * 2 : -a', { a: -3 }), 3)
@@ -84,6 +88,15 @@ Deno.test('Eval#evaluate member access on null returns undefined', () => {
   assertEquals(Eval.evaluate('a.b', { a: null }), undefined)
 })
 
+Deno.test('Eval#evaluate member access via expression path', () => {
+  assertEquals(Eval.evaluate('a.b + 1', { a: { b: 5 } }), 6)
+})
+
+Deno.test('Eval#evaluate NaN arithmetic', () => {
+  const result = Eval.evaluate('a / b', { a: 0, b: 0 })
+  assertEquals(Number.isNaN(result as number), true)
+})
+
 Deno.test('Eval#evaluate nullish coalescing', () => {
   assertEquals(Eval.evaluate('a ?? b', { a: null, b: 'default' }), 'default')
   assertEquals(Eval.evaluate('a ?? b', { a: undefined, b: 'default' }), 'default')
@@ -93,6 +106,14 @@ Deno.test('Eval#evaluate nullish coalescing', () => {
 
 Deno.test('Eval#evaluate number literal', () => {
   assertEquals(Eval.evaluate('42', {}), 42)
+})
+
+Deno.test('Eval#evaluate optional chaining returns undefined for null object', () => {
+  assertEquals(Eval.evaluate('a?.b', { a: null }), undefined)
+})
+
+Deno.test('Eval#evaluate parenthesized expression', () => {
+  assertEquals(Eval.evaluate('(a + b) * c', { a: 1, b: 2, c: 3 }), 9)
 })
 
 Deno.test('Eval#evaluate relational operators', () => {
@@ -147,6 +168,10 @@ Deno.test('Eval#evaluate unary minus negates', () => {
   assertEquals(Eval.evaluate('-a', { a: '3' }), -3)
 })
 
+Deno.test('Eval#evaluate unary minus on non-numeric', () => {
+  assertEquals(Eval.evaluate('-a', { a: true }), -1)
+})
+
 Deno.test('Eval#evaluate unary not', () => {
   assertEquals(Eval.evaluate('!a', { a: true }), false)
   assertEquals(Eval.evaluate('!a', { a: false }), true)
@@ -156,6 +181,15 @@ Deno.test('Eval#evaluate unary not', () => {
 Deno.test('Eval#evaluate unary plus converts to number', () => {
   assertEquals(Eval.evaluate('+a', { a: '5' }), 5)
   assertEquals(Eval.evaluate('+a', { a: 3 }), 3)
+})
+
+Deno.test('Eval#evaluate unary plus on null', () => {
+  assertEquals(Eval.evaluate('+a', { a: null }), 0)
+})
+
+Deno.test('Eval#evaluate unary plus on undefined', () => {
+  const result = Eval.evaluate('+a', {})
+  assertEquals(Number.isNaN(result as number), true)
 })
 
 Deno.test('Eval#evaluate whitespace-only returns undefined', () => {

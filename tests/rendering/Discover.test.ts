@@ -21,13 +21,13 @@ Deno.test('Discover#discoverPaths finds .dve files in views directory', async ()
   assertEquals(hasHello, true)
 })
 
+Deno.test('Discover#discoverPaths returns empty set for non-existent dir', async () => {
+  const paths = await Rendering.Discover.discoverPaths('/nonexistent-dir-' + Date.now())
+  assertEquals(paths.size, 0)
+})
+
 Deno.test('Discover#discoverPaths returns Set type', async () => {
   const viewsDir = fileURLToPath(new URL('../fixtures/views/', import.meta.url)).replace(/[\\/]$/, '')
   const paths = await Rendering.Discover.discoverPaths(viewsDir)
   assertEquals(paths instanceof Set, true)
-})
-
-Deno.test('Discover#discoverPaths returns empty set for non-existent dir', async () => {
-  const paths = await Rendering.Discover.discoverPaths('/nonexistent-dir-' + Date.now())
-  assertEquals(paths.size, 0)
 })

@@ -13,6 +13,19 @@ Deno.test('Tokenizer#tokenize complex expression', () => {
   assertEquals(tokens[6]?.kind, 'string')
 })
 
+Deno.test('Tokenizer#tokenize consecutive unary operators', () => {
+  const tokens = Tokenizer.tokenize('!!!x')
+  assertEquals(tokens.length, 4)
+  assertEquals(tokens[0]?.kind, 'op')
+  assertEquals(tokens[0]?.value, '!')
+  assertEquals(tokens[1]?.kind, 'op')
+  assertEquals(tokens[1]?.value, '!')
+  assertEquals(tokens[2]?.kind, 'op')
+  assertEquals(tokens[2]?.value, '!')
+  assertEquals(tokens[3]?.kind, 'ident')
+  assertEquals(tokens[3]?.value, 'x')
+})
+
 Deno.test('Tokenizer#tokenize double-quoted string', () => {
   const tokens = Tokenizer.tokenize('"world"')
   assertEquals(tokens.length, 1)
@@ -20,8 +33,36 @@ Deno.test('Tokenizer#tokenize double-quoted string', () => {
   assertEquals(tokens[0]?.value, 'world')
 })
 
+Deno.test('Tokenizer#tokenize double-quoted string with escape sequences', () => {
+  const tokens = Tokenizer.tokenize('"line\\nbreak"')
+  assertEquals(tokens.length, 1)
+  assertEquals(tokens[0]?.kind, 'string')
+  assertEquals(tokens[0]?.value, 'line\nbreak')
+})
+
+Deno.test('Tokenizer#tokenize empty string literal double quotes', () => {
+  const tokens = Tokenizer.tokenize('""')
+  assertEquals(tokens.length, 1)
+  assertEquals(tokens[0]?.kind, 'string')
+  assertEquals(tokens[0]?.value, '')
+})
+
+Deno.test('Tokenizer#tokenize empty string literal single quotes', () => {
+  const tokens = Tokenizer.tokenize("''")
+  assertEquals(tokens.length, 1)
+  assertEquals(tokens[0]?.kind, 'string')
+  assertEquals(tokens[0]?.value, '')
+})
+
 Deno.test('Tokenizer#tokenize empty string returns empty array', () => {
   assertEquals(Tokenizer.tokenize(''), [])
+})
+
+Deno.test('Tokenizer#tokenize escaped backslash in string', () => {
+  const tokens = Tokenizer.tokenize("'\\\\'")
+  assertEquals(tokens.length, 1)
+  assertEquals(tokens[0]?.kind, 'string')
+  assertEquals(tokens[0]?.value, '\\')
 })
 
 Deno.test('Tokenizer#tokenize float number', () => {
@@ -63,6 +104,22 @@ Deno.test('Tokenizer#tokenize number followed by dot with no digits', () => {
   assertEquals(tokens[0]?.value, 5)
 })
 
+Deno.test('Tokenizer#tokenize number followed by identifier', () => {
+  const tokens = Tokenizer.tokenize('42abc')
+  assertEquals(tokens.length, 2)
+  assertEquals(tokens[0]?.kind, 'number')
+  assertEquals(tokens[0]?.value, 42)
+  assertEquals(tokens[1]?.kind, 'ident')
+  assertEquals(tokens[1]?.value, 'abc')
+})
+
+Deno.test('Tokenizer#tokenize number with leading zeros', () => {
+  const tokens = Tokenizer.tokenize('007')
+  assertEquals(tokens.length, 1)
+  assertEquals(tokens[0]?.kind, 'number')
+  assertEquals(tokens[0]?.value, 7)
+})
+
 Deno.test('Tokenizer#tokenize single-char operators', () => {
   for (const op of ['(', ')', '?', ':', '.', '!', '+', '-', '*', '/', '%', '>', '<']) {
     const tokens = Tokenizer.tokenize(op)
@@ -92,6 +149,17 @@ Deno.test('Tokenizer#tokenize three-char operators === and !==', () => {
   const tokens = Tokenizer.tokenize('a === b !== c')
   assertEquals(tokens[1]?.value, '===')
   assertEquals(tokens[3]?.value, '!==')
+})
+
+Deno.test('Tokenizer#tokenize tokens without whitespace', () => {
+  const tokens = Tokenizer.tokenize('"a"+"b"')
+  assertEquals(tokens.length, 3)
+  assertEquals(tokens[0]?.kind, 'string')
+  assertEquals(tokens[0]?.value, 'a')
+  assertEquals(tokens[1]?.kind, 'op')
+  assertEquals(tokens[1]?.value, '+')
+  assertEquals(tokens[2]?.kind, 'string')
+  assertEquals(tokens[2]?.value, 'b')
 })
 
 Deno.test('Tokenizer#tokenize two-char operators', () => {

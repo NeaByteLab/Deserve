@@ -39,6 +39,12 @@ Deno.test('Response#create custom with no body returns empty response', async ()
   assertEquals(await res.text(), '')
 })
 
+Deno.test('Response#create custom with null body and no options', async () => {
+  const res = send.custom(null)
+  assertEquals(res.status, 200)
+  assertEquals(await res.text(), '')
+})
+
 Deno.test('Response#create data sets Content-Disposition and Content-Type', () => {
   const res = send.data(new TextEncoder().encode('data'), 'file.bin', undefined, 'application/pdf')
   assertEquals(res.headers.get('Content-Type'), 'application/pdf')
@@ -62,6 +68,12 @@ Deno.test('Response#create data with Uint8Array sets Content-Length', () => {
 Deno.test('Response#create data with default content-type uses octet-stream', () => {
   const res = send.data('hello', 'a.txt')
   assertEquals(res.headers.get('Content-Type'), 'application/octet-stream')
+})
+
+Deno.test('Response#create data with empty Uint8Array', () => {
+  const res = send.data(new Uint8Array(0), 'empty.bin')
+  assertEquals(res.headers.get('Content-Length'), '0')
+  assertEquals(res.headers.get('Content-Disposition'), 'attachment; filename="empty.bin"')
 })
 
 Deno.test('Response#create file reads file and sets headers', async () => {
@@ -96,6 +108,13 @@ Deno.test('Response#create html sets text/html', async () => {
   assertEquals(await res.text(), '<p>hi</p>')
 })
 
+Deno.test('Response#create html with empty string', async () => {
+  const res = send.html('')
+  assertEquals(res.status, 200)
+  assertEquals(res.headers.get('Content-Type'), 'text/html')
+  assertEquals(await res.text(), '')
+})
+
 Deno.test('Response#create html with large content', async () => {
   const largeHtml = '<p>' + 'x'.repeat(10000) + '</p>'
   const res = send.html(largeHtml)
@@ -109,11 +128,32 @@ Deno.test('Response#create json serializes and sets application/json', async () 
   assertEquals(await res.json(), { a: 1 })
 })
 
+Deno.test('Response#create json with array value', async () => {
+  const res = send.json([1, 2, 3])
+  assertEquals(res.status, 200)
+  assertEquals(res.headers.get('Content-Type'), 'application/json')
+  assertEquals(await res.json(), [1, 2, 3])
+})
+
 Deno.test('Response#create json with nested object', async () => {
   const res = send.json({ nested: { array: [1, 2, 3] } })
   assertEquals(res.headers.get('Content-Type'), 'application/json')
   const body = await res.json()
   assertEquals(body, { nested: { array: [1, 2, 3] } })
+})
+
+Deno.test('Response#create json with null value', async () => {
+  const res = send.json(null)
+  assertEquals(res.status, 200)
+  assertEquals(res.headers.get('Content-Type'), 'application/json')
+  assertEquals(await res.text(), 'null')
+})
+
+Deno.test('Response#create json with number value', async () => {
+  const res = send.json(42)
+  assertEquals(res.status, 200)
+  assertEquals(res.headers.get('Content-Type'), 'application/json')
+  assertEquals(await res.json(), 42)
 })
 
 Deno.test('Response#create redirect defaults to 302', () => {
@@ -143,6 +183,19 @@ Deno.test('Response#create stream sets Content-Type', () => {
   })
   const res = send.stream(stream, undefined, 'text/plain')
   assertEquals(res.headers.get('Content-Type'), 'text/plain')
+  assertEquals(res.headers.get('X-App'), 'test')
+})
+
+Deno.test('Response#create stream with custom options', () => {
+  const stream = new ReadableStream({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode('data'))
+      controller.close()
+    }
+  })
+  const res = send.stream(stream, { status: 201 }, 'text/event-stream')
+  assertEquals(res.status, 201)
+  assertEquals(res.headers.get('Content-Type'), 'text/event-stream')
   assertEquals(res.headers.get('X-App'), 'test')
 })
 
