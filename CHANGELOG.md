@@ -17,11 +17,23 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `Handler.reloadRoute()` and `Handler.removeRoute()` for runtime route replacement
 - `Handler.getViewEngine()` accessor
 - `Scanner.registerHandlers()` static method extracted from inline scanning logic
-- `TemplateData` type alias replacing inline `Record<string, unknown>` across rendering API
 - `MaybeAsync<T>` type alias in `Error` and `Middleware` interfaces
 - `AstBlockKind`, `UnaryOp`, `SecurityHeaderKey`, `SecurityHeaderValue` type aliases for stricter typing
 - `SocketCallback` and `SocketEventCallback<E>` type aliases in WebSocket interface
 - `ErrorInfo` named interface replacing inline error object in `ErrorMiddleware`
+- `Utility.ts` module with shared `MaybeAsync<T>` and `DataRecord` type aliases
+- `HttpMethod` literal union type constraining HTTP method strings
+- `RouteFileExtension` literal union type for allowed route file extensions
+- `RouteChangeEntry` interface for hot-reload pending route changes
+- `RedirectStatus`, `RedirectBuilder`, `RedirectInit` types for redirect response typing
+- `BodyParsedFormat` exported type alias for body parser format tracking
+- `NextFn`, `MiddlewareResult`, `AsyncMiddlewareResult` exported type aliases for middleware chain typing
+- `WatchableEngine` interface for template cache invalidation
+- `AstBlockNode` extracted type for block-level AST nodes containing children
+- `AstNodeType`, `ExprNodeType`, `ExprTokenKind` discriminant type aliases
+- `ArithmeticSign` shared type for `+`/`-` operators used in unary and binary expressions
+- `BinaryOp`, `StructuralOp`, `TokenOp` operator literal types for expression tokens
+- Method overload signatures for `Context.cookie()`, `Context.header()`, `Context.query()`
 - Documentation pages for hot reload feature (EN and ID)
 - Indonesian landing page feature cards for middleware, template engine, and hot reload
 - VitePress custom theme directory (`docs/.vitepress/theme/`)
@@ -31,6 +43,35 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- `TemplateData` renamed to `DataRecord` and moved to shared `Utility.ts` module
+- `MaybeAsync<T>` moved from file-local types in `Error.ts` and `Middleware.ts` to shared `Utility.ts`
+- All interface properties across `Auth`, `BodyLimit`, `Cors`, `Handler`, `Middleware`, `Render`, `Session`, `Serve`, `WebSocket` made `readonly`
+- `Constant.allowedExtensions` typed as `readonly RouteFileExtension[]` (was `string[]`)
+- `Constant.httpMethods` typed as `readonly HttpMethod[]` (was `string[]`)
+- `Context.redirect()` param `status` typed as `RedirectStatus` (was `number`), `init` typed as `RedirectInit`
+- `Response.create()` param `buildRedirect` typed as `RedirectBuilder` (was inline function type)
+- `Redirect.buildResponse()` param `status` typed as `RedirectStatus` (was `number`)
+- `Worker` message data typed as `WorkerMessageData` (was inline object type)
+- `CorsOptions.methods` typed as `readonly HttpMethod[]` (was `string[]`)
+- `ErrorInfo.error` changed from optional to required
+- `StatusError` changed from `type` to `interface extends Error`
+- `SendHelpers` changed from `type` to `interface`
+- `StaticFileHandler` changed from `type` to `interface`
+- `AstNode` union members made `readonly` on immutable fields
+- `ExprNode` literal value narrowed from `unknown` to `string | number`
+- `ExprToken` op value typed as `TokenOp` (was `string`)
+- `DveStackFrame.node` typed as `AstBlockNode` (was `AstNode`)
+- `AstBlockKind` derived from `AstBlockNode` (was `Extract` on full `AstNode`)
+- `Expression.matchOp()` param typed as `TokenOp` (was `string`)
+- `BasicAuth` and `Session` middleware return typed as `AsyncMiddlewareResult`
+- `Handler.executeMiddlewares()` return typed as `AsyncMiddlewareResult`
+- `SendHelpers.redirect` signature updated with `RedirectInit` param
+- `Handler.createHandler()` now strips response body for HEAD requests, returning headers-only response
+- `Handler.createHandler()` falls back to GET handler when HEAD method has no registered route
+- CORS middleware returns `ctx.send.custom(null, { status: 204 })` for preflight instead of `ctx.handleError(204, ...)`
+- CORS middleware returns `ctx.send.custom(null, { status: 403 })` for forbidden origin instead of `ctx.handleError(403, ...)`
+- JSDoc briefs and descriptions standardized to 6/9 word rule with periods
+- Alphabetical sort order applied to all module-level declarations and class members
 - `WebSocket.onDisconnect` callback now receives `CloseEvent` as second argument, exposing `event.code`, `event.reason`, and `event.wasClean`
 - `WebSocket.onDisconnect` type changed from `SocketCallback` to `SocketEventCallback<CloseEvent>`
 - File watchers migrated from internal `WatchFs` to `@neabyte/superwatcher` with ignore-based extension filtering, Map-based event dedup, and atomic write detection
@@ -54,16 +95,19 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - VitePress config: removed duplicate `root` locale sidebar, changed root locale key from `root` to `en`, removed inline CSS styles, added viewport meta tag
 - Documentation code blocks changed from `` ```dve `` to `` ```html `` for better syntax highlighting
 - Indonesian landing page tagline updated
-- Alphabetical reordering of type union members in `ExprNode`, `ExprToken`, `AstNode`
 
 ### Removed
 
 - `WatchFs` class from `src/core/WatchFs.ts` — replaced by `@neabyte/superwatcher`
 - `WatchedEvent` and `WatchFsOptions` types from `src/interfaces/Watcher.ts` — no longer needed
+- `TemplateData` type alias — replaced by `DataRecord` in `Utility.ts`
 
 ### Fixed
 
 - `Redirect` and `Response` no longer carry duplicate `headersToRecord` implementations
+- HEAD requests no longer hang — response body is stripped and Content-Length omitted so clients don't wait for bytes that never arrive
+- HEAD requests now fall back to GET handler when no HEAD route is registered, matching standard HTTP semantics
+- CORS preflight no longer returns 500 — `ctx.handleError(204, ...)` created a JSON body on null-body status 204, causing Deno to throw. Now uses `ctx.send.custom(null, { status: 204 })` directly
 
 ---
 
