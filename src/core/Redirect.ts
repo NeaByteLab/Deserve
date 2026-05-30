@@ -1,3 +1,4 @@
+import type * as Types from '@interfaces/index.ts'
 import { Helper } from '@core/Helper.ts'
 
 /**
@@ -19,7 +20,7 @@ export class Redirect {
     requestUrl: string,
     responseHeaders: Record<string, string>,
     url: string,
-    status: number,
+    status: Types.RedirectStatus,
     extraHeaders?: HeadersInit
   ): Response {
     const absolute = url.startsWith('http://') || url.startsWith('https://')

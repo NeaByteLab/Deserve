@@ -15,7 +15,7 @@ export class Response {
    */
   static create(
     responseHeaders: Record<string, string>,
-    buildRedirect: (url: string, status: number, extraHeaders?: HeadersInit) => globalThis.Response
+    buildRedirect: Types.RedirectBuilder
   ): Types.SendHelpers {
     return {
       custom(body: BodyInit | null, options?: ResponseInit): globalThis.Response {
@@ -86,7 +86,11 @@ export class Response {
           ...options
         })
       },
-      redirect(url: string, status = 302, options?: ResponseInit): globalThis.Response {
+      redirect(
+        url: string,
+        status: Types.RedirectStatus = 302,
+        options?: Types.RedirectInit
+      ): globalThis.Response {
         return buildRedirect(url, status, options?.headers)
       },
       stream(
