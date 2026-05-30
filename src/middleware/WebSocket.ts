@@ -30,8 +30,8 @@ export class WebSocket {
           return await next()
         }
         const { socket, response } = Deno.upgradeWebSocket(ctx.request)
-        socket.addEventListener('open', () => {
-          options.onConnect?.(socket, ctx)
+        socket.addEventListener('open', (event) => {
+          options.onConnect?.(socket, event, ctx)
         })
         socket.addEventListener('message', (event) => {
           options.onMessage?.(socket, event, ctx)
