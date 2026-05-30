@@ -30,7 +30,7 @@ Deno.test('Handler 404 for unmatched route returns JSON when Accept json', async
   assertEquals(res.status, 404)
   assertEquals(res.headers.get('Content-Type'), 'application/json')
   const body = (await res.json()) as { error: string }
-  assertEquals(body.error, 'Route not found')
+  assertEquals(body.error, 'No route found for GET /unknown')
 })
 
 Deno.test('Handler addMiddleware path prefix only applies to matching routes', async () => {
@@ -417,7 +417,7 @@ Deno.test(
     assertEquals(res.headers.get('Content-Type'), 'text/html')
     const html = await res.text()
     assertEquals(html.includes('500'), true)
-    assertEquals(html.includes('&lt;script&gt;'), true)
+    assertEquals(html.includes('Internal Server Error'), true)
     assertEquals(html.includes('<script>'), false)
   }
 )

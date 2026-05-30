@@ -16,11 +16,8 @@ export class Router {
    * @param options - Routes dir, error builder, static handler, worker pool
    */
   constructor(options?: Types.RouterOptions) {
-    const { routesDir, ...handlerOptions } = options ?? {}
-    this.handler = new Routing.Handler(
-      Object.keys(handlerOptions).length > 0 ? handlerOptions : undefined
-    )
-    this.routesDir = routesDir ?? './routes'
+    this.handler = new Routing.Handler(options)
+    this.routesDir = options?.routesDir ?? './routes'
   }
 
   /**

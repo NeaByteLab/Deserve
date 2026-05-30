@@ -1,5 +1,6 @@
 import type * as Types from '@interfaces/index.ts'
 import type { FastRouter } from '@neabyte/fast-router'
+import Stackz from '@neabyte/stackz'
 import nodeUrl from 'node:url'
 
 /**
@@ -73,17 +74,18 @@ export class Scanner {
               Scanner.registerHandlers(routerInstance, fileModule, routePattern, methods)
             }
           } catch (fileError) {
-            const errorMessage = fileError instanceof Error ? fileError.message : String(fileError)
-            console.error(`[Deserve] Skipped route file ${routePath}: ${errorMessage}`)
+            const formatted = fileError instanceof globalThis.Error
+              ? `\n${await Stackz.format(fileError, 'detailed')}\n`
+              : String(fileError)
+            console.error(`[Deserve] Skipped route file ${routePath}\n${formatted}`)
           }
         }
       }
     } catch (error) {
       if (error instanceof Deno.errors.NotFound) {
         return
-      } else {
-        throw error
       }
+      throw error
     }
   }
 

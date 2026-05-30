@@ -3,6 +3,7 @@ import * as Core from '@core/index.ts'
 import * as Rendering from '@rendering/index.ts'
 import * as Routing from '@routing/index.ts'
 import { FastRouter } from '@neabyte/fast-router'
+import Stackz from '@neabyte/stackz'
 import nodeUrl from 'node:url'
 
 /**
@@ -59,7 +60,10 @@ export class Handler {
       ? Core.Worker.createPool(options.worker)
       : undefined
     this.viewEngine = options?.viewsDir !== undefined
-      ? new Rendering.Engine({ viewsDir: options.viewsDir })
+      ? new Rendering.Engine({
+        viewsDir: options.viewsDir,
+        ...(options.maxIterations !== undefined && { maxIterations: options.maxIterations })
+      })
       : undefined
   }
 
@@ -131,36 +135,44 @@ export class Handler {
         if (routeResult) {
           const metadata = 'data' in routeResult ? routeResult.data : null
           if (!metadata) {
-            return await ctx.handleError(404, new Error('Route not found'))
+            return await ctx.handleError(
+              404,
+              new Deno.errors.NotFound('No route data found for matched pattern')
+            )
           }
           if ('params' in routeResult && routeResult.params) {
             if (maxRouteParamLength !== undefined && maxRouteParamLength > 0) {
               for (const paramValue of Object.values(routeResult.params)) {
                 if (paramValue.length > maxRouteParamLength) {
-                  return await ctx.handleError(414, new Error('URI Too Long'))
+                  return await ctx.handleError(
+                    414,
+                    new Deno.errors.InvalidData('Route parameter exceeds maximum allowed length')
+                  )
                 }
               }
             }
             ctx.setParams(routeResult.params)
           }
-          const { handler } = metadata as Types.RouteMetadata
+          const routeHandler = (metadata as Types.RouteMetadata).handler
           if (
-            handler &&
-            typeof handler === 'object' &&
-            'staticRoute' in handler &&
-            handler.staticRoute
+            routeHandler &&
+            typeof routeHandler === 'object' &&
+            'staticRoute' in routeHandler &&
+            routeHandler.staticRoute
           ) {
-            const staticHandler = handler as Types.StaticFileHandler
-            return await staticHandler.execute(ctx)
+            return await (routeHandler as Types.StaticFileHandler).execute(ctx)
           }
           try {
-            return await (handler as Types.RouteHandler)(ctx)
+            return await (routeHandler as Types.RouteHandler)(ctx)
           } catch (routeError) {
             const thrownError = routeError as Types.StatusError
             return await ctx.handleError(thrownError.statusCode ?? 500, thrownError)
           }
         }
-        return await ctx.handleError(404, new Error('Route not found'))
+        return await ctx.handleError(
+          404,
+          new Deno.errors.NotFound(`No route found for ${req.method} ${url.pathname}`)
+        )
       } catch (handlerError) {
         const thrownError = handlerError as Types.StatusError
         return await ctx.handleError(thrownError.statusCode ?? 500, thrownError)
@@ -237,7 +249,7 @@ export class Handler {
     this.removeRoute(routePattern)
     try {
       const importUrl = `${nodeUrl.pathToFileURL(fullPath).href}?t=${Date.now()}`
-      const fileModule = await import(importUrl) as Record<string, unknown>
+      const fileModule = (await import(importUrl)) as Record<string, unknown>
       Routing.Scanner.validateModule(fileModule, routePath, Core.Constant.httpMethods)
       Routing.Scanner.registerHandlers(
         this.routerInstance,
@@ -246,8 +258,10 @@ export class Handler {
         Core.Constant.httpMethods
       )
     } catch (reloadError) {
-      const errorMessage = reloadError instanceof Error ? reloadError.message : String(reloadError)
-      console.error(`[Deserve] Failed to reload route ${routePath}: ${errorMessage}`)
+      const formatted = reloadError instanceof globalThis.Error
+        ? `\n${await Stackz.format(reloadError, 'detailed')}\n`
+        : String(reloadError)
+      console.error(`[Deserve] Failed to reload route "${routePath}", got ${formatted}`)
     }
   }
 
@@ -309,7 +323,7 @@ export class Handler {
    * Ensure module exports one HTTP method.
    * @param module - Loaded route module
    * @param routePath - Path for error messages
-   * @throws {Error} When no method exported or handler not function
+   * @throws {Deno.errors.InvalidData} When no method exported
    */
   validateModule(module: Record<string, unknown>, routePath: string): void {
     Routing.Scanner.validateModule(module, routePath, Core.Constant.httpMethods)

@@ -30,7 +30,7 @@ export class Watcher {
           handler.removeRoute(pattern)
         }
       }
-      for (const [, entry] of pendingChanges) {
+      for (const entry of pendingChanges.values()) {
         await handler.reloadRoute(entry.fullPath, entry.routePath)
       }
       pendingChanges.clear()
