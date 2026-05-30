@@ -9,7 +9,7 @@ export class Context {
   /** Parsed body; undefined until parsed */
   private bodyData: unknown = undefined
   /** Format body was parsed as */
-  private bodyParsedAs: 'arraybuffer' | 'blob' | 'form' | 'json' | 'text' | null = null
+  private bodyParsedAs: Types.BodyParsedFormat | null = null
   /** Parsed cookie name-to-value map; lazy */
   private cookieMap: Record<string, string> | undefined = undefined
   /** Custom error handler when set */
@@ -65,21 +65,19 @@ export class Context {
     return this.req
   }
 
-  /** Copy of response headers set on context */
+  /** Copy of response headers */
   get responseHeadersMap(): Record<string, string> {
     return { ...this.responseHeaders }
   }
 
-  /** Helpers to send JSON, HTML, file, redirect, etc. */
+  /** Send helpers for response building */
   get send(): Types.SendHelpers {
-    return Core.Response.create(
-      this.responseHeaders,
-      (url, status, extraHeaders) =>
-        Core.Redirect.buildResponse(this.req.url, this.responseHeaders, url, status, extraHeaders)
+    return Core.Response.create(this.responseHeaders, (url, status, extraHeaders) =>
+      Core.Redirect.buildResponse(this.req.url, this.responseHeaders, url, status, extraHeaders)
     )
   }
 
-  /** Mutable state shared by middleware and route */
+  /** Shared state for middleware and route */
   get state(): Record<string, unknown> {
     return this.requestState
   }
@@ -148,9 +146,11 @@ export class Context {
   /**
    * Get cookie by key or all cookies.
    * @description Parses Cookie header on first access.
-   * @param key - Optional cookie name
-   * @returns Cookie value or full map
+   * @param key - Cookie name
+   * @returns Cookie value or undefined
    */
+  cookie(): Record<string, string>
+  cookie(key: string): string | undefined
   cookie(key?: string): string | Record<string, string> | undefined {
     if (this.cookieMap === undefined) {
       this.parseCookies()
@@ -188,11 +188,13 @@ export class Context {
   }
 
   /**
-   * Get header by name or all headers.
+   * Get header by name.
    * @description Parses headers on first access; keys lowercased.
-   * @param key - Optional header name
-   * @returns Header value or full map
+   * @param key - Header name
+   * @returns Header value or undefined
    */
+  header(): Record<string, string>
+  header(key: string): string | undefined
   header(key?: string): string | Record<string, string> | undefined {
     if (this.headerMap === undefined) {
       this.parseHeaders()
@@ -245,11 +247,13 @@ export class Context {
   }
 
   /**
-   * Get query param by key or all.
+   * Get query param by key.
    * @description Parses search params on first access.
-   * @param key - Optional query key
-   * @returns Query value or full map
+   * @param key - Query key
+   * @returns Query value or undefined
    */
+  query(): Record<string, string>
+  query(key: string): string | undefined
   query(key?: string): string | Record<string, string> | undefined {
     if (this.queryParams === undefined) {
       this.parseQuery()
@@ -265,7 +269,7 @@ export class Context {
    * @param init - Optional extra headers
    * @returns Redirect response
    */
-  redirect(url: string, status = 302, init?: { headers?: HeadersInit }): Response {
+  redirect(url: string, status: Types.RedirectStatus = 302, init?: Types.RedirectInit): Response {
     return Core.Redirect.buildResponse(
       this.req.url,
       this.responseHeaders,
@@ -282,7 +286,7 @@ export class Context {
    * @param data - Data for template
    * @returns Response with rendered HTML
    */
-  async render(templatePath: string, data: Types.TemplateData = {}): Promise<Response> {
+  async render(templatePath: string, data: Types.DataRecord = {}): Promise<Response> {
     const view = this.state['view'] as Types.ViewEngine | undefined
     if (view === undefined) {
       throw new Deno.errors.NotSupported(
@@ -343,7 +347,7 @@ export class Context {
    * @param data - Data for template
    * @returns Response with streaming HTML
    */
-  streamRender(templatePath: string, data: Types.TemplateData = {}): Response {
+  streamRender(templatePath: string, data: Types.DataRecord = {}): Response {
     const view = this.state['view'] as Types.ViewEngine
     if (view === undefined) {
       throw new Deno.errors.NotSupported(
@@ -369,19 +373,19 @@ export class Context {
     return this.bodyData as string
   }
 
-  /** Throws if body was already consumed */
+  /** Throws if body already consumed */
   private ensureBodyNotConsumed(): void {
     if (this.bodyParsedAs !== null) {
       throw new Deno.errors.BadResource('Request body already consumed')
     }
   }
 
-  /** Parse Cookie header into key-value map */
+  /** Parse Cookie header into map */
   private parseCookies(): void {
     const result: Record<string, string> = {}
     const cookieHeader = this.req.headers.get('cookie')
     if (cookieHeader) {
-      cookieHeader.split(';').forEach((cookiePart) => {
+      cookieHeader.split(';').forEach(cookiePart => {
         const [key, ...valueParts] = cookiePart.trim().split('=')
         if (key) {
           result[key] = valueParts.join('=')
