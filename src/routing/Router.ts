@@ -83,10 +83,10 @@ export class Router {
 
   /** Start watchers for routes and templates */
   private startWatchers(): void {
-    Routing.Watcher.watch(this.handler, this.routesDir).catch(() => {})
+    Routing.Watcher.watch(this.handler, this.routesDir)
     const viewEngine = this.handler.getViewEngine()
     if (viewEngine instanceof Rendering.Engine) {
-      Rendering.Watcher.watch(viewEngine).catch(() => {})
+      Rendering.Watcher.watch(viewEngine)
     }
   }
 }

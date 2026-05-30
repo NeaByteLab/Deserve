@@ -1,3 +1,4 @@
+import { Superwatcher } from '@neabyte/superwatcher'
 import { createSequential } from '@neabyte/utils-core'
 import * as Core from '@core/index.ts'
 import * as Routing from '@routing/index.ts'
@@ -13,14 +14,14 @@ export class Watcher {
 
   /**
    * Start watching routes directory.
-   * @description Uses debounced watchFs with sequential reloading.
+   * @description Uses Superwatcher with sequential reloading.
    * @param handler - Handler instance to reload routes on
    * @param routesDir - Routes directory to watch
    */
-  static async watch(handler: Routing.Handler, routesDir: string): Promise<void> {
+  static watch(handler: Routing.Handler, routesDir: string): void {
     const extensions = Core.Constant.allowedExtensions
-    const pendingChanges = new Map<string, { fullPath: string; routePath: string }>()
-    const pendingRemovals = new Set<string>()
+    const extensionSet = new Set(extensions)
+    const resolvedDir = nodePath.resolve(routesDir)
     const reloader = createSequential(async () => {
       for (const routePath of pendingRemovals) {
         const pattern = Routing.Scanner.createPattern(routePath, extensions)
@@ -34,12 +35,18 @@ export class Watcher {
       pendingChanges.clear()
       pendingRemovals.clear()
     })
-    const resolvedDir = nodePath.resolve(routesDir)
-    await Core.WatchFs.watch({
-      directory: routesDir,
-      extensions,
+    const pendingChanges = new Map<string, { fullPath: string; routePath: string }>()
+    const pendingRemovals = new Set<string>()
+    const watcher = new Superwatcher({
+      path: resolvedDir,
       debounceMs: Watcher.debounceMs,
-      flush(events) {
+      ignore: [
+        (path: string) => {
+          const ext = path.split('.').pop()?.toLowerCase() ?? ''
+          return !extensionSet.has(ext)
+        }
+      ],
+      onChange(events) {
         for (const event of events) {
           const routePath = event.path.slice(resolvedDir.length + 1)
           if (event.kind === 'remove') {
@@ -50,8 +57,9 @@ export class Watcher {
             pendingChanges.set(event.path, { fullPath: event.path, routePath })
           }
         }
-        return reloader.execute()
+        reloader.execute().catch(() => {})
       }
     })
+    watcher.start()
   }
 }
