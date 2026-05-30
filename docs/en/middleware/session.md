@@ -35,7 +35,7 @@ After that, in route handlers or middleware:
 ```typescript
 import type { Context } from '@neabyte/deserve'
 
-// POST: login — set session if credentials valid
+// POST: login - set session if credentials valid
 export async function POST(ctx: Context): Promise<Response> {
   // 1. Read JSON body (username, password)
   const body = await ctx.json()
@@ -60,7 +60,7 @@ export function GET(ctx: Context): Response {
   return ctx.send.json({ loggedIn: true, user: session })
 }
 
-// DELETE: logout — clear session
+// DELETE: logout - clear session
 export function DELETE(ctx: Context): Response {
   // 1. Clear session cookie
   ctx.state.clearSession()
@@ -88,7 +88,7 @@ router.use(
 
 | Option         | Default     | Description                                  |
 | -------------- | ----------- | -------------------------------------------- |
-| `cookieSecret` | —           | **Required.** Secret for signing the cookie. |
+| `cookieSecret` | -           | **Required.** Secret for signing the cookie. |
 | `cookieName`   | `'session'` | Cookie name                                  |
 | `maxAge`       | `86400`     | Cookie age in seconds (24 hours)             |
 | `path`         | `'/'`       | Cookie path                                  |

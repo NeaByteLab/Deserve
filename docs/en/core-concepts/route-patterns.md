@@ -27,7 +27,7 @@ Use `[param]` syntax for dynamic route segments:
 // 1. Import Context
 import type { Context } from '@neabyte/deserve'
 
-// 2. GET /users/:id — get param from ctx.param('id')
+// 2. GET /users/:id - get param from ctx.param('id')
 export function GET(ctx: Context): Response {
   const id = ctx.param('id')
   return ctx.send.json({ userId: id })

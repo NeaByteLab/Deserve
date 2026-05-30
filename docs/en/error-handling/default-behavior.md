@@ -23,7 +23,7 @@ import { Router } from '@neabyte/deserve'
 // 2. Create router
 const router = new Router({ routesDir: './routes' })
 
-// 3. Do not call router.catch() — errors use default response (JSON/HTML by Accept)
+// 3. Do not call router.catch() - errors use default response (JSON/HTML by Accept)
 
 // 4. Start server
 await router.serve(8000)

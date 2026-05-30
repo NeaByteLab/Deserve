@@ -22,7 +22,7 @@ export function GET(ctx: Context): Response {
   return ctx.send.redirect('https://example.com', 301)
 }
 
-// 2. Temporary redirect (302) — default
+// 2. Temporary redirect (302) - default
 export function GET(ctx: Context): Response {
   return ctx.send.redirect('https://example.com', 302)
 }

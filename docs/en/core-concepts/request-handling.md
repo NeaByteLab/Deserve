@@ -59,8 +59,8 @@ export function GET(ctx: Context): Response {
 
 **When to use which:**
 
-- **`query()`** — Get single value or last value when duplicates exist
-- **`queries()`** — Get all values for array or multi-select parameters
+- **`query()`** - Get single value or last value when duplicates exist
+- **`queries()`** - Get all values for array or multi-select parameters
 
 ### Complete Query Object
 
@@ -85,7 +85,7 @@ Access dynamic route parameters from file-based routing:
 ### Single Parameter
 
 ```typescript
-// routes/users/[id].ts — URL: /users/123
+// routes/users/[id].ts - URL: /users/123
 // 1. ctx.param('id') = dynamic segment value
 export function GET(ctx: Context): Response {
   const id = ctx.param('id')
@@ -96,7 +96,7 @@ export function GET(ctx: Context): Response {
 ### Multiple Parameters
 
 ```typescript
-// routes/users/[id]/posts/[postId].ts — URL: /users/123/posts/456
+// routes/users/[id]/posts/[postId].ts - URL: /users/123/posts/456
 // 1. One ctx.param per dynamic segment
 export function GET(ctx: Context): Response {
   const id = ctx.param('id')
@@ -108,7 +108,7 @@ export function GET(ctx: Context): Response {
 ### All Parameters
 
 ```typescript
-// routes/.../comments/[commentId].ts — URL: .../123/posts/456/comments/789
+// routes/.../comments/[commentId].ts - URL: .../123/posts/456/comments/789
 // 1. ctx.params() = object of all route params
 export function GET(ctx: Context): Response {
   const params = ctx.params()

@@ -23,7 +23,7 @@ import { Router } from '@neabyte/deserve'
 // 2. Buat router
 const router = new Router({ routesDir: './routes' })
 
-// 3. Tidak panggil router.catch() — error akan pakai response default (JSON/HTML by Accept)
+// 3. Tidak panggil router.catch() - error akan pakai response default (JSON/HTML by Accept)
 
 // 4. Jalankan server
 await router.serve(8000)
@@ -55,7 +55,7 @@ Selain itu:
 
 Penanganan error default mencakup semua tipe error yang dapat terjadi selama pemrosesan request:
 
-### 404 — Route Tidak Ditemukan
+### 404 - Route Tidak Ditemukan
 
 Ketika route tidak ada atau tidak ada route handler yang cocok ditemukan:
 
@@ -72,7 +72,7 @@ Ini termasuk:
 - Routes dengan HTTP methods yang salah
 - Routes yang gagal match selama routing resolution
 
-### 500 — Server Errors
+### 500 - Server Errors
 
 Ketika route handler melempar error atau exception:
 

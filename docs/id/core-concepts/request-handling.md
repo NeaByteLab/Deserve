@@ -59,8 +59,8 @@ export function GET(ctx: Context): Response {
 
 **Kapan memakai apa:**
 
-- **`query()`** — Ambil nilai tunggal atau nilai terakhir saat ada duplikat
-- **`queries()`** — Ambil semua nilai untuk array atau parameter multi-select
+- **`query()`** - Ambil nilai tunggal atau nilai terakhir saat ada duplikat
+- **`queries()`** - Ambil semua nilai untuk array atau parameter multi-select
 
 ### Objek Query Lengkap
 
@@ -85,7 +85,7 @@ Akses dynamic route parameters dari file-based routing:
 ### Parameter Tunggal
 
 ```typescript
-// routes/users/[id].ts — URL: /users/123
+// routes/users/[id].ts - URL: /users/123
 // 1. ctx.param('id') = nilai segmen dinamis
 export function GET(ctx: Context): Response {
   const id = ctx.param('id')
@@ -96,7 +96,7 @@ export function GET(ctx: Context): Response {
 ### Parameter Ganda
 
 ```typescript
-// routes/users/[id]/posts/[postId].ts — URL: /users/123/posts/456
+// routes/users/[id]/posts/[postId].ts - URL: /users/123/posts/456
 // 1. Satu ctx.param per segmen dinamis
 export function GET(ctx: Context): Response {
   const id = ctx.param('id')
@@ -108,7 +108,7 @@ export function GET(ctx: Context): Response {
 ### Semua Parameter
 
 ```typescript
-// routes/.../comments/[commentId].ts — URL: .../123/posts/456/comments/789
+// routes/.../comments/[commentId].ts - URL: .../123/posts/456/comments/789
 // 1. ctx.params() = object semua param route
 export function GET(ctx: Context): Response {
   const params = ctx.params()

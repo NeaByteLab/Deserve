@@ -55,7 +55,7 @@ export function GET(ctx: Context): Response {
 
 ```typescript
 export function GET(ctx: Context): Response {
-  // 1. No content (204) — body null
+  // 1. No content (204) - body null
   return ctx.send.custom(null, { status: 204 })
 }
 ```

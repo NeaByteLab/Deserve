@@ -56,7 +56,7 @@ export async function POST(ctx: Context): Promise<Response> {
   return ctx.send.json({ message: 'User created', data })
 }
 
-// 3. Method lain: PUT, PATCH, DELETE, dll. — export dengan nama yang sama
+// 3. Method lain: PUT, PATCH, DELETE, dll. - export dengan nama yang sama
 // export function [method](ctx: Context): Response { ... }
 ```
 
@@ -72,7 +72,7 @@ URL bersifat case-sensitive sesuai standar HTTP:
 File dapat berisi aturan spesifik:
 
 - `a-z`, `A-Z`, `0-9` - Karakter alfanumerik
-- `_` - Underscore (jangan awali segmen path — lihat bawah)
+- `_` - Underscore (jangan awali segmen path - lihat bawah)
 - `-` - Dash
 - `.` - Dot
 - `~` - Tilde

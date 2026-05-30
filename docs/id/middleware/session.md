@@ -35,7 +35,7 @@ Setelah itu, di route handler atau middleware:
 ```typescript
 import type { Context } from '@neabyte/deserve'
 
-// POST: login — set session jika kredensial benar
+// POST: login - set session jika kredensial benar
 export async function POST(ctx: Context): Promise<Response> {
   // 1. Baca body JSON (username, password)
   const body = await ctx.json()
@@ -60,7 +60,7 @@ export function GET(ctx: Context): Response {
   return ctx.send.json({ loggedIn: true, user: session })
 }
 
-// DELETE: logout — hapus session
+// DELETE: logout - hapus session
 export function DELETE(ctx: Context): Response {
   // 1. Clear cookie session
   ctx.state.clearSession()
@@ -88,7 +88,7 @@ router.use(
 
 | Opsi           | Default     | Keterangan                                      |
 | -------------- | ----------- | ----------------------------------------------- |
-| `cookieSecret` | —           | **Wajib.** Rahasia untuk menandatangani cookie. |
+| `cookieSecret` | -           | **Wajib.** Rahasia untuk menandatangani cookie. |
 | `cookieName`   | `'session'` | Nama cookie                                     |
 | `maxAge`       | `86400`     | Umur cookie dalam detik (24 jam)                |
 | `path`         | `'/'`       | Path cookie                                     |

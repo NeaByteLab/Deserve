@@ -56,7 +56,7 @@ export async function POST(ctx: Context): Promise<Response> {
   return ctx.send.json({ message: 'User created', data })
 }
 
-// 3. Other methods: PUT, PATCH, DELETE, etc. — export with same name
+// 3. Other methods: PUT, PATCH, DELETE, etc. - export with same name
 // export function [method](ctx: Context): Response { ... }
 ```
 
@@ -72,7 +72,7 @@ URLs are case-sensitive following HTTP standards:
 Files can contain specific rules:
 
 - `a-z`, `A-Z`, `0-9` - Alphanumeric characters
-- `_` - Underscore (do not prefix path segment — see below)
+- `_` - Underscore (do not prefix path segment - see below)
 - `-` - Dash
 - `.` - Dot
 - `~` - Tilde

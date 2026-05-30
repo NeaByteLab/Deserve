@@ -4,13 +4,13 @@ Building servers shouldn't feel like a puzzle. That's how Deserve came to life.
 
 ## The Journey
 
-Like many developers, I spent years working across the JavaScript ecosystem with different frameworks. [Express](https://github.com/expressjs/express) was my go-to — simple, familiar, and reliable. I built countless projects with it. But when Deno entered the scene, something clicked.
+Like many developers, I spent years working across the JavaScript ecosystem with different frameworks. [Express](https://github.com/expressjs/express) was my go-to - simple, familiar, and reliable. I built countless projects with it. But when Deno entered the scene, something clicked.
 
 Deno offers a powerful native ecosystem. But here's the thing: sometimes "powerful" can feel overwhelming. Config files here, route registrations there, middleware setup everywhere. I wanted something built specifically for Deno that felt simpler for the things I needed to build.
 
 ## Core Beliefs
 
-1) **Minimal dependencies, maximum productivity.** Ideally zero dependencies. Deno already provides so much — let's keep things simple.
+1) **Minimal dependencies, maximum productivity.** Ideally zero dependencies. Deno already provides so much - let's keep things simple.
 
 2) **File structure as API structure.** No route registration needed. Your folder structure becomes your API. Easy for teams and easy to maintain.
 

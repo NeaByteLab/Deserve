@@ -61,7 +61,7 @@ router.catch((ctx, error) => {
 
 ## Skenario Error Umum
 
-### 404 — Route Tidak Ditemukan
+### 404 - Route Tidak Ditemukan
 
 ```typescript
 // 1. Cek status 404 (route tidak ditemukan)
@@ -81,7 +81,7 @@ router.catch((ctx, error) => {
 })
 ```
 
-### 500 — Server Errors
+### 500 - Server Errors
 
 ```typescript
 // 1. Cek status 500 (server error)

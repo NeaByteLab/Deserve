@@ -13,7 +13,7 @@ Context is a wrapper around Deno's native `Request` object. Every incoming reque
 
 ## Why Using Context?
 
-Context avoids multiple parsing and repeated processing during the request lifecycle. The handler receives one Context object that persists through the entire lifecycle — from middleware to route handler.
+Context avoids multiple parsing and repeated processing during the request lifecycle. The handler receives one Context object that persists through the entire lifecycle - from middleware to route handler.
 
 ## Creating Context
 

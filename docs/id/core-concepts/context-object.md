@@ -13,7 +13,7 @@ Context adalah wrapper di sekitar objek `Request` native Deno. Setiap request ya
 
 ## Mengapa Menggunakan Context?
 
-Context menghindari multiple parsing dan pemrosesan berulang selama lifecycle request. Handler menerima satu objek Context yang bertahan melalui seluruh lifecycle — dari middleware ke route handler.
+Context menghindari multiple parsing dan pemrosesan berulang selama lifecycle request. Handler menerima satu objek Context yang bertahan melalui seluruh lifecycle - dari middleware ke route handler.
 
 ## Membuat Context
 

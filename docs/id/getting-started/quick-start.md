@@ -36,7 +36,7 @@ Buat folder `routes` dan tambahkan `index.ts`:
 // 1. Import tipe Context
 import type { Context } from '@neabyte/deserve'
 
-// 2. Export handler dengan nama method HTTP (GET) — file-based routing
+// 2. Export handler dengan nama method HTTP (GET) - file-based routing
 export function GET(ctx: Context): Response {
   // 3. Kirim JSON response
   return ctx.send.json({

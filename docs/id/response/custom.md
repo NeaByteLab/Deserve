@@ -55,7 +55,7 @@ export function GET(ctx: Context): Response {
 
 ```typescript
 export function GET(ctx: Context): Response {
-  // 1. No content (204) — body null
+  // 1. No content (204) - body null
   return ctx.send.custom(null, { status: 204 })
 }
 ```
@@ -80,7 +80,7 @@ Headers yang diatur via `ctx.setHeader()` akan digabung dengan headers dari para
 export function GET(ctx: Context): Response {
   // 1. Header dari context
   ctx.setHeader('X-Context-Header', 'from-context')
-  // 2. Header dari options — digabung; options menang jika konflik
+  // 2. Header dari options - digabung; options menang jika konflik
   return ctx.send.custom('Body', {
     headers: { 'X-Options-Header': 'from-options' }
   })
