@@ -6,8 +6,8 @@ import * as Middleware from '@middleware/index.ts'
  * @description Sets configurable security headers on response.
  */
 export class SecHeaders {
-  /** Option key to HTTP header name mapping. */
-  private static readonly headerEntries: Types.SecurityHeaderEntry[] = [
+  /** Option key to header name map */
+  private static readonly headerEntries: readonly Types.SecurityHeaderEntry[] = [
     { key: 'contentSecurityPolicy', name: 'Content-Security-Policy' },
     { key: 'crossOriginEmbedderPolicy', name: 'Cross-Origin-Embedder-Policy' },
     { key: 'crossOriginOpenerPolicy', name: 'Cross-Origin-Opener-Policy' },
