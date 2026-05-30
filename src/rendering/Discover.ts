@@ -1,14 +1,14 @@
 /**
- * Scan directory for .dve templates
- * @description Collects relative paths for Engine validation
+ * Scan directory for .dve templates.
+ * @description Collects relative paths for Engine validation.
  */
 export class Discover {
   /** DVE template file extension */
   private static readonly dveExtension = '.dve'
 
   /**
-   * Discover .dve template paths
-   * @description Recursively scans viewsDir for templates
+   * Discover .dve template paths.
+   * @description Recursively scans viewsDir for templates.
    * @param viewsDir - Root directory to scan
    * @returns Set of relative template paths
    */
@@ -19,8 +19,8 @@ export class Discover {
   }
 
   /**
-   * Collect .dve paths recursively
-   * @description Walks directories and accumulates relative paths
+   * Collect .dve paths recursively.
+   * @description Walks directories and accumulates relative paths.
    * @param targetDir - Directory to read
    * @param basePath - Current relative path prefix
    * @param collectedPaths - Set to add discovered paths
@@ -40,8 +40,10 @@ export class Discover {
           collectedPaths.add(relativePath)
         }
       }
-    } catch {
-      // no-op
+    } catch (error) {
+      if (!(error instanceof Deno.errors.NotFound)) {
+        throw error
+      }
     }
   }
 }

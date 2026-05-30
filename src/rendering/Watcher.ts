@@ -24,14 +24,12 @@ export class Watcher {
       debounceMs: Watcher.debounceMs,
       ignore: [(path: string) => !path.endsWith('.dve')],
       onChange(events) {
-        let needsRefresh = false
         for (const event of events) {
           const relativePath = event.path.slice(resolvedDir.length + 1)
           const absPath = EngineParts.Utils.join(viewsDir, relativePath)
           engine.invalidateFile(absPath)
-          needsRefresh = true
         }
-        if (needsRefresh) {
+        if (events.length > 0) {
           engine.refreshPaths()
         }
       }

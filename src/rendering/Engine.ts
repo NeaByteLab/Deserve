@@ -1,14 +1,21 @@
 import type * as Types from '@interfaces/index.ts'
 import * as Rendering from '@rendering/index.ts'
 import * as EngineParts from '@rendering/engine/index.ts'
+import Stackz from '@neabyte/stackz'
 
 /**
  * Template rendering engine.
  * @description Compiles and renders DVE templates with cache.
  */
 export class Engine implements Types.ViewEngine, Types.WatchableEngine {
+  /** Default max #each iterations */
+  private static readonly defaultMaxIterations = 100_000
+  /** Maximum include nesting depth */
+  private static readonly maxIncludeDepth = 64
   /** Default views directory */
   private readonly defaultViewsDir: string
+  /** Max iterations per #each block */
+  private readonly maxIterations: number
   /** Compiled template cache */
   private readonly compileCache = new Map<string, Types.CompileResult>()
   /** Raw file contents cache */
@@ -23,6 +30,7 @@ export class Engine implements Types.ViewEngine, Types.WatchableEngine {
    */
   constructor(options: Types.EngineOptions) {
     this.defaultViewsDir = options.viewsDir
+    this.maxIterations = options.maxIterations ?? Engine.defaultMaxIterations
   }
 
   /** Views directory for path resolution */
@@ -50,12 +58,19 @@ export class Engine implements Types.ViewEngine, Types.WatchableEngine {
    * @description Loads template and produces final HTML.
    * @param templatePath - Relative template path
    * @param data - Template scope data
+   * @param depth - Current include nesting depth
    * @returns Rendered HTML string
    * @throws {Deno.errors.NotFound} When template path not discovered
+   * @throws {Deno.errors.InvalidData} When include depth exceeded
    */
-  async render(templatePath: string, data: Types.DataRecord = {}): Promise<string> {
+  async render(templatePath: string, data: Types.DataRecord = {}, depth = 0): Promise<string> {
+    if (depth > Engine.maxIncludeDepth) {
+      throw new Deno.errors.InvalidData(
+        `Template include depth exceeded ${Engine.maxIncludeDepth} for "${templatePath}"`
+      )
+    }
     const compiled = await this.resolveTemplate(templatePath)
-    return await this.renderNodes(compiled.ast, data, this.defaultViewsDir)
+    return await this.renderNodes(compiled.ast, data, this.defaultViewsDir, depth)
   }
 
   /**
@@ -68,8 +83,8 @@ export class Engine implements Types.ViewEngine, Types.WatchableEngine {
    */
   streamRender(templatePath: string, data: Types.DataRecord = {}): ReadableStream {
     const { readable, writable } = new TransformStream()
-    this.renderNodesToStream(templatePath, data, writable).catch((error: Error) => {
-      console.error('Stream rendering error:', error)
+    this.renderNodesToStream(templatePath, data, writable).catch(async (error: Error) => {
+      console.error(`\n${await Stackz.format(error, 'detailed')}\n`)
     })
     return readable
   }
@@ -114,12 +129,14 @@ export class Engine implements Types.ViewEngine, Types.WatchableEngine {
    * @param node - AST node to render
    * @param data - Template scope data
    * @param viewsDir - Root directory for includes
+   * @param depth - Current include nesting depth
    * @returns HTML chunk string or null
    */
   private async renderNodeToChunk(
     node: Types.AstNode,
     data: Types.DataRecord,
-    viewsDir: string
+    viewsDir: string,
+    depth: number
   ): Promise<string | null> {
     if (node.type === 'text') {
       return node.value
@@ -132,17 +149,22 @@ export class Engine implements Types.ViewEngine, Types.WatchableEngine {
       return node.raw ? stringValue : EngineParts.Utils.escape(stringValue)
     }
     if (node.type === 'include') {
-      return await this.render(node.templatePath, data)
+      return await this.render(node.templatePath, data, depth + 1)
     }
     if (node.type === 'if') {
       const lookupValue = EngineParts.Eval.evaluate(node.path, data)
       const nodes = lookupValue ? node.thenNodes : node.elseNodes
-      return await this.renderNodes(nodes, data, viewsDir)
+      return await this.renderNodes(nodes, data, viewsDir, depth)
     }
     if (node.type === 'each') {
       const lookupValue = EngineParts.Eval.evaluate(node.path, data)
       if (!Array.isArray(lookupValue)) {
         return null
+      }
+      if (lookupValue.length > this.maxIterations) {
+        throw new Deno.errors.InvalidData(
+          `Template #each exceeded ${this.maxIterations} iterations (got ${lookupValue.length})`
+        )
       }
       const length = lookupValue.length
       let output = ''
@@ -156,7 +178,7 @@ export class Engine implements Types.ViewEngine, Types.WatchableEngine {
           '@last': index === length - 1,
           '@length': length
         }
-        output += await this.renderNodes(node.nodes, scopeData, viewsDir)
+        output += await this.renderNodes(node.nodes, scopeData, viewsDir, depth)
       }
       return output
     }
@@ -169,16 +191,18 @@ export class Engine implements Types.ViewEngine, Types.WatchableEngine {
    * @param ast - Parsed template AST nodes
    * @param data - Current scope data
    * @param viewsDir - Root directory for includes
+   * @param depth - Current include nesting depth
    * @returns Rendered HTML string
    */
   private async renderNodes(
     ast: readonly Types.AstNode[],
     data: Types.DataRecord,
-    viewsDir: string
+    viewsDir: string,
+    depth: number
   ): Promise<string> {
     let outputHtml = ''
     for (const node of ast) {
-      const chunk = await this.renderNodeToChunk(node, data, viewsDir)
+      const chunk = await this.renderNodeToChunk(node, data, viewsDir, depth)
       if (chunk) {
         outputHtml += chunk
       }
@@ -203,7 +227,7 @@ export class Engine implements Types.ViewEngine, Types.WatchableEngine {
     try {
       const compiled = await this.resolveTemplate(templatePath)
       for (const node of compiled.ast) {
-        const chunk = await this.renderNodeToChunk(node, data, this.defaultViewsDir)
+        const chunk = await this.renderNodeToChunk(node, data, this.defaultViewsDir, 0)
         if (chunk) {
           await writer.write(encoder.encode(chunk))
         }
