@@ -10,9 +10,9 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
-- Hot reload for routes and templates via file system watchers (`WatchFs`, `Routing.Watcher`, `Rendering.Watcher`)
+- `@neabyte/superwatcher@^0.1.1` dependency for file watching with debounce, event dedup, and atomic write detection
+- Hot reload for routes and templates via file system watchers (`Routing.Watcher`, `Rendering.Watcher`)
 - `Helper` utility class consolidating `headersToRecord` from `Redirect` and `Response` into a shared `Helper.toRecord` method
-- `Watcher` interface types (`WatchedEvent`, `WatchFsOptions`) in `src/interfaces/Watcher.ts`
 - `Engine.viewsDir` getter, `Engine.invalidateFile()` and `Engine.refreshPaths()` for cache invalidation during hot reload
 - `Handler.reloadRoute()` and `Handler.removeRoute()` for runtime route replacement
 - `Handler.getViewEngine()` accessor
@@ -31,6 +31,16 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- File watchers migrated from internal `WatchFs` to `@neabyte/superwatcher` with ignore-based extension filtering, Map-based event dedup, and atomic write detection
+- `Routing.Watcher.watch()` and `Rendering.Watcher.watch()` changed from `async` to synchronous
+- `Router.startWatchers()` no longer wraps watcher calls in `.catch()` since watchers are now synchronous
+- Error types upgraded to `Deno.errors` for semantic error handling:
+  - `Context.render()`/`streamRender()`: `Error` → `Deno.errors.NotSupported` (view engine not configured)
+  - `Context.ensureBodyNotConsumed()`: `Error` → `Deno.errors.BadResource` (body already consumed)
+  - `Engine.resolveTemplate()`: `Error` → `Deno.errors.NotFound` (template not found)
+  - `Scanner.validateModule()`: `Error` → `Deno.errors.InvalidData` (no HTTP method) and `TypeError` (export not a function)
+  - `BasicAuth.create()`: `Error` → `Deno.errors.InvalidData` (empty users array)
+  - `Session.create()`: `Error` → `Deno.errors.InvalidData` (empty cookieSecret)
 - `RouterOptions` now extends `HandlerOptions` instead of duplicating fields
 - `SecurityHeadersOptions` refactored to `Partial<Record<SecurityHeaderKey, SecurityHeaderValue>>`
 - `Engine.render()` and `Engine.streamRender()` refactored to share `resolveTemplate()` private method, removing duplicated path resolution logic
@@ -43,6 +53,11 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Documentation code blocks changed from `` ```dve `` to `` ```html `` for better syntax highlighting
 - Indonesian landing page tagline updated
 - Alphabetical reordering of type union members in `ExprNode`, `ExprToken`, `AstNode`
+
+### Removed
+
+- `WatchFs` class from `src/core/WatchFs.ts` — replaced by `@neabyte/superwatcher`
+- `WatchedEvent` and `WatchFsOptions` types from `src/interfaces/Watcher.ts` — no longer needed
 
 ### Fixed
 
