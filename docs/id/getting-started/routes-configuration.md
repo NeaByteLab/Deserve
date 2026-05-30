@@ -44,6 +44,20 @@ const router = new Router({
 })
 ```
 
+### `maxIterations`
+
+Jumlah maksimum iterasi yang diizinkan per blok <code v-pre>{{#each}}</code> di template DVE. Mencegah event loop starvation dari rendering template tanpa batas. Default adalah `100_000`. Jika terlampaui, engine akan throw dan server merespons **500 Internal Server Error**.
+
+```typescript
+const router = new Router({
+  routesDir: 'routes',
+  viewsDir: './views',
+  maxIterations: 50_000
+})
+```
+
+Untuk dataset lebih besar dari limit, gunakan [`streamRender`](/id/rendering/streaming). Untuk rendering yang CPU-intensive, pertimbangkan untuk offload ke [worker pool](/id/core-concepts/worker-pool).
+
 ## Ekstensi File Yang Didukung
 
 Deserve secara otomatis mendeteksi dan mendukung ekstensi file ini:

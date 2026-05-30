@@ -70,6 +70,20 @@ await router.serve(8000)
 
 Omit `requestTimeoutMs` for no timeout (default).
 
+## Template Iteration Limit
+
+You can limit the number of iterations per <code v-pre>{{#each}}</code> block in DVE templates. This prevents event loop starvation from unbounded template rendering. Default is `100_000`:
+
+```typescript
+const router = new Router({
+  viewsDir: './views',
+  maxIterations: 50_000
+})
+await router.serve(8000)
+```
+
+If a template exceeds the limit, the server responds with **500 Internal Server Error**. For large datasets, use [`streamRender`](/en/rendering/streaming) instead. For CPU-intensive rendering, consider offloading to a [worker pool](/en/core-concepts/worker-pool).
+
 ## Graceful Shutdown
 
 Use `AbortSignal` for graceful server shutdown:

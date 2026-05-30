@@ -44,6 +44,20 @@ const router = new Router({
 })
 ```
 
+### `maxIterations`
+
+Maximum number of iterations allowed per <code v-pre>{{#each}}</code> block in DVE templates. Prevents event loop starvation from unbounded template rendering. Default is `100_000`. If exceeded, the engine throws and the server responds with **500 Internal Server Error**.
+
+```typescript
+const router = new Router({
+  routesDir: 'routes',
+  viewsDir: './views',
+  maxIterations: 50_000
+})
+```
+
+For datasets larger than the limit, use [`streamRender`](/en/rendering/streaming) instead. For CPU-intensive rendering, consider offloading to a [worker pool](/en/core-concepts/worker-pool).
+
 ## Supported File Extensions
 
 Deserve automatically detects and supports these file extensions:

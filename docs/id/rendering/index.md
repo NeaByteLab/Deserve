@@ -213,6 +213,19 @@ await ctx.render('template', newData) // Cepat
 
 **Catatan**: Cache hanya untuk kompilasi template, bukan data atau logic backend.
 
+### Batas Iterasi
+
+Setiap blok <code v-pre>{{#each}}</code> dibatasi `100_000` iterasi secara default. Ini mencegah event loop starvation dari loop tanpa batas. Konfigurasi via `maxIterations`:
+
+```typescript
+const router = new Router({
+  viewsDir: './views',
+  maxIterations: 200_000
+})
+```
+
+Jika loop melebihi limit, engine akan throw dan server merespons **500**. Untuk dataset sangat besar, gunakan [streaming rendering](/id/rendering/streaming). Untuk rendering yang CPU-intensive, pertimbangkan untuk offload ke [worker pool](/id/core-concepts/worker-pool).
+
 ## Error Handling
 
 ```typescript

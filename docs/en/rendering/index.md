@@ -213,6 +213,19 @@ await ctx.render('template', newData) // Fast
 
 **Note**: Cache is only for template compilation, not data or backend logic.
 
+### Iteration Limit
+
+Each <code v-pre>{{#each}}</code> block is limited to `100_000` iterations by default. This prevents event loop starvation from unbounded loops. Configure via `maxIterations`:
+
+```typescript
+const router = new Router({
+  viewsDir: './views',
+  maxIterations: 200_000
+})
+```
+
+If a loop exceeds the limit, the engine throws and the server responds with **500**. For very large datasets, use [streaming rendering](/en/rendering/streaming) instead. For CPU-intensive rendering, consider offloading to a [worker pool](/en/core-concepts/worker-pool).
+
 ## Error Handling
 
 ```typescript
