@@ -74,18 +74,39 @@ npx autocannon http://localhost:8000/test-view-include -c 500 -p 10 -d 30
 npx autocannon http://localhost:8000/test-view-expr -c 500 -p 10 -d 30
 ```
 
-## Latest Results (30s, 500 Conn, Pipelining 10)
+## Test Environment
 
-### JSON + CPU (Example)
+- **OS**: macOS 26.5
+- **Machine**: Apple M3 Pro, 18 GB RAM
+- **Config**: 500 connections, pipelining 10, duration 30s
 
-**Non-worker** — `benchmark/main.ts`:
+## Results — Deno 2.8.1 (Latest)
+
+### JSON + CPU (Non-worker)
 
 | Route       | Test 1  | Test 2  | Test 3  | Req/Sec (avg) | Latency (avg) | Total (avg) |
 | ----------- | ------- | ------- | ------- | ------------- | ------------- | ----------- |
-| `/test`     | 175,343 | 170,567 | 164,515 | 170,142       | 29 ms         | 5109k       |
+| `/test`     | 227,499 | 221,359 | 211,746 | 220,201       | 22.23 ms      | 6,611k      |
+| `/test-cpu` | 23,155  | 23,429  | 23,206  | 23,263        | 213.77 ms     | 703k        |
+
+### JSON + CPU (Worker-enabled)
+
+| Route          | Test 1  | Test 2  | Test 3  | Req/Sec (avg) | Latency (avg) | Total (avg) |
+| -------------- | ------- | ------- | ------- | ------------- | ------------- | ----------- |
+| `/test`        | 212,079 | 216,934 | 209,105 | 212,706       | 23.02 ms      | 6,386k      |
+| `/test-cpu`    | 23,723  | 23,207  | 23,574  | 23,501        | 211.59 ms     | 710k        |
+| `/test-worker` | 75,856  | 84,074  | 88,947  | 82,959        | 60.06 ms      | 2,494k      |
+
+## Results — Deno 2.7.7
+
+### JSON + CPU (Non-worker)
+
+| Route       | Test 1  | Test 2  | Test 3  | Req/Sec (avg) | Latency (avg) | Total (avg) |
+| ----------- | ------- | ------- | ------- | ------------- | ------------- | ----------- |
+| `/test`     | 175,343 | 170,567 | 164,515 | 170,142       | 29 ms         | 5,109k      |
 | `/test-cpu` | 25,009  | 24,949  | 24,927  | 24,962        | 199 ms        | 754k        |
 
-**Worker-enabled** — `benchmark/main-worker.ts`:
+### JSON + CPU (Worker-enabled)
 
 | Route          | Test 1  | Test 2  | Test 3  | Req/Sec (avg) | Latency (avg) | Total (avg) |
 | -------------- | ------- | ------- | ------- | ------------- | ------------- | ----------- |
