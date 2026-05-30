@@ -6,7 +6,7 @@ import * as EngineParts from '@rendering/engine/index.ts'
  * Template rendering engine.
  * @description Compiles and renders DVE templates with cache.
  */
-export class Engine implements Types.ViewEngine {
+export class Engine implements Types.ViewEngine, Types.WatchableEngine {
   /** Default views directory */
   private readonly defaultViewsDir: string
   /** Compiled template cache */
@@ -40,7 +40,8 @@ export class Engine implements Types.ViewEngine {
     this.compileCache.delete(absPath)
   }
 
-  /** Reset discovered template paths */ refreshPaths(): void {
+  /** Reset discovered template paths */
+  refreshPaths(): void {
     this.discoveredPaths = null
   }
 
@@ -52,7 +53,7 @@ export class Engine implements Types.ViewEngine {
    * @returns Rendered HTML string
    * @throws {Deno.errors.NotFound} When template path not discovered
    */
-  async render(templatePath: string, data: Types.TemplateData = {}): Promise<string> {
+  async render(templatePath: string, data: Types.DataRecord = {}): Promise<string> {
     const compiled = await this.resolveTemplate(templatePath)
     return await this.renderNodes(compiled.ast, data, this.defaultViewsDir)
   }
@@ -65,7 +66,7 @@ export class Engine implements Types.ViewEngine {
    * @returns ReadableStream with HTML content
    * @throws {Deno.errors.NotFound} When template not found
    */
-  streamRender(templatePath: string, data: Types.TemplateData = {}): ReadableStream {
+  streamRender(templatePath: string, data: Types.DataRecord = {}): ReadableStream {
     const { readable, writable } = new TransformStream()
     this.renderNodesToStream(templatePath, data, writable).catch((error: Error) => {
       console.error('Stream rendering error:', error)
@@ -117,7 +118,7 @@ export class Engine implements Types.ViewEngine {
    */
   private async renderNodeToChunk(
     node: Types.AstNode,
-    data: Types.TemplateData,
+    data: Types.DataRecord,
     viewsDir: string
   ): Promise<string | null> {
     if (node.type === 'text') {
@@ -147,7 +148,7 @@ export class Engine implements Types.ViewEngine {
       let output = ''
       for (let index = 0; index < length; index++) {
         const item = lookupValue[index]
-        const scopeData: Types.TemplateData = {
+        const scopeData: Types.DataRecord = {
           ...data,
           [node.itemName]: item,
           '@index': index,
@@ -171,8 +172,8 @@ export class Engine implements Types.ViewEngine {
    * @returns Rendered HTML string
    */
   private async renderNodes(
-    ast: Types.AstNode[],
-    data: Types.TemplateData,
+    ast: readonly Types.AstNode[],
+    data: Types.DataRecord,
     viewsDir: string
   ): Promise<string> {
     let outputHtml = ''
@@ -194,7 +195,7 @@ export class Engine implements Types.ViewEngine {
    */
   private async renderNodesToStream(
     templatePath: string,
-    data: Types.TemplateData,
+    data: Types.DataRecord,
     writable: WritableStream
   ): Promise<void> {
     const writer = writable.getWriter()
