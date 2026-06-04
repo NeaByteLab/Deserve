@@ -41,7 +41,9 @@ self.onmessage = (e: MessageEvent) => {
   const data = e.data as { iterations?: number }
   const n = Math.max(0, Number(data?.iterations) ?? 50_000)
   let value = 0
-  for (let i = 0; i < n; i++) value += Math.sqrt(i)
+  for (let i = 0; i < n; i++) {
+    value += Math.sqrt(i)
+  }
   self.postMessage({ done: true, value })
 }
 ```
