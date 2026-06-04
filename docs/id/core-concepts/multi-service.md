@@ -1,8 +1,5 @@
 # Multi-Service
 
-> [!WARNING]
-> Fitur ini masih dalam tahap pengembangan dan belum dirilis secara resmi.
-
 Deserve memungkinkan Anda menjalankan beberapa server dari satu proses Deno. Setiap `Router` adalah server mandiri dengan rute, middleware, file watcher, dan port miliknya sendiri. Masing-masing terisolasi sepenuhnya, tapi karena berbagi memori proses yang sama, mereka juga bisa berbagi kode, state, dan infrastruktur tanpa overhead jaringan apapun.
 
 Bayangkan seperti ini: secara tradisional, menjalankan 5 service berarti 5 proses, 5 deployment, dan 5 salinan kode yang sama. Dengan Deserve, Anda cukup menulis satu `main.ts` yang menjalankan sebanyak mungkin router sesuai kapasitas memori. Masing-masing listen di port sendiri, memantau direktori sendiri, dan crash secara independen. Yang lain tetap berjalan.
@@ -222,11 +219,15 @@ type Listener = (...args: unknown[]) => void
 const listeners = new Map<string, Set<Listener>>()
 
 export function emit(event: string, ...args: unknown[]): void {
-  for (const fn of listeners.get(event) ?? []) fn(...args)
+  for (const fn of listeners.get(event) ?? []) {
+    fn(...args)
+  }
 }
 
 export function on(event: string, fn: Listener): void {
-  if (!listeners.has(event)) listeners.set(event, new Set())
+  if (!listeners.has(event)) {
+    listeners.set(event, new Set())
+  }
   listeners.get(event)!.add(fn)
 }
 ```
@@ -312,7 +313,7 @@ graph LR
 
 ```typescript
 // 1. Import Router dan Mware
-import { Router, Mware } from '@neabyte/deserve'
+import { Mware, Router } from '@neabyte/deserve'
 
 // 2. API: CORS dan body limit
 const api = new Router({ routesDir: './services/api/routes' })
