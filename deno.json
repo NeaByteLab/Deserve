@@ -34,6 +34,7 @@
     "useUnknownInCatchVariables": true
   },
   "fmt": {
+    "exclude": ["docs/"],
     "bracePosition": "sameLine",
     "indentWidth": 2,
     "lineWidth": 100,
