@@ -131,7 +131,9 @@ Deno.test('basicAuth throws when users array empty', () => {
 Deno.test('basicAuth throws when users is undefined', () => {
   let thrown = false
   try {
-    Middleware.Mware.basicAuth({ users: undefined } as unknown as { users: { username: string; password: string }[] })
+    Middleware.Mware.basicAuth(
+      { users: undefined } as unknown as { users: { username: string; password: string }[] }
+    )
   } catch (e) {
     thrown = true
     assertEquals(e instanceof Deno.errors.InvalidData, true)

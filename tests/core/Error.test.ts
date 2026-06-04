@@ -152,7 +152,7 @@ Deno.test('Error#escapeHtml escapes &, <, >, ", \'', () => {
   assertEquals(Core.Error.escapeHtml('<script>'), '&lt;script&gt;')
   assertEquals(Core.Error.escapeHtml('x > 0'), 'x &gt; 0')
   assertEquals(Core.Error.escapeHtml('"quoted"'), '&quot;quoted&quot;')
-  assertEquals(Core.Error.escapeHtml("it's"), "it&#39;s")
+  assertEquals(Core.Error.escapeHtml("it's"), 'it&#39;s')
 })
 
 Deno.test('Error#escapeHtml escapes all special chars together', () => {

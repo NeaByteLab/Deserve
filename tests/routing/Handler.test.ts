@@ -39,7 +39,10 @@ Deno.test('Handler addMiddleware path prefix only applies to matching routes', a
     ctx.setHeader('X-Matched', 'yes')
     return await next()
   })
-  handler.addMiddleware('', async ctx => new Response(ctx.responseHeadersMap['X-Matched'] ?? 'no'))
+  handler.addMiddleware(
+    '',
+    async (ctx) => new Response(ctx.responseHeadersMap['X-Matched'] ?? 'no')
+  )
   const handle = handler.createHandler()
 
   const resApi = await handle(new Request('http://localhost/api/users'))
@@ -143,7 +146,7 @@ Deno.test('Handler middleware * matches all paths', async () => {
     ctx.setHeader('X-Global', 'yes')
     return await next()
   })
-  handler.addMiddleware('', async ctx => new Response(ctx.responseHeadersMap['X-Global'] ?? 'no'))
+  handler.addMiddleware('', async (ctx) => new Response(ctx.responseHeadersMap['X-Global'] ?? 'no'))
   const handle = handler.createHandler()
   const res = await handle(new Request('http://localhost/anything'))
   assertEquals(await res.text(), 'yes')
@@ -191,7 +194,7 @@ Deno.test('Handler middleware wildcard /** matches deep paths', async () => {
     ctx.setHeader('X-API', 'true')
     return await next()
   })
-  handler.addMiddleware('', async ctx => new Response(ctx.responseHeadersMap['X-API'] ?? 'no'))
+  handler.addMiddleware('', async (ctx) => new Response(ctx.responseHeadersMap['X-API'] ?? 'no'))
   const handle = handler.createHandler()
   const res = await handle(new Request('http://localhost/api/v1/users/123'))
   assertEquals(await res.text(), 'true')
@@ -200,13 +203,13 @@ Deno.test('Handler middleware wildcard /** matches deep paths', async () => {
 Deno.test('Handler requestTimeoutMs returns 503 when exceeded', async () => {
   const handler = new Routing.Handler({ requestTimeoutMs: 5 })
   handler.addMiddleware('', async () => {
-    await new Promise(r => setTimeout(r, 20))
+    await new Promise((r) => setTimeout(r, 20))
     return new Response('late')
   })
   const res = await handler.createHandler()(new Request('http://localhost/'))
   assertEquals(res.status, 503)
   await res.body?.cancel()
-  await new Promise(r => setTimeout(r, 30))
+  await new Promise((r) => setTimeout(r, 30))
 })
 
 Deno.test('Handler route error with statusCode uses thrown statusCode', async () => {
@@ -268,9 +271,12 @@ Deno.test('Handler setErrorResponseBuilder overrides error response', async () =
 })
 
 Deno.test('Handler viewsDir sets ctx.state.view and can render', async () => {
-  const viewsDir = fileURLToPath(new URL('../fixtures/views/', import.meta.url)).replace(/[\\/]$/, '')
+  const viewsDir = fileURLToPath(new URL('../fixtures/views/', import.meta.url)).replace(
+    /[\\/]$/,
+    ''
+  )
   const handler = new Routing.Handler({ viewsDir })
-  handler.addMiddleware('', async ctx => {
+  handler.addMiddleware('', async (ctx) => {
     const engine = ctx.state['view'] as { render: (p: string, d?: unknown) => Promise<string> }
     const html = await engine.render('hello.dve', { name: 'DX' } as Record<string, unknown>)
     return new Response(html)
@@ -282,7 +288,7 @@ Deno.test('Handler viewsDir sets ctx.state.view and can render', async () => {
 Deno.test('Handler without timeout does not return 503', async () => {
   const handler = new Routing.Handler()
   handler.addMiddleware('', async () => {
-    await new Promise(r => setTimeout(r, 5))
+    await new Promise((r) => setTimeout(r, 5))
     return new Response('ok')
   })
   const res = await handler.createHandler()(new Request('http://localhost/'))
@@ -291,7 +297,10 @@ Deno.test('Handler without timeout does not return 503', async () => {
 })
 
 Deno.test('Handler#addStaticRoute serves static files', async () => {
-  const staticBasePath = fileURLToPath(new URL('../fixtures/static/', import.meta.url)).replace(/[\\/]$/, '')
+  const staticBasePath = fileURLToPath(new URL('../fixtures/static/', import.meta.url)).replace(
+    /[\\/]$/,
+    ''
+  )
   const handler = new Routing.Handler()
   handler.addStaticRoute('/static', { path: staticBasePath })
   const handle = handler.createHandler()
@@ -352,7 +361,10 @@ Deno.test('Handler#createPattern skips @ and _ segments', () => {
 })
 
 Deno.test('Handler#getViewEngine returns engine when viewsDir set', () => {
-  const viewsDir = fileURLToPath(new URL('../fixtures/views/', import.meta.url)).replace(/[\\/]$/, '')
+  const viewsDir = fileURLToPath(new URL('../fixtures/views/', import.meta.url)).replace(
+    /[\\/]$/,
+    ''
+  )
   const handler = new Routing.Handler({ viewsDir })
   const engine = handler.getViewEngine()
   assertEquals(engine !== undefined, true)
