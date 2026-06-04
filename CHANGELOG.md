@@ -6,7 +6,7 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
-## [Unreleased]
+## [0.11.0] - 2026-06-04
 
 ### Added
 
@@ -88,7 +88,7 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `Handler.ts`, `Middleware.ts`, `Static.ts` interfaces refactored from barrel imports to direct named imports
 - `Static.serve()` ETag hash generation simplified to a single `Array.from` with map callback
 - `Watcher` uses `pendingChanges.values()` instead of destructured iteration
-- VitePress config cleanup and documentation code blocks changed from ` ```dve ` to ` ```html `
+- VitePress config cleanup and documentation code blocks changed from `` ```dve `` to `` ```html ``
 - Indonesian landing page tagline updated
 
 ### Removed
@@ -332,7 +332,8 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
-[Unreleased]: https://github.com/NeaByteLab/Deserve/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/NeaByteLab/Deserve/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/NeaByteLab/Deserve/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/NeaByteLab/Deserve/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/NeaByteLab/Deserve/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/NeaByteLab/Deserve/compare/v0.7.0...v0.8.0
