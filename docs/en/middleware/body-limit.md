@@ -10,7 +10,7 @@ Apply body limit middleware using Deserve's built-in middleware:
 
 ```typescript
 // 1. Import Router and Mware
-import { Router, Mware } from '@neabyte/deserve'
+import { Mware, Router } from '@neabyte/deserve'
 
 // 2. Create router
 const router = new Router()
@@ -75,7 +75,7 @@ When a request has a body, the middleware wraps the body stream with a byte limi
 
 ```typescript
 // 1. Import Router and Mware
-import { Router, Mware } from '@neabyte/deserve'
+import { Mware, Router } from '@neabyte/deserve'
 
 // 2. Create router
 const router = new Router({ routesDir: './routes' })

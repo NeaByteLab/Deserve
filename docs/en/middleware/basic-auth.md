@@ -10,7 +10,7 @@ Protect routes with Basic Auth using `Mware.basicAuth()`:
 
 ```typescript
 // 1. Import Router and Mware
-import { Router, Mware } from '@neabyte/deserve'
+import { Mware, Router } from '@neabyte/deserve'
 
 // 2. Create router
 const router = new Router()

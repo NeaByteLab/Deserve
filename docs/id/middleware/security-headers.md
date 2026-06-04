@@ -10,7 +10,7 @@ Terapkan middleware security headers menggunakan middleware built-in Deserve:
 
 ```typescript
 // 1. Import Router dan Mware
-import { Router, Mware } from '@neabyte/deserve'
+import { Mware, Router } from '@neabyte/deserve'
 
 // 2. Buat router
 const router = new Router()
@@ -167,7 +167,7 @@ xPoweredBy: 'Custom' // Atur nilai kustom
 
 ```typescript
 // 1. Import Router dan Mware
-import { Router, Mware } from '@neabyte/deserve'
+import { Mware, Router } from '@neabyte/deserve'
 
 // 2. Buat router
 const router = new Router({ routesDir: './routes' })

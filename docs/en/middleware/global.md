@@ -76,7 +76,7 @@ Custom middleware that throws can be wrapped with `wrapMiddleware` so errors are
 
 ```typescript
 // 1. Import Router, wrapMiddleware (and Mware if needed)
-import { Router, wrapMiddleware, Mware } from '@neabyte/deserve'
+import { Mware, Router, wrapMiddleware } from '@neabyte/deserve'
 
 // 2. Create router
 const router = new Router()

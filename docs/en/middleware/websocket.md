@@ -10,7 +10,7 @@ Apply WebSocket middleware using Deserve's built-in middleware:
 
 ```typescript
 // 1. Import Router and Mware
-import { Router, Mware } from '@neabyte/deserve'
+import { Mware, Router } from '@neabyte/deserve'
 
 // 2. Create router
 const router = new Router()
@@ -51,10 +51,11 @@ listener: '/api/ws' // Matches /api/ws, /api/ws/data, etc.
 Handle new WebSocket connections:
 
 ```typescript
-onConnect: (socket: WebSocket, ctx: Context) => {
+onConnect: ;
+;((socket: WebSocket, ctx: Context) => {
   console.log('Client connected:', ctx.url)
   socket.send(JSON.stringify({ type: 'welcome', message: 'Connected!' }))
-}
+})
 ```
 
 ### `onMessage`
@@ -62,7 +63,8 @@ onConnect: (socket: WebSocket, ctx: Context) => {
 Handle incoming WebSocket messages:
 
 ```typescript
-onMessage: (socket: WebSocket, event: MessageEvent, ctx: Context) => {
+onMessage: ;
+;((socket: WebSocket, event: MessageEvent, ctx: Context) => {
   console.log('Received:', event.data)
   try {
     const data = JSON.parse(event.data as string)
@@ -70,7 +72,7 @@ onMessage: (socket: WebSocket, event: MessageEvent, ctx: Context) => {
   } catch {
     socket.send(JSON.stringify({ error: 'Invalid JSON' }))
   }
-}
+})
 ```
 
 ### `onDisconnect`
@@ -78,9 +80,10 @@ onMessage: (socket: WebSocket, event: MessageEvent, ctx: Context) => {
 Handle WebSocket disconnections. The `CloseEvent` provides `code`, `reason`, and `wasClean`:
 
 ```typescript
-onDisconnect: (socket: WebSocket, event: CloseEvent, ctx: Context) => {
+onDisconnect: ;
+;((socket: WebSocket, event: CloseEvent, ctx: Context) => {
   console.log('Client disconnected:', event.code, event.reason, event.wasClean)
-}
+})
 ```
 
 ### `onError`
@@ -88,15 +91,16 @@ onDisconnect: (socket: WebSocket, event: CloseEvent, ctx: Context) => {
 Handle WebSocket errors:
 
 ```typescript
-onError: (socket: WebSocket, event: Event, ctx: Context) => {
+onError: ;
+;((socket: WebSocket, event: Event, ctx: Context) => {
   console.error('WebSocket error:', event, 'on', ctx.url)
-}
+})
 ```
 
 ## Complete Example
 
 ```typescript
-import { Router, Mware } from '@neabyte/deserve'
+import { Mware, Router } from '@neabyte/deserve'
 
 const router = new Router({ routesDir: './routes' })
 
@@ -171,7 +175,7 @@ socket.addEventListener('open', () => {
   )
 })
 
-socket.addEventListener('message', event => {
+socket.addEventListener('message', (event) => {
   const data = JSON.parse(event.data)
   console.log('Received:', data)
 })
@@ -180,7 +184,7 @@ socket.addEventListener('close', () => {
   console.log('Disconnected')
 })
 
-socket.addEventListener('error', error => {
+socket.addEventListener('error', (error) => {
   console.error('Error:', error)
 })
 ```
@@ -190,12 +194,13 @@ socket.addEventListener('error', error => {
 Access WebSocket properties in handlers:
 
 ```typescript
-onConnect: (socket, ctx) => {
+onConnect: ;
+;((socket, ctx) => {
   console.log('URL:', socket.url)
   console.log('Protocol:', socket.protocol)
   console.log('State:', socket.readyState)
   // 0=CONNECTING, 1=OPEN, 2=CLOSING, 3=CLOSED
-}
+})
 ```
 
 ## Error Handling
@@ -216,7 +221,7 @@ When using WebSocket with CORS-enabled clients:
 
 ```typescript
 // 1. Import Router and Mware
-import { Router, Mware } from '@neabyte/deserve'
+import { Mware, Router } from '@neabyte/deserve'
 
 // 2. Create router
 const router = new Router()

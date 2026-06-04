@@ -10,7 +10,7 @@ Terapkan middleware WebSocket menggunakan middleware built-in Deserve:
 
 ```typescript
 // 1. Import Router dan Mware
-import { Router, Mware } from '@neabyte/deserve'
+import { Mware, Router } from '@neabyte/deserve'
 
 // 2. Buat router
 const router = new Router()
@@ -51,10 +51,11 @@ listener: '/api/ws' // Cocok dengan /api/ws, /api/ws/data, dll.
 Menangani koneksi WebSocket baru:
 
 ```typescript
-onConnect: (socket: WebSocket, ctx: Context) => {
+onConnect: ;
+;((socket: WebSocket, ctx: Context) => {
   console.log('Klien terhubung:', ctx.url)
   socket.send(JSON.stringify({ type: 'welcome', message: 'Terhubung!' }))
-}
+})
 ```
 
 ### `onMessage`
@@ -62,7 +63,8 @@ onConnect: (socket: WebSocket, ctx: Context) => {
 Menangani pesan WebSocket yang masuk:
 
 ```typescript
-onMessage: (socket: WebSocket, event: MessageEvent, ctx: Context) => {
+onMessage: ;
+;((socket: WebSocket, event: MessageEvent, ctx: Context) => {
   console.log('Diterima:', event.data)
   try {
     const data = JSON.parse(event.data as string)
@@ -70,7 +72,7 @@ onMessage: (socket: WebSocket, event: MessageEvent, ctx: Context) => {
   } catch {
     socket.send(JSON.stringify({ error: 'JSON tidak valid' }))
   }
-}
+})
 ```
 
 ### `onDisconnect`
@@ -78,9 +80,10 @@ onMessage: (socket: WebSocket, event: MessageEvent, ctx: Context) => {
 Menangani pemutusan koneksi WebSocket. `CloseEvent` menyediakan `code`, `reason`, dan `wasClean`:
 
 ```typescript
-onDisconnect: (socket: WebSocket, event: CloseEvent, ctx: Context) => {
+onDisconnect: ;
+;((socket: WebSocket, event: CloseEvent, ctx: Context) => {
   console.log('Klien terputus:', event.code, event.reason, event.wasClean)
-}
+})
 ```
 
 ### `onError`
@@ -88,16 +91,17 @@ onDisconnect: (socket: WebSocket, event: CloseEvent, ctx: Context) => {
 Menangani error WebSocket:
 
 ```typescript
-onError: (socket: WebSocket, event: Event, ctx: Context) => {
+onError: ;
+;((socket: WebSocket, event: Event, ctx: Context) => {
   console.error('Error WebSocket:', event, 'pada', ctx.url)
-}
+})
 ```
 
 ## Contoh Lengkap
 
 ```typescript
 // 1. Import Router dan Mware
-import { Router, Mware } from '@neabyte/deserve'
+import { Mware, Router } from '@neabyte/deserve'
 
 // 2. Buat router
 const router = new Router({ routesDir: './routes' })
@@ -175,7 +179,7 @@ socket.addEventListener('open', () => {
   )
 })
 
-socket.addEventListener('message', event => {
+socket.addEventListener('message', (event) => {
   const data = JSON.parse(event.data)
   console.log('Diterima:', data)
 })
@@ -184,7 +188,7 @@ socket.addEventListener('close', () => {
   console.log('Terputus')
 })
 
-socket.addEventListener('error', error => {
+socket.addEventListener('error', (error) => {
   console.error('Error:', error)
 })
 ```
@@ -194,12 +198,13 @@ socket.addEventListener('error', error => {
 Akses properti WebSocket di handler:
 
 ```typescript
-onConnect: (socket, ctx) => {
+onConnect: ;
+;((socket, ctx) => {
   console.log('URL:', socket.url)
   console.log('Protocol:', socket.protocol)
   console.log('State:', socket.readyState)
   // 0=CONNECTING, 1=OPEN, 2=CLOSING, 3=CLOSED
-}
+})
 ```
 
 ## Penanganan Error
@@ -220,7 +225,7 @@ Saat menggunakan WebSocket dengan klien yang mengaktifkan CORS:
 
 ```typescript
 // 1. Import Router dan Mware
-import { Router, Mware } from '@neabyte/deserve'
+import { Mware, Router } from '@neabyte/deserve'
 
 // 2. Buat router
 const router = new Router()

@@ -10,7 +10,7 @@ Terapkan middleware CORS menggunakan middleware built-in Deserve:
 
 ```typescript
 // 1. Import Router dan Mware
-import { Router, Mware } from '@neabyte/deserve'
+import { Mware, Router } from '@neabyte/deserve'
 
 // 2. Buat router
 const router = new Router()
@@ -28,7 +28,7 @@ Konfigurasi CORS dengan opsi custom:
 
 ```typescript
 // 1. Import Router dan Mware
-import { Router, Mware } from '@neabyte/deserve'
+import { Mware, Router } from '@neabyte/deserve'
 
 // 2. Buat router
 const router = new Router()
@@ -59,7 +59,8 @@ Tentukan origin yang diizinkan:
 origin: 'https://example.com'
 
 // Multiple origins
-origin: ['https://example.com', 'https://app.example.com']
+origin: ;
+;['https://example.com', 'https://app.example.com']
 
 // Mengizinkan semua origin (default)
 origin: '*'
@@ -70,7 +71,8 @@ origin: '*'
 Tentukan HTTP methods yang diizinkan:
 
 ```typescript
-methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS']
+methods: ;
+;['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS']
 ```
 
 ### `allowedHeaders`
@@ -78,7 +80,8 @@ methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS']
 Tentukan header yang diizinkan:
 
 ```typescript
-allowedHeaders: ['Content-Type', 'Authorization', 'X-Custom-Header']
+allowedHeaders: ;
+;['Content-Type', 'Authorization', 'X-Custom-Header']
 ```
 
 ### `exposedHeaders`
@@ -86,7 +89,8 @@ allowedHeaders: ['Content-Type', 'Authorization', 'X-Custom-Header']
 Tentukan header yang diekspos ke client:
 
 ```typescript
-exposedHeaders: ['X-Total-Count', 'X-Page-Count']
+exposedHeaders: ;
+;['X-Total-Count', 'X-Page-Count']
 ```
 
 ### `credentials`
@@ -109,7 +113,7 @@ maxAge: 3600 // Cache preflight requests selama 1 jam
 
 ```typescript
 // 1. Import Router dan Mware
-import { Router, Mware } from '@neabyte/deserve'
+import { Mware, Router } from '@neabyte/deserve'
 
 // 2. Buat router
 const router = new Router({ routesDir: './routes' })

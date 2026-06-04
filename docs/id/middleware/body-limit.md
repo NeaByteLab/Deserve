@@ -10,7 +10,7 @@ Terapkan middleware body limit menggunakan middleware built-in Deserve:
 
 ```typescript
 // 1. Import Router dan Mware
-import { Router, Mware } from '@neabyte/deserve'
+import { Mware, Router } from '@neabyte/deserve'
 
 // 2. Buat router
 const router = new Router()
@@ -75,7 +75,7 @@ Jika request punya body, middleware membungkus stream body dengan byte limiter s
 
 ```typescript
 // 1. Import Router dan Mware
-import { Router, Mware } from '@neabyte/deserve'
+import { Mware, Router } from '@neabyte/deserve'
 
 // 2. Buat router
 const router = new Router({ routesDir: './routes' })

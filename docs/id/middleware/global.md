@@ -83,7 +83,7 @@ Middleware custom yang melempar error bisa dibungkus dengan `wrapMiddleware` aga
 
 ```typescript
 // 1. Import Router, wrapMiddleware (dan Mware jika perlu)
-import { Router, wrapMiddleware, Mware } from '@neabyte/deserve'
+import { Mware, Router, wrapMiddleware } from '@neabyte/deserve'
 
 // 2. Buat router
 const router = new Router()

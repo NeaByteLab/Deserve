@@ -10,7 +10,7 @@ Apply CORS middleware using Deserve's built-in middleware:
 
 ```typescript
 // 1. Import Router and Mware
-import { Router, Mware } from '@neabyte/deserve'
+import { Mware, Router } from '@neabyte/deserve'
 
 // 2. Create router
 const router = new Router()
@@ -28,7 +28,7 @@ Configure CORS with custom options:
 
 ```typescript
 // 1. Import Router and Mware
-import { Router, Mware } from '@neabyte/deserve'
+import { Mware, Router } from '@neabyte/deserve'
 
 // 2. Create router
 const router = new Router()
@@ -59,7 +59,8 @@ Specify allowed origins:
 origin: 'https://example.com'
 
 // Multiple origins
-origin: ['https://example.com', 'https://app.example.com']
+origin: ;
+;['https://example.com', 'https://app.example.com']
 
 // Allow all origins (default)
 origin: '*'
@@ -70,7 +71,8 @@ origin: '*'
 Specify allowed HTTP methods:
 
 ```typescript
-methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS']
+methods: ;
+;['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS']
 ```
 
 ### `allowedHeaders`
@@ -78,7 +80,8 @@ methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS']
 Specify allowed headers:
 
 ```typescript
-allowedHeaders: ['Content-Type', 'Authorization', 'X-Custom-Header']
+allowedHeaders: ;
+;['Content-Type', 'Authorization', 'X-Custom-Header']
 ```
 
 ### `exposedHeaders`
@@ -86,7 +89,8 @@ allowedHeaders: ['Content-Type', 'Authorization', 'X-Custom-Header']
 Specify headers exposed to client:
 
 ```typescript
-exposedHeaders: ['X-Total-Count', 'X-Page-Count']
+exposedHeaders: ;
+;['X-Total-Count', 'X-Page-Count']
 ```
 
 ### `credentials`
@@ -109,7 +113,7 @@ maxAge: 3600 // Cache preflight requests for 1 hour
 
 ```typescript
 // 1. Import Router and Mware
-import { Router, Mware } from '@neabyte/deserve'
+import { Mware, Router } from '@neabyte/deserve'
 
 // 2. Create router
 const router = new Router({ routesDir: './routes' })

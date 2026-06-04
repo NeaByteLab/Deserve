@@ -8,7 +8,7 @@ Gunakan `Mware.session({ cookieSecret })` untuk menambahkan session berbasis coo
 
 ```typescript
 // 1. Import Router dan Mware
-import { Router, Mware } from '@neabyte/deserve'
+import { Mware, Router } from '@neabyte/deserve'
 
 // 2. Buat router
 const router = new Router()
