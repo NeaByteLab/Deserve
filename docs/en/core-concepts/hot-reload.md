@@ -1,8 +1,5 @@
 # Hot Reload
 
-> [!WARNING]
-> This feature is still under development and has not been officially released.
-
 Deserve automatically watches your `routesDir` and `viewsDir` directories for file changes. When a file is created, modified, or deleted, the server picks up the changes on the next request, no restart required.
 
 ## Zero Configuration
@@ -21,28 +18,27 @@ const app = new Router({
 app.serve(3000)
 ```
 
-
 ## What Gets Watched
 
 ### Route Files
 
 All files with supported extensions (`.ts`, `.js`, `.tsx`, `.jsx`, `.mjs`, `.cjs`) inside `routesDir` are watched recursively.
 
-| Event | Behavior |
-| --- | --- |
-| **File created** | Module is imported and route handlers are registered automatically |
+| Event             | Behavior                                                                     |
+| ----------------- | ---------------------------------------------------------------------------- |
+| **File created**  | Module is imported and route handlers are registered automatically           |
 | **File modified** | Old handlers are removed, module is re-imported, new handlers are registered |
-| **File deleted** | Route pattern is removed from the router, requests return 404 |
+| **File deleted**  | Route pattern is removed from the router, requests return 404                |
 
 ### Template Files
 
 All `.dve` files inside `viewsDir` are watched recursively.
 
-| Event | Behavior |
-| --- | --- |
-| **File created** | Discovered paths are refreshed so the template is available for rendering |
+| Event             | Behavior                                                                       |
+| ----------------- | ------------------------------------------------------------------------------ |
+| **File created**  | Discovered paths are refreshed so the template is available for rendering      |
 | **File modified** | File cache and compiled AST cache are cleared, next render reads fresh content |
-| **File deleted** | Discovered paths are refreshed, rendering the template will throw an error |
+| **File deleted**  | Discovered paths are refreshed, rendering the template will throw an error     |
 
 ## Error Isolation
 

@@ -1,8 +1,5 @@
 # Hot Reload
 
-> [!WARNING]
-> Fitur ini masih dalam tahap pengembangan dan belum dirilis secara resmi.
-
 Deserve secara otomatis memantau direktori `routesDir` dan `viewsDir` untuk perubahan file. Ketika sebuah file dibuat, diubah, atau dihapus, server langsung menerapkan perubahan pada request berikutnya tanpa perlu restart.
 
 ## Tanpa Konfigurasi
@@ -21,28 +18,27 @@ const app = new Router({
 app.serve(3000)
 ```
 
-
 ## Yang Dipantau
 
 ### File Rute
 
 Semua file dengan ekstensi yang didukung (`.ts`, `.js`, `.tsx`, `.jsx`, `.mjs`, `.cjs`) di dalam `routesDir` dipantau secara rekursif.
 
-| Event | Perilaku |
-| --- | --- |
-| **File dibuat** | Modul diimpor dan route handler didaftarkan secara otomatis |
-| **File diubah** | Handler lama dihapus, modul diimpor ulang, handler baru didaftarkan |
-| **File dihapus** | Pola rute dihapus dari router, request mengembalikan 404 |
+| Event            | Perilaku                                                            |
+| ---------------- | ------------------------------------------------------------------- |
+| **File dibuat**  | Modul diimpor dan route handler didaftarkan secara otomatis         |
+| **File diubah**  | Handler lama dihapus, modul diimpor ulang, handler baru didaftarkan |
+| **File dihapus** | Pola rute dihapus dari router, request mengembalikan 404            |
 
 ### File Template
 
 Semua file `.dve` di dalam `viewsDir` dipantau secara rekursif.
 
-| Event | Perilaku |
-| --- | --- |
-| **File dibuat** | Path template yang ditemukan di-refresh sehingga template tersedia untuk rendering |
-| **File diubah** | Cache file dan cache AST yang dikompilasi dihapus, render berikutnya membaca konten terbaru |
-| **File dihapus** | Path template di-refresh, rendering template tersebut akan menghasilkan error |
+| Event            | Perilaku                                                                                    |
+| ---------------- | ------------------------------------------------------------------------------------------- |
+| **File dibuat**  | Path template yang ditemukan di-refresh sehingga template tersedia untuk rendering          |
+| **File diubah**  | Cache file dan cache AST yang dikompilasi dihapus, render berikutnya membaca konten terbaru |
+| **File dihapus** | Path template di-refresh, rendering template tersebut akan menghasilkan error               |
 
 ## Isolasi Error
 
