@@ -1,4 +1,4 @@
-/** Re-exports interfaces public API. */
+/** Re-exports interfaces public API */
 export * from '@interfaces/Auth.ts'
 export * from '@interfaces/BodyLimit.ts'
 export * from '@interfaces/Cors.ts'

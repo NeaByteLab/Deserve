@@ -3,20 +3,20 @@ import * as Core from '@core/index.ts'
 
 /**
  * Request wrapper with body, query, params.
- * @description Parses body once; exposes headers, cookies, state.
+ * @description Parses body once, exposes headers, cookies, state.
  */
 export class Context {
-  /** Parsed body; undefined until parsed */
+  /** Parsed body, undefined until parsed */
   private bodyData: unknown = undefined
   /** Format body was parsed as */
   private bodyParsedAs: Types.BodyParsedFormat | null = null
-  /** Parsed cookie name-to-value map; lazy */
+  /** Parsed cookie name-to-value map, lazy */
   private cookieMap: Record<string, string> | undefined = undefined
   /** Custom error handler when set */
   private errorHandler: Types.ErrorHandler | undefined = undefined
-  /** Lowercased request header map; lazy */
+  /** Lowercased request header map, lazy */
   private headerMap: Record<string, string> | undefined = undefined
-  /** Parsed query string params; lazy */
+  /** Parsed query string params, lazy */
   private queryParams: Record<string, string> | undefined = undefined
   /** Incoming fetch Request */
   private req: Request
@@ -24,6 +24,8 @@ export class Context {
   private requestState: Record<string, unknown> = {}
   /** Response headers to send */
   private responseHeaders: Record<string, string> = {}
+  /** Set-Cookie values accumulated via setHeader */
+  private setCookieValues: string[] = []
   /** Matched route path params */
   private routeParams: Record<string, string>
   /** Parsed request URL */
@@ -70,12 +72,25 @@ export class Context {
     return { ...this.responseHeaders }
   }
 
+  /** All Set-Cookie header values */
+  get responseCookies(): readonly string[] {
+    return this.setCookieValues
+  }
+
   /** Send helpers for response building */
   get send(): Types.SendHelpers {
     return Core.Response.create(
       this.responseHeaders,
+      this.setCookieValues,
       (url, status, extraHeaders) =>
-        Core.Redirect.buildResponse(this.req.url, this.responseHeaders, url, status, extraHeaders)
+        Core.Redirect.buildResponse(
+          this.req.url,
+          this.responseHeaders,
+          this.setCookieValues,
+          url,
+          status,
+          extraHeaders
+        )
     )
   }
 
@@ -91,14 +106,14 @@ export class Context {
 
   /**
    * Read body as ArrayBuffer.
-   * @description Parses once; returns cached if already read.
+   * @description Parses once, returns cached if already read.
    * @returns Body as ArrayBuffer
    */
   async arrayBuffer(): Promise<ArrayBuffer> {
     if (this.bodyParsedAs === 'arraybuffer') {
       return this.bodyData as ArrayBuffer
     }
-    this.ensureBodyNotConsumed()
+    this.guardBodyUse()
     this.bodyData = await this.req.arrayBuffer()
     this.bodyParsedAs = 'arraybuffer'
     return this.bodyData as ArrayBuffer
@@ -106,22 +121,22 @@ export class Context {
 
   /**
    * Read body as Blob.
-   * @description Parses once; returns cached if already read.
+   * @description Parses once, returns cached if already read.
    * @returns Body as Blob
    */
   async blob(): Promise<Blob> {
     if (this.bodyParsedAs === 'blob') {
       return this.bodyData as Blob
     }
-    this.ensureBodyNotConsumed()
+    this.guardBodyUse()
     this.bodyData = await this.req.blob()
     this.bodyParsedAs = 'blob'
     return this.bodyData as Blob
   }
 
   /**
-   * Read body as JSON, form, or text.
-   * @description Chooses parser from Content-Type; parses once.
+   * Read body by content type.
+   * @description Chooses parser from Content-Type, parses once.
    * @returns Parsed body (object, FormData, or string)
    */
   async body(): Promise<unknown> {
@@ -130,13 +145,21 @@ export class Context {
     }
     const contentType = this.req.headers.get('content-type') || ''
     if (contentType.includes('application/json')) {
-      this.bodyData = await this.req.json()
+      try {
+        this.bodyData = await this.req.json()
+      } catch {
+        this.bodyData = null
+      }
       this.bodyParsedAs = 'json'
     } else if (
       contentType.includes('multipart/form-data') ||
       contentType.includes('application/x-www-form-urlencoded')
     ) {
-      this.bodyData = await this.req.formData()
+      try {
+        this.bodyData = await this.req.formData()
+      } catch {
+        this.bodyData = null
+      }
       this.bodyParsedAs = 'form'
     } else {
       this.bodyData = await this.req.text()
@@ -146,7 +169,7 @@ export class Context {
   }
 
   /**
-   * Get cookie by key or all cookies.
+   * Get cookie by key or all.
    * @description Parses Cookie header on first access.
    * @param key - Cookie name
    * @returns Cookie value or undefined
@@ -162,14 +185,14 @@ export class Context {
 
   /**
    * Read body as FormData.
-   * @description Parses once; returns cached if already read.
+   * @description Parses once, returns cached if already read.
    * @returns Body as FormData
    */
   async formData(): Promise<FormData> {
     if (this.bodyParsedAs === 'form') {
       return this.bodyData as FormData
     }
-    this.ensureBodyNotConsumed()
+    this.guardBodyUse()
     this.bodyData = await this.req.formData()
     this.bodyParsedAs = 'form'
     return this.bodyData as FormData
@@ -191,7 +214,7 @@ export class Context {
 
   /**
    * Get header by name.
-   * @description Parses headers on first access; keys lowercased.
+   * @description Parses headers on first access, keys lowercased.
    * @param key - Header name
    * @returns Header value or undefined
    */
@@ -201,19 +224,19 @@ export class Context {
     if (this.headerMap === undefined) {
       this.parseHeaders()
     }
-    return key ? this.headerMap?.[key?.toLowerCase()] : this.headerMap
+    return key ? this.headerMap?.[key.toLowerCase()] : this.headerMap
   }
 
   /**
    * Read body as JSON.
-   * @description Parses once; returns cached if already read.
+   * @description Parses once, returns cached if already read.
    * @returns Parsed JSON value
    */
   async json(): Promise<unknown> {
     if (this.bodyParsedAs === 'json') {
       return this.bodyData
     }
-    this.ensureBodyNotConsumed()
+    this.guardBodyUse()
     this.bodyData = await this.req.json()
     this.bodyParsedAs = 'json'
     return this.bodyData
@@ -239,7 +262,7 @@ export class Context {
   }
 
   /**
-   * Get all values for a query key.
+   * Get all values for query key.
    * @description Returns all query values for repeated key.
    * @param key - Query parameter name
    * @returns Array of values
@@ -267,7 +290,7 @@ export class Context {
    * Build redirect response to URL.
    * @description Resolves relative URL against request URL.
    * @param url - Target URL (absolute or relative)
-   * @param status - Redirect status; default 302
+   * @param status - Redirect status, default 302
    * @param init - Optional extra headers
    * @returns Redirect response
    */
@@ -275,6 +298,7 @@ export class Context {
     return Core.Redirect.buildResponse(
       this.req.url,
       this.responseHeaders,
+      this.setCookieValues,
       url,
       status,
       init?.headers
@@ -283,7 +307,7 @@ export class Context {
 
   /**
    * Render template and return HTML response.
-   * @description Requires viewsDir set in Router; uses ctx.state.view.
+   * @description Requires viewsDir set in Router, uses ctx.state.view.
    * @param templatePath - Path to .dve template relative to viewsDir
    * @param data - Data for template
    * @returns Response with rendered HTML
@@ -318,7 +342,11 @@ export class Context {
    * @returns this for chaining
    */
   setHeader(key: string, value: string): this {
-    this.responseHeaders[key] = value
+    if (key === 'Set-Cookie') {
+      this.setCookieValues.push(value)
+    } else {
+      this.responseHeaders[key] = value
+    }
     return this
   }
 
@@ -329,7 +357,13 @@ export class Context {
    * @returns this for chaining
    */
   setHeaders(headers: Record<string, string>): this {
-    Object.assign(this.responseHeaders, headers)
+    for (const [key, value] of Object.entries(headers)) {
+      if (key === 'Set-Cookie') {
+        this.setCookieValues.push(value)
+      } else {
+        this.responseHeaders[key] = value
+      }
+    }
     return this
   }
 
@@ -362,21 +396,21 @@ export class Context {
 
   /**
    * Read body as plain text.
-   * @description Parses once; returns cached if already read.
+   * @description Parses once, returns cached if already read.
    * @returns Body as string
    */
   async text(): Promise<string> {
     if (this.bodyParsedAs === 'text') {
       return this.bodyData as string
     }
-    this.ensureBodyNotConsumed()
+    this.guardBodyUse()
     this.bodyData = await this.req.text()
     this.bodyParsedAs = 'text'
     return this.bodyData as string
   }
 
   /** Throws if body already consumed */
-  private ensureBodyNotConsumed(): void {
+  private guardBodyUse(): void {
     if (this.bodyParsedAs !== null) {
       throw new Deno.errors.BadResource('Request body already consumed')
     }
@@ -388,9 +422,15 @@ export class Context {
     const cookieHeader = this.req.headers.get('cookie')
     if (cookieHeader) {
       for (const cookiePart of cookieHeader.split(';')) {
-        const [key, ...valueParts] = cookiePart.trim().split('=')
+        const trimmed = cookiePart.trim()
+        const eqIndex = trimmed.indexOf('=')
+        if (eqIndex <= 0) {
+          continue
+        }
+        const key = trimmed.slice(0, eqIndex).trim()
+        const value = trimmed.slice(eqIndex + 1)
         if (key && !Object.hasOwn(result, key)) {
-          result[key] = valueParts.join('=')
+          result[key] = value
         }
       }
     }
@@ -404,6 +444,12 @@ export class Context {
 
   /** Parse URL search params into map */
   private parseQuery(): void {
-    this.queryParams = Object.fromEntries(this.urlObj.searchParams.entries())
+    const result: Record<string, string> = {}
+    for (const [key, value] of this.urlObj.searchParams.entries()) {
+      if (!Object.hasOwn(result, key)) {
+        result[key] = value
+      }
+    }
+    this.queryParams = result
   }
 }

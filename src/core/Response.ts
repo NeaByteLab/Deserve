@@ -10,19 +10,42 @@ export class Response {
    * Create SendHelpers for headers and redirect.
    * @description Binds base headers and redirect builder to helpers.
    * @param responseHeaders - Base headers for every response
+   * @param setCookieValues - Cookie values to append
    * @param buildRedirect - Function to build redirect Response
    * @returns SendHelpers for ctx.send
    */
   static create(
     responseHeaders: Record<string, string>,
+    setCookieValues: readonly string[],
     buildRedirect: Types.RedirectBuilder
   ): Types.SendHelpers {
+    const mergedHeaders = (contentType: string, options?: ResponseInit) => ({
+      'Content-Type': contentType,
+      ...responseHeaders,
+      ...Helper.toRecord(options?.headers)
+    })
+
+    const init = (headers: Record<string, string>, options?: ResponseInit): ResponseInit =>
+      options ? { ...options, headers } : { headers }
+
+    const applyCookies = (response: globalThis.Response): globalThis.Response => {
+      for (const cookie of setCookieValues) {
+        response.headers.append('Set-Cookie', cookie)
+      }
+      return response
+    }
+
     return {
       custom(body: BodyInit | null, options?: ResponseInit): globalThis.Response {
-        return new globalThis.Response(body, {
-          ...options,
-          headers: Response.mergeHeaders(responseHeaders, options)
-        })
+        return applyCookies(
+          new globalThis.Response(
+            body,
+            init(
+              { ...responseHeaders, ...Helper.toRecord(options?.headers) },
+              options
+            )
+          )
+        )
       },
       data(
         data: Uint8Array | string,
@@ -31,15 +54,18 @@ export class Response {
         contentType = 'application/octet-stream'
       ): globalThis.Response {
         const body = typeof data === 'string' ? new TextEncoder().encode(data) : data
-        return new globalThis.Response(body as BodyInit, {
-          headers: {
-            'Content-Type': contentType,
-            'Content-Disposition': `attachment; filename="${filename}"`,
-            'Content-Length': body.length.toString(),
-            ...Response.mergeHeaders(responseHeaders, options)
-          },
-          ...options
-        })
+        return applyCookies(
+          new globalThis.Response(
+            body as BodyInit,
+            init({
+              ...mergedHeaders(contentType, options),
+              'Content-Disposition': `attachment; filename="${
+                Response.sanitizeFilename(filename)
+              }"`,
+              'Content-Length': body.length.toString()
+            }, options)
+          )
+        )
       },
       async file(
         filePath: string,
@@ -50,44 +76,36 @@ export class Response {
         try {
           file = await Deno.open(filePath, { read: true })
           const fileInfo = await file.stat()
-          const fileName = filename || filePath.split(/[\\/]/).pop() || 'download'
-          return new globalThis.Response(file.readable, {
-            headers: {
-              'Content-Type': 'application/octet-stream',
-              'Content-Disposition': `attachment; filename="${fileName}"`,
-              'Content-Length': fileInfo.size.toString(),
-              ...Response.mergeHeaders(responseHeaders, options)
-            },
-            ...options
-          })
+          const name = filename || filePath.split(/[\\/]/).pop() || 'download'
+          return applyCookies(
+            new globalThis.Response(
+              file.readable,
+              init({
+                ...mergedHeaders('application/octet-stream', options),
+                'Content-Disposition': `attachment; filename="${Response.sanitizeFilename(name)}"`,
+                'Content-Length': fileInfo.size.toString()
+              }, options)
+            )
+          )
         } catch (error) {
-          if (file) {
-            file.close()
-          }
-          const errorMessage = error instanceof globalThis.Error ? error.message : 'Unknown error'
+          file?.close()
+          const message = error instanceof globalThis.Error ? error.message : 'Unknown error'
           throw new Deno.errors.NotFound(
-            `Failed to read file "${filePath}" because ${errorMessage}`
+            `Failed to read file "${filePath}" because ${message}`
           )
         }
       },
-      html(html: string, options?: ResponseInit): globalThis.Response {
-        return new globalThis.Response(html, {
-          headers: {
-            'Content-Type': 'text/html',
-            ...Response.mergeHeaders(responseHeaders, options)
-          },
-          ...options
-        })
-      },
-      json(data: unknown, options?: ResponseInit): globalThis.Response {
-        return globalThis.Response.json(data, {
-          headers: {
-            'Content-Type': 'application/json',
-            ...Response.mergeHeaders(responseHeaders, options)
-          },
-          ...options
-        })
-      },
+      html: (html: string, options?: ResponseInit) =>
+        applyCookies(
+          new globalThis.Response(
+            html,
+            init(mergedHeaders('text/html; charset=utf-8', options), options)
+          )
+        ),
+      json: (data: unknown, options?: ResponseInit) =>
+        applyCookies(
+          globalThis.Response.json(data, init(mergedHeaders('application/json', options), options))
+        ),
       redirect(
         url: string,
         status: Types.RedirectStatus = 302,
@@ -95,42 +113,39 @@ export class Response {
       ): globalThis.Response {
         return buildRedirect(url, status, options?.headers)
       },
-      stream(
+      stream: (
         stream: ReadableStream,
         options?: ResponseInit,
         contentType = 'application/octet-stream'
-      ): globalThis.Response {
-        return new globalThis.Response(stream, {
-          headers: {
-            'Content-Type': contentType,
-            ...Response.mergeHeaders(responseHeaders, options)
-          },
-          ...options
-        })
-      },
-      text(text: string, options?: ResponseInit): globalThis.Response {
-        return new globalThis.Response(text, {
-          headers: {
-            'Content-Type': 'text/plain',
-            ...Response.mergeHeaders(responseHeaders, options)
-          },
-          ...options
-        })
-      }
+      ) =>
+        applyCookies(
+          new globalThis.Response(stream, init(mergedHeaders(contentType, options), options))
+        ),
+      text: (text: string, options?: ResponseInit) =>
+        applyCookies(
+          new globalThis.Response(
+            text,
+            init(mergedHeaders('text/plain; charset=utf-8', options), options)
+          )
+        )
     }
   }
 
   /**
-   * Merge base headers with options headers.
-   * @description Overlays options.headers onto base; returns new record.
-   * @param base - Base headers record
-   * @param options - Optional ResponseInit with headers
-   * @returns Merged headers record
+   * Sanitize filename for Content-Disposition.
+   * @description Strips separators then escapes per RFC 6266.
+   * @param filename - Raw filename string
+   * @returns Escaped basename safe for quoted Content-Disposition
    */
-  private static mergeHeaders(
-    base: Record<string, string>,
-    options?: ResponseInit
-  ): Record<string, string> {
-    return { ...base, ...Helper.toRecord(options?.headers) }
+  private static sanitizeFilename(filename: string): string {
+    const stripped = filename.replace(/^.*[\\/]/, '')
+    let clean = ''
+    for (let i = 0; i < stripped.length; i++) {
+      const code = stripped.charCodeAt(i)
+      if (code >= 32 && code !== 127) {
+        clean += stripped[i]
+      }
+    }
+    return clean.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
   }
 }

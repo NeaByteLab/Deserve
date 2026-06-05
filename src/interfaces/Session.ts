@@ -5,7 +5,7 @@
 export interface SessionOptions {
   /** Cookie name */
   readonly cookieName?: string
-  /** HMAC-SHA256 signing secret, required */
+  /** HMAC-SHA256 signing secret, min 32 chars */
   readonly cookieSecret: string
   /** HttpOnly flag */
   readonly httpOnly?: boolean
@@ -15,6 +15,8 @@ export interface SessionOptions {
   readonly path?: string
   /** SameSite attribute */
   readonly sameSite?: SameSitePolicy
+  /** Secure flag for HTTPS only */
+  readonly secure?: boolean
 }
 
 /** SameSite cookie attribute. */
@@ -22,5 +24,5 @@ export type SameSitePolicy = 'Strict' | 'Lax' | 'None'
 
 /** Session cookie options, all required. */
 export type SessionCookieOpts = Required<
-  Pick<SessionOptions, 'cookieName' | 'maxAge' | 'path' | 'sameSite' | 'httpOnly'>
+  Pick<SessionOptions, 'cookieName' | 'maxAge' | 'path' | 'sameSite' | 'httpOnly' | 'secure'>
 >
