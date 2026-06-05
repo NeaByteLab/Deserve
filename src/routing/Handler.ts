@@ -53,9 +53,19 @@ export class Handler {
   constructor(options?: Types.HandlerOptions) {
     this.errorResponseBuilder = options?.errorResponseBuilder ?? Handler.defaultErrorResponseBuilder
     this.staticHandler = options?.staticHandler ?? Handler.defaultStaticHandler
-    this.maxUrlLength = options?.maxUrlLength ?? Handler.defaultMaxUrlLength
-    this.maxRouteParamLength = options?.maxRouteParamLength ?? Handler.defaultMaxRouteParamLength
-    this.requestTimeoutMs = options?.requestTimeoutMs
+    this.maxUrlLength = Handler.safePositive(
+      options?.maxUrlLength ?? Handler.defaultMaxUrlLength,
+      Handler.defaultMaxUrlLength
+    )
+    this.maxRouteParamLength = Handler.safePositive(
+      options?.maxRouteParamLength ?? Handler.defaultMaxRouteParamLength,
+      Handler.defaultMaxRouteParamLength
+    )
+    const timeoutValue = options?.requestTimeoutMs
+    this.requestTimeoutMs = timeoutValue !== undefined &&
+        Number.isFinite(timeoutValue) && timeoutValue > 0
+      ? timeoutValue
+      : undefined
     this.workerPool = options?.worker !== undefined
       ? Core.Worker.createPool(options.worker)
       : undefined
@@ -68,14 +78,14 @@ export class Handler {
   }
 
   /**
-   * Register middleware for path prefix or all.
-   * @description Appends middleware to list; path filters by prefix.
+   * Register middleware for path or all.
+   * @description Appends middleware to list, path filters by prefix.
    * @param path - Path prefix, '', or '*'
    * @param handlers - Middleware functions
    */
   addMiddleware(path: string, ...handlers: Types.Middleware[]): void {
-    for (const handler of handlers) {
-      this.entryMiddleware.push({ path, handler })
+    for (const middlewareHandler of handlers) {
+      this.entryMiddleware.push({ path, handler: middlewareHandler })
     }
   }
 
@@ -109,12 +119,12 @@ export class Handler {
   createHandler(): (req: Request) => Promise<Response> {
     const maxUrlLength = this.maxUrlLength
     const maxRouteParamLength = this.maxRouteParamLength
-    const run = async (req: Request): Promise<Response> => {
+    const handleRequest = async (req: Request): Promise<Response> => {
       if (maxUrlLength !== undefined && maxUrlLength > 0 && req.url.length > maxUrlLength) {
-        return Handler.buildUriTooLongResponse(req)
+        return Handler.buildUriTooLong(req)
       }
-      const url = new URL(req.url)
-      const ctx = new Core.Context(req, url, {}, this.handleResponse.bind(this))
+      const requestUrl = new URL(req.url)
+      const ctx = new Core.Context(req, requestUrl, {}, this.handleResponse.bind(this))
       if (this.workerPool) {
         ctx.state['worker'] = {
           run: <T>(payload: unknown) => this.workerPool!.run<T>(payload)
@@ -124,13 +134,13 @@ export class Handler {
         ctx.state['view'] = this.viewEngine
       }
       try {
-        const middlewareResult = await this.executeMiddlewares(ctx, url.pathname)
+        const middlewareResult = await this.executeMiddlewares(ctx, requestUrl.pathname)
         if (middlewareResult !== undefined) {
           return middlewareResult
         }
-        let routeResult = this.routerInstance.find(req.method, url.pathname)
+        let routeResult = this.routerInstance.find(req.method, requestUrl.pathname)
         if (!routeResult && req.method === 'HEAD') {
-          routeResult = this.routerInstance.find('GET', url.pathname)
+          routeResult = this.routerInstance.find('GET', requestUrl.pathname)
         }
         if (routeResult) {
           const metadata = 'data' in routeResult ? routeResult.data : null
@@ -171,7 +181,7 @@ export class Handler {
         }
         return await ctx.handleError(
           404,
-          new Deno.errors.NotFound(`No route found for ${req.method} ${url.pathname}`)
+          new Deno.errors.NotFound(`No route found for ${req.method} ${requestUrl.pathname}`)
         )
       } catch (handlerError) {
         const thrownError = handlerError as Types.StatusError
@@ -180,37 +190,46 @@ export class Handler {
     }
     const timeoutMs = this.requestTimeoutMs
     return async (req: Request) => {
-      const response = await (async () => {
+      const finalResponse = await (async () => {
         if (timeoutMs !== undefined && timeoutMs > 0) {
-          const timeoutResponse = new Promise<Response>((resolve) => {
-            setTimeout(
-              () => resolve(new Response(null, { status: 503, statusText: 'Service Unavailable' })),
-              timeoutMs
-            )
-          })
-          return await Promise.race([run(req), timeoutResponse])
+          const abortController = new AbortController()
+          const timeoutTimer = setTimeout(() => abortController.abort(), timeoutMs)
+          try {
+            const raceResult = await Promise.race([
+              handleRequest(req),
+              new Promise<Response>((resolve) => {
+                abortController.signal.addEventListener('abort', () => {
+                  resolve(
+                    new Response(null, { status: 503, statusText: 'Service Unavailable' })
+                  )
+                })
+              })
+            ])
+            return raceResult
+          } finally {
+            clearTimeout(timeoutTimer)
+          }
         }
-        return await run(req)
+        return await handleRequest(req)
       })()
       if (req.method === 'HEAD') {
-        const headHeaders = new Headers(response.headers)
-        if (!headHeaders.has('content-length') && response.body) {
-          const body = await response.arrayBuffer()
-          headHeaders.set('content-length', String(body.byteLength))
+        const headHeaders = new Headers(finalResponse.headers)
+        if (finalResponse.body) {
+          await finalResponse.body.cancel()
         }
         return new Response(null, {
-          status: response.status,
-          statusText: response.statusText,
+          status: finalResponse.status,
+          statusText: finalResponse.statusText,
           headers: headHeaders
         })
       }
-      return response
+      return finalResponse
     }
   }
 
   /**
    * Convert file path to route pattern.
-   * @description Drops extension; [id] to :id; index to /.
+   * @description Drops extension, [id] to :id, index to /.
    * @param routePath - Path like users/[id].ts
    * @returns Pattern like /users/:id or null
    */
@@ -224,7 +243,7 @@ export class Handler {
   }
 
   /**
-   * Build error response via builder and middleware.
+   * Build error response via builder.
    * @description Delegates to errorResponseBuilder with optional middleware.
    * @param ctx - Request context
    * @param statusCode - HTTP status
@@ -232,7 +251,11 @@ export class Handler {
    * @returns Error response
    */
   async handleResponse(ctx: Core.Context, statusCode: number, error: Error): Promise<Response> {
-    return await this.errorResponseBuilder.build(ctx, statusCode, error, this.errorMiddleware)
+    try {
+      return await this.errorResponseBuilder.build(ctx, statusCode, error, this.errorMiddleware)
+    } catch {
+      return ctx.send.custom(null, { status: statusCode })
+    }
   }
 
   /**
@@ -293,21 +316,21 @@ export class Handler {
   }
 
   /**
+   * Set custom error response builder.
+   * @description Replaces default builder for error responses.
+   * @param builder - Builds final error Response
+   */
+  setErrorBuilder(builder: Types.ErrorResponseBuilder): void {
+    this.errorResponseBuilder = builder
+  }
+
+  /**
    * Set custom error middleware.
    * @description Invoked before default error response when set.
    * @param errorMiddleware - Called before default error response
    */
   setErrorMiddleware(errorMiddleware: Types.ErrorMiddleware): void {
     this.errorMiddleware = errorMiddleware
-  }
-
-  /**
-   * Set custom error response builder.
-   * @description Replaces default builder for error responses.
-   * @param builder - Builds final error Response
-   */
-  setErrorResponseBuilder(builder: Types.ErrorResponseBuilder): void {
-    this.errorResponseBuilder = builder
   }
 
   /**
@@ -335,25 +358,25 @@ export class Handler {
    * @param req - Incoming request
    * @returns 414 Response
    */
-  private static buildUriTooLongResponse(req: Request): Response {
+  private static buildUriTooLong(req: Request): Response {
     const statusCode = 414
-    const error = 'URI Too Long'
-    const isJson = req.headers.get('accept')?.includes('application/json')
-    if (isJson) {
+    const errorLabel = 'URI Too Long'
+    const isJsonRequest = req.headers.get('accept')?.includes('application/json')
+    if (isJsonRequest) {
       return globalThis.Response.json(
-        { error, path: '', statusCode },
+        { error: errorLabel, path: '', statusCode },
         { status: statusCode, headers: { 'Content-Type': 'application/json' } }
       )
     }
-    return new Response(Core.Error.defaultErrorHtml(statusCode, error), {
+    return new Response(Core.Error.defaultErrorHtml(statusCode, errorLabel), {
       status: statusCode,
-      headers: { 'Content-Type': 'text/html' }
+      headers: { 'Content-Type': 'text/html; charset=utf-8' }
     })
   }
 
   /**
    * Run middleware chain for pathname.
-   * @description Filters by path then runs next chain; returns first response.
+   * @description Filters by path then runs next chain.
    * @param ctx - Request context
    * @param pathname - Request pathname for path matching
    * @returns Response from middleware or undefined to continue
@@ -377,17 +400,30 @@ export class Handler {
       if (middlewareIndex >= applicableMiddlewares.length) {
         return undefined
       }
-      const middleware = applicableMiddlewares[middlewareIndex]
-      if (!middleware) {
+      const currentMiddleware = applicableMiddlewares[middlewareIndex]
+      if (!currentMiddleware) {
         return undefined
       }
       middlewareIndex++
-      const middlewareResponse = await middleware.handler(ctx, next)
+      const middlewareResponse = await currentMiddleware.handler(ctx, next)
       if (middlewareResponse !== undefined) {
         return middlewareResponse
       }
       return next()
     }
     return await next()
+  }
+
+  /**
+   * Return positive number or fallback.
+   * @description Returns value when positive and finite, else fallback.
+   * @param inputValue - Number to validate
+   * @param defaultValue - Fallback when invalid
+   * @returns Positive number or fallback
+   */
+  private static safePositive(inputValue: number | undefined, defaultValue: number): number {
+    return inputValue !== undefined && Number.isFinite(inputValue) && inputValue > 0
+      ? inputValue
+      : defaultValue
   }
 }

@@ -3,15 +3,17 @@ import * as Rendering from '@rendering/index.ts'
 import * as Routing from '@routing/index.ts'
 
 /**
- * Public API for routes, middleware, and serve.
+ * Public API for routes and middleware.
  * @description Wraps Handler and exposes serve, use, static, catch.
  */
 export class Router {
+  /** Wrapped Handler instance */
   private handler: Routing.Handler
+  /** Directory path for file-based routes */
   private routesDir: string
 
   /**
-   * Create router with routes dir and options.
+   * Create router with routes and options.
    * @description Sets Handler options and routes directory.
    * @param options - Routes dir, error builder, static handler, worker pool
    */
@@ -31,9 +33,9 @@ export class Router {
 
   /**
    * Scan routes and start HTTP server.
-   * @description Serves on port/host; optional AbortSignal for shutdown.
-   * @param port - Port number; env PORT or 8000
-   * @param hostname - Host; default 0.0.0.0
+   * @description Serves on port/host, optional AbortSignal for shutdown.
+   * @param port - Port number, env PORT or 8000
+   * @param hostname - Host, default 0.0.0.0
    * @param signal - Optional abort to stop server
    */
   async serve(port?: number): Promise<void>
@@ -64,7 +66,7 @@ export class Router {
 
   /**
    * Add global or path-scoped middleware.
-   * @description Use path string to scope middleware to path prefix.
+   * @description Scopes middleware to path prefix when string given.
    * @param pathOrMiddleware - Path prefix or first middleware
    * @param handlers - One or more middleware functions
    */

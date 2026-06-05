@@ -5,12 +5,12 @@ import nodeUrl from 'node:url'
 
 /**
  * File-based route discovery and pattern creation.
- * @description Walks directory; converts paths to route patterns.
+ * @description Walks directory, converts paths to route patterns.
  */
 export class Scanner {
   /**
    * Convert file path to router pattern.
-   * @description Drops extension; [id] to :id; /index to /.
+   * @description Drops extension, [id] to :id, /index to /.
    * @param routePath - Relative path like users/[id].ts
    * @param extensions - Allowed file extensions
    * @returns Pattern or null if skipped
@@ -21,15 +21,16 @@ export class Scanner {
       return null
     }
     const pathWithoutExt = routePath.slice(0, -`.${pathExtension}`.length)
-    if (
-      pathWithoutExt
-        .split('/')
-        .some((pathSegment) => pathSegment.startsWith('_') || pathSegment.startsWith('@'))
-    ) {
+    const segments = pathWithoutExt.split('/')
+    if (segments.some((segment) => segment.startsWith('_') || segment.startsWith('@'))) {
       return null
     }
-    const pathLastSegment = pathWithoutExt.split('/').pop()
-    if (!/^[a-zA-Z0-9_\[\].~\-+]+$/.test(pathLastSegment ?? '')) {
+    const fileName = routePath.split('/').pop() ?? ''
+    if (fileName.split('.').length !== 2) {
+      return null
+    }
+    const lastSegment = segments.at(-1)
+    if (!/^[a-zA-Z0-9_\[\]~\-+]+$/.test(lastSegment ?? '')) {
       return null
     }
     let pathPattern = `/${pathWithoutExt}`.replace(/\[([^\]]+)\]/g, ':$1')
@@ -41,7 +42,7 @@ export class Scanner {
 
   /**
    * Recursively scan directory and register routes.
-   * @description Imports each route file; validates and adds to router.
+   * @description Imports each route file, validates and adds to router.
    * @param routerInstance - Router to add routes to
    * @param targetDir - Directory to scan
    * @param basePath - Path prefix for route paths
@@ -72,6 +73,10 @@ export class Scanner {
             if (routePattern) {
               Scanner.validateModule(fileModule, routePath, methods)
               Scanner.registerHandlers(routerInstance, fileModule, routePattern, methods)
+            } else if (/[^\x20-\x7E]/.test(dirEntry.name)) {
+              console.warn(
+                `[Deserve] Skipped route "${routePath}" because filename contains non-ASCII characters`
+              )
             }
           } catch (fileError) {
             const formatted = fileError instanceof globalThis.Error
@@ -81,11 +86,11 @@ export class Scanner {
           }
         }
       }
-    } catch (error) {
-      if (error instanceof Deno.errors.NotFound) {
+    } catch (scanError) {
+      if (scanError instanceof Deno.errors.NotFound) {
         return
       }
-      throw error
+      throw scanError
     }
   }
 
@@ -104,11 +109,11 @@ export class Scanner {
     methods: readonly string[]
   ): void {
     for (const method of methods) {
-      const handler = fileModule[method] as Types.RouteHandler | undefined
-      if (typeof handler !== 'function') {
+      const routeHandler = fileModule[method] as Types.RouteHandler | undefined
+      if (typeof routeHandler !== 'function') {
         continue
       }
-      const metadata: Types.RouteMetadata = { handler, pattern: routePattern }
+      const metadata: Types.RouteMetadata = { handler: routeHandler, pattern: routePattern }
       routerInstance.add(method, routePattern, metadata)
     }
   }
@@ -126,17 +131,17 @@ export class Scanner {
     routePath: string,
     methods: readonly string[]
   ): void {
-    const exportedMethods = Object.keys(module).filter((key) => methods.includes(key))
+    const exportedMethods = Object.keys(module).filter((methodName) => methods.includes(methodName))
     if (exportedMethods.length === 0) {
       throw new Deno.errors.InvalidData(
         `Route "${routePath}" must export at least one HTTP method (${methods.join(', ')})`
       )
     }
-    for (const [key, value] of Object.entries(module)) {
-      if (methods.includes(key)) {
-        if (typeof value !== 'function') {
+    for (const [methodName, exportValue] of Object.entries(module)) {
+      if (methods.includes(methodName)) {
+        if (typeof exportValue !== 'function') {
           throw new TypeError(
-            `Route "${routePath}" export "${key}" must be a function, got ${typeof value}`
+            `Route "${routePath}" export "${methodName}" must be a function, got ${typeof exportValue}`
           )
         }
       }
