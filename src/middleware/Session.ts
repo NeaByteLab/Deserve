@@ -78,7 +78,9 @@ export class Session {
     ): Types.AsyncMiddlewareResult => {
       const key = await getHmacKey()
       const cookieValue = ctx.cookie(sessionOptions.cookieName)
-      ctx.state['session'] = cookieValue ? await Session.decodePayload(cookieValue, key) : null
+      ctx.state['session'] = cookieValue
+        ? await Session.decodePayload(cookieValue, key, maxAge)
+        : null
       ctx.state['setSession'] = async (data: Types.DataRecord) => {
         const encodedPayload = await Session.encodePayload(data, key)
         ctx.setHeader(
@@ -134,14 +136,16 @@ export class Session {
 
   /**
    * Decode and verify signed session payload.
-   * @description Returns null on parse error or invalid signature.
+   * @description Returns null on parse error, invalid signature, or expiry.
    * @param encodedValue - Cookie value payload dot signature base64url
    * @param key - CryptoKey for HMAC verification
+   * @param maxAge - Maximum age in seconds for server-side expiry
    * @returns Session data or null
    */
   private static async decodePayload(
     encodedValue: string,
-    key: CryptoKey
+    key: CryptoKey,
+    maxAge: number
   ): Promise<Types.DataRecord | null> {
     try {
       const value = encodedValue.includes('%') ? decodeURIComponent(encodedValue) : encodedValue
@@ -163,7 +167,13 @@ export class Session {
       }
       const payloadBytes = Session.base64UrlDecode(payloadB64)
       const payloadStr = Session.decoder.decode(payloadBytes)
-      return JSON.parse(payloadStr) as Types.DataRecord
+      const parsed = JSON.parse(payloadStr) as Types.DataRecord
+      const issuedAt = parsed['_iat']
+      if (typeof issuedAt !== 'number' || Math.floor(Date.now() / 1000) - issuedAt > maxAge) {
+        return null
+      }
+      const { _iat: _, ...sessionData } = parsed
+      return sessionData
     } catch {
       return null
     }
@@ -171,7 +181,7 @@ export class Session {
 
   /**
    * Encode and sign session with HMAC.
-   * @description Returns payload dot signature in base64url.
+   * @description Embeds _iat timestamp, returns payload dot signature.
    * @param sessionData - Session object to encode
    * @param key - CryptoKey for HMAC signing
    * @returns Signed cookie value string
@@ -180,7 +190,8 @@ export class Session {
     sessionData: Types.DataRecord,
     key: CryptoKey
   ): Promise<string> {
-    const payloadStr = JSON.stringify(sessionData)
+    const stamped = { ...sessionData, _iat: Math.floor(Date.now() / 1000) }
+    const payloadStr = JSON.stringify(stamped)
     const payloadBytes = Session.encoder.encode(payloadStr)
     const payloadB64 = Session.base64UrlEncode(payloadBytes)
     const signatureBuffer = await crypto.subtle.sign(

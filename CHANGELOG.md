@@ -25,6 +25,7 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - WebSocket middleware normalizes trailing slashes on the listener path and uses exact segment matching (`path + '/'` prefix) instead of bare `startsWith`, preventing unintended path overlap
 - Session middleware enforces a minimum 32-character `cookieSecret` length at configuration time
 - Session middleware validates `maxAge` is a positive finite number, `path` is non-empty, and rejects `SameSite=None` without `secure: true`
+- Session middleware embeds a server-side issued-at timestamp in signed payloads and validates token age against `maxAge` during decode, ensuring consistent expiry enforcement independent of client cookie handling
 - Session middleware caches the imported HMAC `CryptoKey` via a lazy closure instead of re-importing on every request
 - Session cookie defaults to `Secure: true`, `HttpOnly: true`, `SameSite: Lax`, `Path: /`
 - BasicAuth middleware uses constant-time string comparison with length-independent padding to prevent timing side-channel attacks

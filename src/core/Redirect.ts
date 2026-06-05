@@ -25,6 +25,11 @@ export class Redirect {
     status: Types.RedirectStatus,
     extraHeaders?: HeadersInit
   ): Response {
+    if (/^\/\//.test(url)) {
+      throw new Deno.errors.InvalidData(
+        'Redirect URL must not be protocol-relative, got "//" prefix'
+      )
+    }
     const absolute = url.startsWith('http://') || url.startsWith('https://')
       ? url
       : new URL(url, requestUrl).href
