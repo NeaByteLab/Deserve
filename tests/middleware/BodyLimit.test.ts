@@ -49,6 +49,20 @@ Deno.test('bodyLimit Content-Length one byte over limit returns 413', async () =
   }
 })
 
+Deno.test('bodyLimit Content-Length with trailing text returns 413', async () => {
+  const middleware = Middleware.Mware.bodyLimit({ limit: 200 })
+  const ctx = createTestContext('http://localhost/', {
+    method: 'POST',
+    headers: new Headers({ 'Content-Length': '100abc' })
+  })
+  const next = (): Promise<Response> => Promise.resolve(new Response('ok'))
+  const res = await middleware(ctx, next)
+  assertEquals(res !== undefined, true)
+  if (res) {
+    assertEquals(res.status, 413)
+  }
+})
+
 Deno.test('bodyLimit Content-Length zero passes through', async () => {
   const middleware = Middleware.Mware.bodyLimit({ limit: 100 })
   const ctx = createTestContext('http://localhost/', {
@@ -112,6 +126,20 @@ Deno.test('bodyLimit HEAD passes through', async () => {
   assertEquals(res !== undefined, true)
   if (res) {
     assertEquals(await res.text(), 'ok')
+  }
+})
+
+Deno.test('bodyLimit negative Content-Length returns 413', async () => {
+  const middleware = Middleware.Mware.bodyLimit({ limit: 100 })
+  const ctx = createTestContext('http://localhost/', {
+    method: 'POST',
+    headers: new Headers({ 'Content-Length': '-1' })
+  })
+  const next = (): Promise<Response> => Promise.resolve(new Response('ok'))
+  const res = await middleware(ctx, next)
+  assertEquals(res !== undefined, true)
+  if (res) {
+    assertEquals(res.status, 413)
   }
 })
 

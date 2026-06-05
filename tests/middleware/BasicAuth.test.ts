@@ -201,6 +201,21 @@ Deno.test('basicAuth with empty password credential returns 401', async () => {
   }
 })
 
+Deno.test('basicAuth with empty password user accepts matching credential', async () => {
+  const middleware = Middleware.Mware.basicAuth({
+    users: [{ username: 'admin', password: '' }]
+  })
+  const ctx = createTestContext('http://localhost/', {
+    headers: new Headers({ Authorization: 'Basic ' + btoa('admin:') })
+  })
+  const next = (): Promise<Response> => Promise.resolve(new Response('ok'))
+  const res = await middleware(ctx, next)
+  assertEquals(res !== undefined, true)
+  if (res) {
+    assertEquals(await res.text(), 'ok')
+  }
+})
+
 Deno.test('basicAuth with multiple users matches second user', async () => {
   const middleware = Middleware.Mware.basicAuth({
     users: [

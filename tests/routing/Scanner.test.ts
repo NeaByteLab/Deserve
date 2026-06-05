@@ -1,5 +1,5 @@
-import { assertEquals } from '@std/assert'
 import type * as Types from '@interfaces/index.ts'
+import { assertEquals } from '@std/assert'
 import * as Core from '@core/index.ts'
 import * as Routing from '@routing/index.ts'
 import { FastRouter } from '@neabyte/fast-router'
@@ -8,6 +8,11 @@ Deno.test('Scanner#createPattern [id] to :id', () => {
   const ext = Core.Constant.allowedExtensions
   assertEquals(Routing.Scanner.createPattern('items/[id].ts', ext), '/items/:id')
   assertEquals(Routing.Scanner.createPattern('users/[id]/edit.tsx', ext), '/users/:id/edit')
+})
+
+Deno.test('Scanner#createPattern accepts single-dot filenames', () => {
+  assertEquals(Routing.Scanner.createPattern('users.ts', ['ts', 'js']), '/users')
+  assertEquals(Routing.Scanner.createPattern('api/index.ts', ['ts', 'js']), '/api')
 })
 
 Deno.test('Scanner#createPattern case-insensitive index detection', () => {
@@ -38,6 +43,12 @@ Deno.test('Scanner#createPattern rejects invalid last segment chars', () => {
   const ext = Core.Constant.allowedExtensions
   assertEquals(Routing.Scanner.createPattern('users/na me.ts', ext), null)
   assertEquals(Routing.Scanner.createPattern('users/na?me.ts', ext), null)
+})
+
+Deno.test('Scanner#createPattern rejects multi-dot filenames', () => {
+  assertEquals(Routing.Scanner.createPattern('users.test.ts', ['ts', 'js']), null)
+  assertEquals(Routing.Scanner.createPattern('config.local.ts', ['ts', 'js']), null)
+  assertEquals(Routing.Scanner.createPattern('api.spec.js', ['ts', 'js']), null)
 })
 
 Deno.test('Scanner#createPattern skips _ and @ segments', () => {

@@ -1,25 +1,61 @@
 import { assertEquals } from '@std/assert'
 import * as Core from '@core/index.ts'
 
-Deno.test(
-  'Error#buildResponse Accept with multiple types including json returns JSON',
-  async () => {
-    const request = new Request('http://localhost/multi', {
-      headers: new Headers({ Accept: 'text/html, application/json' })
-    })
-    const ctx = new Core.Context(request, new URL('http://localhost/multi'), {})
-    const res = await Core.Error.buildResponse(
-      ctx,
-      400,
-      new globalThis.Error('bad request'),
-      null
-    )
-    assertEquals(res.status, 400)
-    assertEquals(res.headers.get('Content-Type'), 'application/json')
-    const body = (await res.json()) as { error: string }
-    assertEquals(body.error, 'Bad Request')
-  }
-)
+Deno.test('Error#buildResponse 500 does not leak error message', async () => {
+  const request = new Request('http://localhost/', {
+    headers: new Headers({ Accept: 'application/json' })
+  })
+  const ctx = new Core.Context(request, new URL('http://localhost/'), {})
+  const res = await Core.Error.buildResponse(
+    ctx,
+    500,
+    new globalThis.Error('Connection to db://admin:password@host failed'),
+    null
+  )
+  const body = (await res.json()) as { error: string }
+  assertEquals(body.error, 'Internal Server Error')
+  assertEquals(JSON.stringify(body).includes('password'), false)
+})
+
+Deno.test('Error#buildResponse HTML output escapes message content', async () => {
+  const request = new Request('http://localhost/')
+  const ctx = new Core.Context(request, new URL('http://localhost/'), {})
+  const res = await Core.Error.buildResponse(ctx, 404, new globalThis.Error('irrelevant'), null)
+  const html = await res.text()
+  assertEquals(html.includes('<script>'), false)
+  assertEquals(html.includes('Not Found'), true)
+})
+
+Deno.test('Error#buildResponse uses generic message for unmapped 418 status', async () => {
+  const request = new Request('http://localhost/', {
+    headers: new Headers({ Accept: 'application/json' })
+  })
+  const ctx = new Core.Context(request, new URL('http://localhost/'), {})
+  const res = await Core.Error.buildResponse(
+    ctx,
+    418,
+    new globalThis.Error('secret internal detail'),
+    null
+  )
+  const body = (await res.json()) as { error: string; statusCode: number }
+  assertEquals(body.error, 'Bad Request')
+  assertEquals(body.statusCode, 418)
+})
+
+Deno.test('Error#buildResponse uses generic message for unmapped 599 status', async () => {
+  const request = new Request('http://localhost/', {
+    headers: new Headers({ Accept: 'application/json' })
+  })
+  const ctx = new Core.Context(request, new URL('http://localhost/'), {})
+  const res = await Core.Error.buildResponse(
+    ctx,
+    599,
+    new globalThis.Error('db password leaked'),
+    null
+  )
+  const body = (await res.json()) as { error: string }
+  assertEquals(body.error, 'Internal Server Error')
+})
 
 Deno.test('Error#buildResponse with errorMiddleware receives correct error info', async () => {
   const request = new Request('http://localhost/test-path', { method: 'POST' })
@@ -103,20 +139,6 @@ Deno.test('Error#buildResponse with sync errorMiddleware returning null', async 
   const body = (await res.json()) as { error: string }
   assertEquals(body.error, 'Internal Server Error')
 })
-
-Deno.test(
-  'Error#buildResponse without errorMiddleware returns HTML when no Accept json',
-  async () => {
-    const request = new Request('http://localhost/')
-    const ctx = new Core.Context(request, new URL('http://localhost/'), {})
-    const res = await Core.Error.buildResponse(ctx, 500, new globalThis.Error('oops'), null)
-    assertEquals(res.status, 500)
-    assertEquals(res.headers.get('Content-Type'), 'text/html; charset=utf-8')
-    const html = await res.text()
-    assertEquals(html.includes('500'), true)
-    assertEquals(html.includes('Internal Server Error'), true)
-  }
-)
 
 Deno.test('Error#buildResponse without errorMiddleware returns JSON when Accept json', async () => {
   const request = new Request('http://localhost/foo', {

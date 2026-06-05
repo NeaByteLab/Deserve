@@ -7,6 +7,13 @@ const buildRedirect = (url: string, status: number): globalThis.Response =>
   new globalThis.Response(null, { status, headers: new Headers({ Location: url }) })
 const send = Core.Response.create(baseHeaders, [], buildRedirect)
 
+Deno.test('Response#create custom includes Set-Cookie values', () => {
+  const cookieSend = Core.Response.create({}, ['a=1; Path=/', 'b=2; Path=/'], buildRedirect)
+  const res = cookieSend.custom('body', { status: 200 })
+  const setCookies = res.headers.getSetCookie()
+  assertEquals(setCookies.length, 2)
+})
+
 Deno.test('Response#create custom merges base headers and options', async () => {
   const res = send.custom('body', { status: 201, headers: { 'X-Custom': 'y' } })
   assertEquals(res.status, 201)
@@ -20,17 +27,17 @@ Deno.test('Response#create custom options.headers overrides base', () => {
   assertEquals(res.headers.get('X-App'), 'override')
 })
 
-Deno.test('Response#create custom with Headers instance merges correctly', () => {
-  const res = send.custom(null, { headers: new Headers({ 'X-Test': 'yes' }) })
-  assertEquals(res.headers.get('X-App'), 'test')
-  assertEquals(res.headers.get('X-Test'), 'yes')
-})
-
 Deno.test('Response#create custom with array headers merges correctly', () => {
   const headers: [string, string][] = [['X-Arr', 'val']]
   const res = send.custom(null, { headers })
   assertEquals(res.headers.get('X-App'), 'test')
   assertEquals(res.headers.get('X-Arr'), 'val')
+})
+
+Deno.test('Response#create custom with Headers instance merges correctly', () => {
+  const res = send.custom(null, { headers: new Headers({ 'X-Test': 'yes' }) })
+  assertEquals(res.headers.get('X-App'), 'test')
+  assertEquals(res.headers.get('X-Test'), 'yes')
 })
 
 Deno.test('Response#create custom with no body returns empty response', async () => {
@@ -43,6 +50,13 @@ Deno.test('Response#create custom with null body and no options', async () => {
   const res = send.custom(null)
   assertEquals(res.status, 200)
   assertEquals(await res.text(), '')
+})
+
+Deno.test('Response#create data escapes quotes in filename', () => {
+  const res = send.data(new TextEncoder().encode('x'), 'file"name.txt')
+  const cd = res.headers.get('Content-Disposition') ?? ''
+  assertEquals(cd.includes('\\"'), true)
+  assertEquals(cd.includes('filename'), true)
 })
 
 Deno.test('Response#create data sets Content-Disposition and Content-Type', () => {
@@ -59,10 +73,25 @@ Deno.test('Response#create data string sets Content-Length', () => {
   assertEquals(res.headers.get('Content-Disposition'), 'attachment; filename="a.txt"')
 })
 
-Deno.test('Response#create data with Uint8Array sets Content-Length', () => {
-  const data = new TextEncoder().encode('hello')
-  const res = send.data(data, 'file.bin')
-  assertEquals(res.headers.get('Content-Length'), '5')
+Deno.test('Response#create data strips control characters from filename', () => {
+  const res = send.data(new TextEncoder().encode('x'), 'file\x00name\x1F.txt')
+  const cd = res.headers.get('Content-Disposition') ?? ''
+  assertEquals(cd.includes('\x00'), false)
+  assertEquals(cd.includes('\x1F'), false)
+  assertEquals(cd.includes('filename.txt'), true)
+})
+
+Deno.test('Response#create data strips DEL character from filename', () => {
+  const res = send.data(new TextEncoder().encode('x'), 'file\x7Fname.txt')
+  const cd = res.headers.get('Content-Disposition') ?? ''
+  assertEquals(cd.includes('\x7F'), false)
+})
+
+Deno.test('Response#create data strips path separators from filename', () => {
+  const res = send.data(new TextEncoder().encode('x'), '../../etc/passwd')
+  const cd = res.headers.get('Content-Disposition') ?? ''
+  assertEquals(cd.includes('..'), false)
+  assertEquals(cd.includes('passwd'), true)
 })
 
 Deno.test('Response#create data with default content-type uses octet-stream', () => {
@@ -74,6 +103,12 @@ Deno.test('Response#create data with empty Uint8Array', () => {
   const res = send.data(new Uint8Array(0), 'empty.bin')
   assertEquals(res.headers.get('Content-Length'), '0')
   assertEquals(res.headers.get('Content-Disposition'), 'attachment; filename="empty.bin"')
+})
+
+Deno.test('Response#create data with Uint8Array sets Content-Length', () => {
+  const data = new TextEncoder().encode('hello')
+  const res = send.data(data, 'file.bin')
+  assertEquals(res.headers.get('Content-Length'), '5')
 })
 
 Deno.test('Response#create file reads file and sets headers', async () => {
@@ -102,6 +137,12 @@ Deno.test('Response#create file with no custom filename uses path basename', asy
   assertEquals(await res.text(), 'fixture content\n')
 })
 
+Deno.test('Response#create html includes Set-Cookie values', () => {
+  const cookieSend = Core.Response.create({}, ['sid=xyz'], buildRedirect)
+  const res = cookieSend.html('<p>ok</p>')
+  assertEquals(res.headers.getSetCookie().length, 1)
+})
+
 Deno.test('Response#create html sets text/html', async () => {
   const res = send.html('<p>hi</p>', { status: 200 })
   assertEquals(res.headers.get('Content-Type'), 'text/html; charset=utf-8')
@@ -120,6 +161,12 @@ Deno.test('Response#create html with large content', async () => {
   const res = send.html(largeHtml)
   assertEquals(res.headers.get('Content-Type'), 'text/html; charset=utf-8')
   assertEquals(await res.text(), largeHtml)
+})
+
+Deno.test('Response#create json includes Set-Cookie values', () => {
+  const cookieSend = Core.Response.create({}, ['token=abc'], buildRedirect)
+  const res = cookieSend.json({ ok: true })
+  assertEquals(res.headers.getSetCookie().length, 1)
 })
 
 Deno.test('Response#create json serializes and sets application/json', async () => {
@@ -208,6 +255,12 @@ Deno.test('Response#create stream with default contentType uses octet-stream', (
   })
   const res = send.stream(stream)
   assertEquals(res.headers.get('Content-Type'), 'application/octet-stream')
+})
+
+Deno.test('Response#create text includes Set-Cookie values', () => {
+  const cookieSend = Core.Response.create({}, ['x=1'], buildRedirect)
+  const res = cookieSend.text('hello')
+  assertEquals(res.headers.getSetCookie().length, 1)
 })
 
 Deno.test('Response#create text sets text/plain', async () => {

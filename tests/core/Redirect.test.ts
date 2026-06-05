@@ -1,9 +1,35 @@
 import { assertEquals } from '@std/assert'
 import * as Core from '@core/index.ts'
 
+Deno.test('Redirect#buildResponse appends Set-Cookie values from array', () => {
+  const res = Core.Redirect.buildResponse(
+    'http://localhost/',
+    {},
+    ['a=1', 'b=2'],
+    '/next',
+    302
+  )
+  const cookies = res.headers.getSetCookie()
+  assertEquals(cookies.length, 2)
+  assertEquals(cookies[0], 'a=1')
+  assertEquals(cookies[1], 'b=2')
+})
+
 Deno.test('Redirect#buildResponse body is null', async () => {
   const res = Core.Redirect.buildResponse('https://example.com/', {}, [], '/x', 302)
   assertEquals(await res.text(), '')
+})
+
+Deno.test('Redirect#buildResponse extraHeaders cannot override Location', () => {
+  const res = Core.Redirect.buildResponse(
+    'http://localhost/',
+    {},
+    [],
+    '/real-target',
+    302,
+    { Location: 'http://evil.com/' }
+  )
+  assertEquals(res.headers.get('Location'), 'http://localhost/real-target')
 })
 
 Deno.test('Redirect#buildResponse extraHeaders override responseHeaders', () => {
@@ -30,6 +56,55 @@ Deno.test('Redirect#buildResponse merges responseHeaders and extraHeaders', () =
   assertEquals(res.headers.get('Location'), 'https://example.com/done')
   assertEquals(res.headers.get('X-Base'), 'base')
   assertEquals(res.headers.get('X-Extra'), 'extra')
+})
+
+Deno.test('Redirect#buildResponse rejects // with various suffixes', () => {
+  const urls = ['//evil.com', '//evil.com/path', '///triple']
+  for (const url of urls) {
+    let thrown = false
+    try {
+      Core.Redirect.buildResponse('http://localhost/', {}, [], url, 302)
+    } catch {
+      thrown = true
+    }
+    assertEquals(thrown, true)
+  }
+})
+
+Deno.test('Redirect#buildResponse rejects data scheme after resolution', () => {
+  let thrown = false
+  try {
+    Core.Redirect.buildResponse('http://localhost/', {}, [], 'data:text/html,<h1>x</h1>', 302)
+  } catch {
+    thrown = true
+  }
+  assertEquals(thrown, true)
+})
+
+Deno.test('Redirect#buildResponse rejects javascript scheme after resolution', () => {
+  let thrown = false
+  try {
+    Core.Redirect.buildResponse('http://localhost/', {}, [], 'javascript:alert(1)', 302)
+  } catch {
+    thrown = true
+  }
+  assertEquals(thrown, true)
+})
+
+Deno.test('Redirect#buildResponse rejects protocol-relative URL starting with //', () => {
+  let thrown = false
+  try {
+    Core.Redirect.buildResponse('http://localhost/', {}, [], '//evil.com/phish', 302)
+  } catch (e) {
+    thrown = true
+    assertEquals((e as Error).message.includes('protocol-relative'), true)
+  }
+  assertEquals(thrown, true)
+})
+
+Deno.test('Redirect#buildResponse still allows single slash relative paths', () => {
+  const res = Core.Redirect.buildResponse('http://localhost/', {}, [], '/login', 302)
+  assertEquals(res.headers.get('Location'), 'http://localhost/login')
 })
 
 Deno.test('Redirect#buildResponse uses given status', () => {

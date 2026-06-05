@@ -67,6 +67,16 @@ Deno.test('cors credentials=true with specific origin sets Allow-Credentials', a
   }
 })
 
+Deno.test('cors does not set Vary when origin is wildcard', async () => {
+  const middleware = Middleware.Mware.cors({ origin: '*' })
+  const ctx = createTestContext('http://localhost/', {
+    headers: new Headers({ Origin: 'https://any.com' })
+  })
+  const next = (): Promise<Response> => Promise.resolve(new Response('ok'))
+  await middleware(ctx, next)
+  assertEquals(ctx.responseHeadersMap['Vary'], undefined)
+})
+
 Deno.test('cors exposedHeaders on OPTIONS preflight sets Expose-Headers', async () => {
   const middleware = Middleware.Mware.cors({
     origin: 'https://a.com',
@@ -279,6 +289,26 @@ Deno.test('cors POST request with origin sets headers', async () => {
     assertEquals(res.status, 201)
     assertEquals(await res.text(), 'created')
   }
+})
+
+Deno.test('cors sets Vary Origin on matching origin request', async () => {
+  const middleware = Middleware.Mware.cors({ origin: ['https://trusted.com'] })
+  const ctx = createTestContext('http://localhost/', {
+    headers: new Headers({ Origin: 'https://trusted.com' })
+  })
+  const next = (): Promise<Response> => Promise.resolve(new Response('ok'))
+  await middleware(ctx, next)
+  assertEquals(ctx.responseHeadersMap['Vary'], 'Origin')
+})
+
+Deno.test('cors sets Vary Origin on non-matching origin request', async () => {
+  const middleware = Middleware.Mware.cors({ origin: ['https://trusted.com'] })
+  const ctx = createTestContext('http://localhost/', {
+    headers: new Headers({ Origin: 'https://evil.com' })
+  })
+  const next = (): Promise<Response> => Promise.resolve(new Response('ok'))
+  await middleware(ctx, next)
+  assertEquals(ctx.responseHeadersMap['Vary'], 'Origin')
 })
 
 Deno.test('cors when no Origin header calls next', async () => {

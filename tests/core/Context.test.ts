@@ -62,6 +62,21 @@ Deno.test('Context#blob then text throws already consumed', async () => {
   assertEquals(thrown, true)
 })
 
+Deno.test('Context#body parses form-urlencoded as FormData', async () => {
+  const ctx = createTestContext(
+    'http://localhost/',
+    {},
+    {
+      method: 'POST',
+      body: 'foo=bar&baz=qux',
+      headers: new Headers({ 'Content-Type': 'application/x-www-form-urlencoded' })
+    }
+  )
+  const formData = (await ctx.body()) as FormData
+  assertEquals(formData.get('foo'), 'bar')
+  assertEquals(formData.get('baz'), 'qux')
+})
+
 Deno.test('Context#body parses JSON and caches result', async () => {
   const ctx = createTestContext(
     'http://localhost/',
@@ -79,21 +94,6 @@ Deno.test('Context#body parses JSON and caches result', async () => {
   assertEquals(secondParsedBody, firstParsedBody)
 })
 
-Deno.test('Context#body parses form-urlencoded as FormData', async () => {
-  const ctx = createTestContext(
-    'http://localhost/',
-    {},
-    {
-      method: 'POST',
-      body: 'foo=bar&baz=qux',
-      headers: new Headers({ 'Content-Type': 'application/x-www-form-urlencoded' })
-    }
-  )
-  const formData = (await ctx.body()) as FormData
-  assertEquals(formData.get('foo'), 'bar')
-  assertEquals(formData.get('baz'), 'qux')
-})
-
 Deno.test('Context#body parses multipart/form-data', async () => {
   const multipartBody =
     `------TestBoundary\r\nContent-Disposition: form-data; name="field1"\r\n\r\nvalue1\r\n------TestBoundary--\r\n`
@@ -108,6 +108,61 @@ Deno.test('Context#body parses multipart/form-data', async () => {
   )
   const formData = (await ctx.body()) as FormData
   assertEquals(formData.get('field1'), 'value1')
+})
+
+Deno.test('Context#body returns null for malformed JSON instead of throwing', async () => {
+  const ctx = createTestContext('http://localhost/', {}, {
+    method: 'POST',
+    body: '{not valid json!!!',
+    headers: new Headers({ 'Content-Type': 'application/json' })
+  })
+  const result = await ctx.body()
+  assertEquals(result, null)
+})
+
+Deno.test('Context#body returns null for malformed multipart instead of throwing', async () => {
+  const ctx = createTestContext('http://localhost/', {}, {
+    method: 'POST',
+    body: 'this is not multipart data',
+    headers: new Headers({ 'Content-Type': 'multipart/form-data; boundary=----nonexistent' })
+  })
+  const result = await ctx.body()
+  assertEquals(result, null)
+})
+
+Deno.test('Context#query returns first value when duplicate keys exist', () => {
+  const ctx = createTestContext('http://localhost/?role=user&role=admin')
+  assertEquals(ctx.query('role'), 'user')
+})
+
+Deno.test('Context#query all params returns first-wins map', () => {
+  const ctx = createTestContext('http://localhost/?a=1&a=2&b=3')
+  const all = ctx.query() as Record<string, string>
+  assertEquals(all['a'], '1')
+  assertEquals(all['b'], '3')
+})
+
+Deno.test('Context#cookie returns first value when duplicate keys exist', () => {
+  const ctx = createTestContext('http://localhost/', {}, {
+    headers: new Headers({ Cookie: 'sid=first; sid=second' })
+  })
+  assertEquals(ctx.cookie('sid'), 'first')
+})
+
+Deno.test('Context#cookie trims whitespace from cookie key', () => {
+  const ctx = createTestContext('http://localhost/', {}, {
+    headers: new Headers({ Cookie: '  token  =abc123' })
+  })
+  assertEquals(ctx.cookie('token'), 'abc123')
+})
+
+Deno.test('Context#cookie skips entries without equals sign', () => {
+  const ctx = createTestContext('http://localhost/', {}, {
+    headers: new Headers({ Cookie: 'malformed; valid=yes; alsobroken' })
+  })
+  assertEquals(ctx.cookie('malformed'), undefined)
+  assertEquals(ctx.cookie('valid'), 'yes')
+  assertEquals(ctx.cookie('alsobroken'), undefined)
 })
 
 Deno.test('Context#body then formData throws when body already parsed as non-form', async () => {
@@ -526,6 +581,16 @@ Deno.test('Context#send.text returns text/plain', () => {
   assertEquals(res.headers.get('Content-Type'), 'text/plain; charset=utf-8')
 })
 
+Deno.test('Context#setHeader accumulates multiple Set-Cookie values', () => {
+  const ctx = createTestContext()
+  ctx.setHeader('Set-Cookie', 'a=1; Path=/')
+  ctx.setHeader('Set-Cookie', 'b=2; Path=/')
+  ctx.setHeader('Set-Cookie', 'c=3; Path=/')
+  assertEquals(ctx.responseCookies.length, 3)
+  assertEquals(ctx.responseCookies[0], 'a=1; Path=/')
+  assertEquals(ctx.responseCookies[2], 'c=3; Path=/')
+})
+
 Deno.test('Context#setHeader chaining works', () => {
   const ctx = createTestContext('http://localhost/')
   const result = ctx.setHeader('X-A', '1').setHeader('X-B', '2')
@@ -542,10 +607,27 @@ Deno.test('Context#setHeader merges into response', () => {
   assertEquals(res.headers.get('Content-Type'), 'text/html; charset=utf-8')
 })
 
+Deno.test('Context#setHeader Set-Cookie does not appear in responseHeadersMap', () => {
+  const ctx = createTestContext()
+  ctx.setHeader('Set-Cookie', 'token=abc')
+  ctx.setHeader('X-Custom', 'yes')
+  assertEquals(ctx.responseHeadersMap['X-Custom'], 'yes')
+  assertEquals(ctx.responseHeadersMap['Set-Cookie'], undefined)
+})
+
 Deno.test('Context#setHeaders returns this for chaining', () => {
   const ctx = createTestContext('http://localhost/')
   const result = ctx.setHeaders({ 'X-A': '1', 'X-B': '2' })
   assertEquals(result, ctx)
+})
+
+Deno.test('Context#setHeaders routes Set-Cookie entries to cookie array', () => {
+  const ctx = createTestContext()
+  ctx.setHeaders({ 'X-A': '1', 'Set-Cookie': 'sid=abc', 'X-B': '2' })
+  assertEquals(ctx.responseCookies.length, 1)
+  assertEquals(ctx.responseCookies[0], 'sid=abc')
+  assertEquals(ctx.responseHeadersMap['X-A'], '1')
+  assertEquals(ctx.responseHeadersMap['X-B'], '2')
 })
 
 Deno.test('Context#setHeaders sets multiple headers', () => {

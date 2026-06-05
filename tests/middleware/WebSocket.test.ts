@@ -18,6 +18,34 @@ Deno.test('websocket default listener is empty string and calls next', async () 
   }
 })
 
+Deno.test('websocket listener /ws does not match /ws-admin path', async () => {
+  const middleware = Middleware.Mware.websocket({ listener: '/ws' })
+  const ctx = createTestContext('http://localhost/ws-admin', {
+    headers: new Headers({ Upgrade: 'websocket' })
+  })
+  let nextCalled = false
+  const next = (): Promise<Response> => {
+    nextCalled = true
+    return Promise.resolve(new Response('ok'))
+  }
+  await middleware(ctx, next)
+  assertEquals(nextCalled, true)
+})
+
+Deno.test('websocket listener with trailing slash normalized', async () => {
+  const middleware = Middleware.Mware.websocket({ listener: '/ws/' })
+  const ctx = createTestContext('http://localhost/ws-other', {
+    headers: new Headers({ Upgrade: 'websocket' })
+  })
+  let nextCalled = false
+  const next = (): Promise<Response> => {
+    nextCalled = true
+    return Promise.resolve(new Response('ok'))
+  }
+  await middleware(ctx, next)
+  assertEquals(nextCalled, true)
+})
+
 Deno.test('websocket with listener and upgrade header but wrong path calls next', async () => {
   const middleware = Middleware.Mware.websocket({ listener: '/ws' })
   const ctx = createTestContext('http://localhost/api', {
