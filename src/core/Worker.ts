@@ -23,7 +23,7 @@ export class Worker {
 
   /**
    * Create worker pool from options.
-   * @description Spawns module workers from scriptURL; must resolve in app.
+   * @description Spawns module workers from scriptURL, must resolve in app.
    * @param options - scriptURL and optional poolSize
    * @returns Worker with run and terminate
    */
@@ -38,7 +38,8 @@ export class Worker {
 
   /**
    * Run one task in worker pool.
-   * @description Sends payload via postMessage; worker posts result back.
+   * @description Sends payload via postMessage, returns worker result.
+   * @template T - Result type from worker
    * @param payload - Serializable payload for the worker
    * @returns Promise resolving to worker result
    * @throws {Deno.errors.BadResource} When pool empty or worker missing

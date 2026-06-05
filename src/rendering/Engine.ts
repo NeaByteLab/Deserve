@@ -83,7 +83,7 @@ export class Engine implements Types.ViewEngine, Types.WatchableEngine {
    */
   streamRender(templatePath: string, data: Types.DataRecord = {}): ReadableStream {
     const { readable, writable } = new TransformStream()
-    this.renderNodesToStream(templatePath, data, writable).catch(async (error: Error) => {
+    this.renderStream(templatePath, data, writable).catch(async (error: Error) => {
       console.error(`\n${await Stackz.format(error, 'detailed')}\n`)
     })
     return readable
@@ -132,7 +132,7 @@ export class Engine implements Types.ViewEngine, Types.WatchableEngine {
    * @param depth - Current include nesting depth
    * @returns HTML chunk string or null
    */
-  private async renderNodeToChunk(
+  private async renderChunk(
     node: Types.AstNode,
     data: Types.DataRecord,
     viewsDir: string,
@@ -202,7 +202,7 @@ export class Engine implements Types.ViewEngine, Types.WatchableEngine {
   ): Promise<string> {
     let outputHtml = ''
     for (const node of ast) {
-      const chunk = await this.renderNodeToChunk(node, data, viewsDir, depth)
+      const chunk = await this.renderChunk(node, data, viewsDir, depth)
       if (chunk) {
         outputHtml += chunk
       }
@@ -217,7 +217,7 @@ export class Engine implements Types.ViewEngine, Types.WatchableEngine {
    * @param data - Template scope data
    * @param writable - Writable stream for output
    */
-  private async renderNodesToStream(
+  private async renderStream(
     templatePath: string,
     data: Types.DataRecord,
     writable: WritableStream
@@ -227,7 +227,7 @@ export class Engine implements Types.ViewEngine, Types.WatchableEngine {
     try {
       const compiled = await this.resolveTemplate(templatePath)
       for (const node of compiled.ast) {
-        const chunk = await this.renderNodeToChunk(node, data, this.defaultViewsDir, 0)
+        const chunk = await this.renderChunk(node, data, this.defaultViewsDir, 0)
         if (chunk) {
           await writer.write(encoder.encode(chunk))
         }

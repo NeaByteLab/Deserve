@@ -14,7 +14,7 @@ export class Constant {
     'ts',
     'tsx'
   ]
-  /** Extension to MIME type map for static files */
+  /** Extension to MIME type map */
   static readonly contentTypes: Record<string, string> = {
     html: 'text/html',
     htm: 'text/html',

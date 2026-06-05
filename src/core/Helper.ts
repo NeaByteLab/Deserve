@@ -14,7 +14,7 @@ export class Helper {
       return {}
     }
     if (init instanceof Headers) {
-      return Object.fromEntries(init.entries())
+      return Object.fromEntries(init)
     }
     if (Array.isArray(init)) {
       return Object.fromEntries(init as [string, string][])

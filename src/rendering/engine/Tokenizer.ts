@@ -6,52 +6,6 @@ import type * as Types from '@interfaces/index.ts'
  */
 export class Tokenizer {
   /**
-   * Check if character is whitespace.
-   * @description Tests for space, newline, tab, carriage return.
-   * @param char - Single character to test
-   * @returns True when whitespace
-   */
-  private static isWhitespace(char: string): boolean {
-    return char === ' ' || char === '\n' || char === '\t' || char === '\r'
-  }
-
-  /**
-   * Check if character is digit.
-   * @description Tests for ASCII 0-9 characters.
-   * @param char - Single character to test
-   * @returns True when digit
-   */
-  private static isDigitChar(char: string): boolean {
-    return char >= '0' && char <= '9'
-  }
-
-  /**
-   * Check if character starts identifier.
-   * @description Tests for letters, underscore, dollar, at sign.
-   * @param char - Single character to test
-   * @returns True when valid identifier start
-   */
-  private static isIdentifierStartChar(char: string): boolean {
-    return (
-      (char >= 'a' && char <= 'z') ||
-      (char >= 'A' && char <= 'Z') ||
-      char === '_' ||
-      char === '$' ||
-      char === '@'
-    )
-  }
-
-  /**
-   * Check if character continues identifier.
-   * @description Tests for identifier start chars or digits.
-   * @param char - Single character to test
-   * @returns True when valid identifier char
-   */
-  private static isIdentifierChar(char: string): boolean {
-    return Tokenizer.isIdentifierStartChar(char) || Tokenizer.isDigitChar(char)
-  }
-
-  /**
    * Tokenize expression into tokens.
    * @description Supports strings, numbers, idents, operators.
    * @param expressionText - Raw expression text
@@ -187,7 +141,7 @@ export class Tokenizer {
         cursorIndex = endIndex
         continue
       }
-      if (Tokenizer.isIdentifierStartChar(currentChar)) {
+      if (Tokenizer.isIdentStart(currentChar)) {
         let endIndex = cursorIndex + 1
         while (
           endIndex < expressionText.length &&
@@ -205,5 +159,51 @@ export class Tokenizer {
       )
     }
     return exprTokens
+  }
+
+  /**
+   * Check if character is digit.
+   * @description Tests for ASCII 0-9 characters.
+   * @param char - Single character to test
+   * @returns True when digit
+   */
+  private static isDigitChar(char: string): boolean {
+    return char >= '0' && char <= '9'
+  }
+
+  /**
+   * Check if character starts identifier.
+   * @description Tests for letters, underscore, dollar, at sign.
+   * @param char - Single character to test
+   * @returns True when valid identifier start
+   */
+  private static isIdentStart(char: string): boolean {
+    return (
+      (char >= 'a' && char <= 'z') ||
+      (char >= 'A' && char <= 'Z') ||
+      char === '_' ||
+      char === '$' ||
+      char === '@'
+    )
+  }
+
+  /**
+   * Check if character continues identifier.
+   * @description Tests for identifier start chars or digits.
+   * @param char - Single character to test
+   * @returns True when valid identifier char
+   */
+  private static isIdentifierChar(char: string): boolean {
+    return Tokenizer.isIdentStart(char) || Tokenizer.isDigitChar(char)
+  }
+
+  /**
+   * Check if character is whitespace.
+   * @description Tests for space, newline, tab, carriage return.
+   * @param char - Single character to test
+   * @returns True when whitespace
+   */
+  private static isWhitespace(char: string): boolean {
+    return char === ' ' || char === '\n' || char === '\t' || char === '\r'
   }
 }
