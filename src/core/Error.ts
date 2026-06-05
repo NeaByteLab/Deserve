@@ -8,6 +8,19 @@ import type * as Core from '@core/index.ts'
 export class Error {
   /** Default server error status messages */
   private static readonly serverErrorMessages: Readonly<Record<number, string>> = {
+    400: 'Bad Request',
+    401: 'Unauthorized',
+    403: 'Forbidden',
+    404: 'Not Found',
+    405: 'Method Not Allowed',
+    408: 'Request Timeout',
+    409: 'Conflict',
+    410: 'Gone',
+    413: 'Payload Too Large',
+    414: 'URI Too Long',
+    415: 'Unsupported Media Type',
+    422: 'Unprocessable Entity',
+    429: 'Too Many Requests',
     500: 'Internal Server Error',
     501: 'Not Implemented',
     502: 'Bad Gateway',
@@ -17,7 +30,7 @@ export class Error {
 
   /**
    * Build error response with format.
-   * @description Tries middleware then JSON or HTML; masks 5xx.
+   * @description Tries middleware then JSON or HTML, masks 5xx.
    * @param ctx - Request context
    * @param statusCode - HTTP status code
    * @param error - Thrown error
@@ -42,9 +55,8 @@ export class Error {
         return customResponse
       }
     }
-    const safeMessage = statusCode >= 500
-      ? (Error.serverErrorMessages[statusCode] ?? 'Internal Server Error')
-      : error.message
+    const safeMessage = Error.serverErrorMessages[statusCode] ??
+      (statusCode >= 500 ? 'Internal Server Error' : 'Bad Request')
     const isJson = ctx.request.headers.get('accept')?.includes('application/json')
     if (isJson) {
       return ctx.send.json(

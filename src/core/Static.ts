@@ -3,12 +3,12 @@ import * as Core from '@core/index.ts'
 
 /**
  * Serves static files with etag and cache.
- * @description Resolves path under base; enforces same directory.
+ * @description Resolves path under base, enforces same directory.
  */
 export class Static {
   /**
    * Serve one file from static root.
-   * @description Resolves path under base; sets Content-Type and etag.
+   * @description Resolves path under base, sets Content-Type and etag.
    * @param ctx - Request context
    * @param options - Path, etag, cacheControl
    * @param urlPath - URL prefix for static route
@@ -32,6 +32,15 @@ export class Static {
       const isAbsolute = options.path.startsWith('/') || /^[A-Za-z]:[\\/]/.test(options.path)
       const staticBasePath = isAbsolute ? options.path : `${Deno.cwd()}/${options.path}`
       const baseNormalized = staticBasePath.replace(/^\.\//, '').replace(/[\\/]+$/, '') || '/'
+      const fileSegments = filePath.split('/')
+      for (const segment of fileSegments) {
+        if (segment.startsWith('.')) {
+          return await ctx.handleError(
+            404,
+            new Deno.errors.NotFound(`Static file "${filePath}" was not found`)
+          )
+        }
+      }
       const fullPath = `${baseNormalized}/${filePath}`.replace(/\\/g, '/')
       const fileInfo = await Deno.stat(fullPath).catch(() => null)
       if (!fileInfo || !fileInfo.isFile) {
@@ -80,7 +89,7 @@ export class Static {
       if (etag && ctx.request.headers.get('If-None-Match') === etag) {
         file.close()
         ctx.setHeader('ETag', etag)
-        if (options.cacheControl !== undefined) {
+        if (options.cacheControl !== undefined && options.cacheControl >= 0) {
           ctx.setHeader('Cache-Control', `public, max-age=${options.cacheControl}`)
         }
         return ctx.send.custom(null, { status: 304, headers: ctx.responseHeadersMap })
@@ -90,7 +99,7 @@ export class Static {
       if (etag) {
         ctx.setHeader('ETag', etag)
       }
-      if (options.cacheControl !== undefined) {
+      if (options.cacheControl !== undefined && options.cacheControl >= 0) {
         ctx.setHeader('Cache-Control', `public, max-age=${options.cacheControl}`)
       }
       return ctx.send.custom(file.readable)
