@@ -3,7 +3,7 @@ import type * as Core from '@core/index.ts'
 
 /**
  * Basic Auth middleware with user list.
- * @description Validates Authorization header; constant-time compare.
+ * @description Validates Authorization header, constant-time compare.
  */
 export class BasicAuth {
   /**
@@ -33,7 +33,7 @@ export class BasicAuth {
       try {
         const credentials = atob(authHeader.slice(6))
         const colonIndex = credentials.indexOf(':')
-        if (colonIndex <= 0 || colonIndex === credentials.length - 1) {
+        if (colonIndex <= 0) {
           return await ctx.handleError(
             401,
             new Deno.errors.PermissionDenied('Malformed Basic Auth credentials')
@@ -66,18 +66,16 @@ export class BasicAuth {
   /**
    * Constant-time string comparison for credentials.
    * @description Compares two strings in constant time.
-   * @param a - First string
-   * @param b - Second string
+   * @param inputStr - First string
+   * @param expectedStr - Second string
    * @returns True when equal
    */
-  private static constantTimeEqual(a: string, b: string): boolean {
-    if (a.length !== b.length) {
-      return false
+  private static constantTimeEqual(inputStr: string, expectedStr: string): boolean {
+    const maxLen = Math.max(inputStr.length, expectedStr.length)
+    let mismatch = inputStr.length ^ expectedStr.length
+    for (let i = 0; i < maxLen; i++) {
+      mismatch |= (inputStr.charCodeAt(i) || 0) ^ (expectedStr.charCodeAt(i) || 0)
     }
-    let result = 0
-    for (let i = 0; i < a.length; i++) {
-      result |= a.charCodeAt(i) ^ b.charCodeAt(i)
-    }
-    return result === 0
+    return mismatch === 0
   }
 }

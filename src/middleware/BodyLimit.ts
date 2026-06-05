@@ -3,12 +3,12 @@ import * as Middleware from '@middleware/index.ts'
 
 /**
  * Request body size limit middleware.
- * @description Rejects or streams with limit; returns 413 when exceeded.
+ * @description Rejects or streams with limit, returns 413 when exceeded.
  */
 export class BodyLimit {
   /**
    * Create body limit middleware.
-   * @description Rejects or limits body stream; returns 413 when over.
+   * @description Rejects or limits body stream, returns 413.
    * @param options - Max size in bytes
    * @returns Middleware that enforces limit
    */
@@ -19,17 +19,17 @@ export class BodyLimit {
         return await next()
       }
       if (ctx.headers.has('content-length') && !ctx.headers.has('transfer-encoding')) {
-        const contentLength = parseInt(ctx.headers.get('content-length') || '0', 10)
-        if (contentLength > maxSize) {
+        const contentLength = Number(ctx.headers.get('content-length'))
+        if (Number.isNaN(contentLength) || contentLength < 0 || contentLength > maxSize) {
           return await ctx.handleError(
             413,
             new Deno.errors.InvalidData(`Request body exceeds ${maxSize} bytes limit`)
           )
         }
       }
-      const body = ctx.request.body
-      if (body) {
-        const limited = BodyLimit.createLimitStream(body, maxSize)
+      const requestBody = ctx.request.body
+      if (requestBody) {
+        const limited = BodyLimit.createLimitStream(requestBody, maxSize)
         const newReq = new Request(ctx.request.url, {
           method: ctx.request.method,
           headers: ctx.request.headers,
@@ -43,8 +43,8 @@ export class BodyLimit {
   }
 
   /**
-   * Wrap stream with byte limit; error when over.
-   * @description Reads stream and enqueues until limit; then errors.
+   * Wrap stream with byte limit.
+   * @description Reads stream and enqueues until limit, then errors.
    * @param stream - Request body stream
    * @param maxBytes - Max bytes before error
    * @returns Limited stream or null
@@ -56,7 +56,7 @@ export class BodyLimit {
     if (!stream) {
       return null
     }
-    let total = 0
+    let bytesRead = 0
     return new ReadableStream({
       async start(controller) {
         const reader = stream.getReader()
@@ -66,8 +66,8 @@ export class BodyLimit {
             if (done) {
               break
             }
-            total += value.length
-            if (total > maxBytes) {
+            bytesRead += value.length
+            if (bytesRead > maxBytes) {
               reader.cancel()
               const sizeError = new Deno.errors.InvalidData(
                 `Request body exceeds ${maxBytes} bytes limit`

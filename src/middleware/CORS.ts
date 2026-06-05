@@ -9,12 +9,12 @@ import * as Middleware from '@middleware/index.ts'
 export class Cors {
   /**
    * Create CORS middleware with options.
-   * @description Handles preflight; sets Allow-Origin and related headers.
+   * @description Handles preflight, sets Allow-Origin and related headers.
    * @param options - Origin, methods, headers, credentials, maxAge
    * @returns Middleware function
    */
   static create(options: Types.CorsOptions = {}): Types.Middleware {
-    const origin = options.origin ?? '*'
+    const allowedOrigins = options.origin ?? '*'
     const methods = options.methods ?? Core.Constant.httpMethods
     const allowedHeaders = options.allowedHeaders ?? [
       'Content-Type',
@@ -24,24 +24,33 @@ export class Cors {
     const exposedHeaders = options.exposedHeaders ?? []
     const credentials = options.credentials ?? false
     const maxAge = options.maxAge ?? 86400
+    if (credentials && allowedOrigins === '*') {
+      throw new Deno.errors.InvalidData(
+        'CORS credentials cannot be used with wildcard origin "*", specify explicit origin(s)'
+      )
+    }
+    const hasVaryOrigin = allowedOrigins !== '*'
     return Middleware.Utils.wrapMiddleware('CORS error', async (ctx, next) => {
       const requestOrigin = ctx.header('origin')
       if (!requestOrigin) {
         return await next()
       }
-      let allowedOrigin: string | null = null
-      if (typeof origin === 'string') {
-        allowedOrigin = origin
-      } else if (origin.includes(requestOrigin)) {
-        allowedOrigin = requestOrigin
+      let matchedOrigin: string | null = null
+      if (typeof allowedOrigins === 'string') {
+        matchedOrigin = allowedOrigins
+      } else if (allowedOrigins.includes(requestOrigin)) {
+        matchedOrigin = requestOrigin
       }
       if (ctx.request.method === 'OPTIONS') {
-        if (allowedOrigin) {
-          ctx.setHeader('Access-Control-Allow-Origin', allowedOrigin)
+        if (hasVaryOrigin) {
+          ctx.setHeader('Vary', 'Origin')
+        }
+        if (matchedOrigin) {
+          ctx.setHeader('Access-Control-Allow-Origin', matchedOrigin)
           ctx.setHeader('Access-Control-Allow-Methods', methods.join(', '))
           ctx.setHeader('Access-Control-Allow-Headers', allowedHeaders.join(', '))
           ctx.setHeader('Access-Control-Max-Age', maxAge.toString())
-          if (credentials && origin !== '*') {
+          if (credentials) {
             ctx.setHeader('Access-Control-Allow-Credentials', 'true')
           }
           if (exposedHeaders.length > 0) {
@@ -51,9 +60,12 @@ export class Cors {
         }
         return ctx.send.custom(null, { status: 403 })
       }
-      if (allowedOrigin) {
-        ctx.setHeader('Access-Control-Allow-Origin', allowedOrigin)
-        if (credentials && origin !== '*') {
+      if (hasVaryOrigin) {
+        ctx.setHeader('Vary', 'Origin')
+      }
+      if (matchedOrigin) {
+        ctx.setHeader('Access-Control-Allow-Origin', matchedOrigin)
+        if (credentials) {
           ctx.setHeader('Access-Control-Allow-Credentials', 'true')
         }
         if (exposedHeaders.length > 0) {

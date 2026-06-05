@@ -17,10 +17,10 @@ export class Utils {
       try {
         return await middleware(ctx, next)
       } catch (error) {
-        const err = error as Types.StatusError
-        const status = err.statusCode ?? 500
-        const message = err.message || 'Unknown error'
-        return await ctx.handleError(status, new Deno.errors.Http(`${label} ${message}`))
+        const statusError = error as Types.StatusError
+        const statusCode = statusError.statusCode ?? 500
+        const errorMessage = statusError.message || 'Unknown error'
+        return await ctx.handleError(statusCode, new Deno.errors.Http(`${label} ${errorMessage}`))
       }
     }
   }

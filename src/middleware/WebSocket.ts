@@ -4,17 +4,18 @@ import * as Middleware from '@middleware/index.ts'
 
 /**
  * WebSocket upgrade middleware.
- * @description Upgrades request on path; calls connect/message/close/error.
+ * @description Upgrades request on path, calls connect/message/close/error.
  */
 export class WebSocket {
   /**
    * Create WebSocket upgrade middleware.
-   * @description Upgrades request on path; runs connect/message/close/error.
+   * @description Upgrades request on path, runs connect/message/close/error.
    * @param options - Listener path and lifecycle callbacks
    * @returns Middleware that upgrades matching requests
    */
   static create(options: Types.WebSocketOptions = {}): Types.Middleware {
-    const listener = options.listener ?? ''
+    const rawListener = options.listener ?? ''
+    const listener = rawListener.length > 1 ? rawListener.replace(/\/+$/, '') : rawListener
     return Middleware.Utils.wrapMiddleware(
       'WebSocket upgrade failed',
       async (ctx: Core.Context, next) => {
@@ -24,7 +25,11 @@ export class WebSocket {
         if (ctx.header('upgrade')?.toLowerCase() !== 'websocket') {
           return await next()
         }
-        if (!ctx.pathname.startsWith(listener)) {
+        if (
+          listener !== '/' &&
+          ctx.pathname !== listener &&
+          !ctx.pathname.startsWith(listener + '/')
+        ) {
           return await next()
         }
         const { socket, response } = Deno.upgradeWebSocket(ctx.request)
