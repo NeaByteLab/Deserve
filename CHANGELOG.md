@@ -6,6 +6,67 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [Unreleased]
+
+### Changed
+
+#### Security Hardening
+
+- `Context.setHeader('Set-Cookie', ...)` now appends to an internal array instead of overwriting, preserving all Set-Cookie values when multiple cookies are set in a single response
+- `Context.setHeaders()` routes Set-Cookie entries through the same append path, preventing silent cookie loss when bulk-setting headers
+- `Context.body()` formData parsing now catches malformed multipart payloads and returns null instead of crashing the request pipeline
+- `Redirect.buildResponse()` validates URL scheme against an allowlist (`http`, `https`) and rejects protocol-relative paths, preventing external destination abuse
+- `Redirect.buildResponse()` applies Location header after extra headers, preventing caller-supplied headers from overriding the redirect target
+- `Response.sanitizeFilename()` strips control characters (ASCII 0-31 and 127), quotes, backslashes, and path separators from download filenames using a charCode loop
+- `Error.buildResponse()` returns generic status text for unmapped HTTP status codes instead of forwarding the raw error message to clients
+- `Error.defaultErrorHtml()` escapes special characters in error messages rendered into HTML error pages
+- CORS middleware sets `Vary: Origin` on all origin-bearing requests regardless of whether the origin matched, preventing CDN cache poisoning across different origins
+- CORS middleware throws at configuration time when `credentials: true` is combined with wildcard `origin: '*'`
+- WebSocket middleware normalizes trailing slashes on the listener path and uses exact segment matching (`path + '/'` prefix) instead of bare `startsWith`, preventing unintended path overlap
+- Session middleware enforces a minimum 32-character `cookieSecret` length at configuration time
+- Session middleware validates `maxAge` is a positive finite number, `path` is non-empty, and rejects `SameSite=None` without `secure: true`
+- Session middleware caches the imported HMAC `CryptoKey` via a lazy closure instead of re-importing on every request
+- Session cookie defaults to `Secure: true`, `HttpOnly: true`, `SameSite: Lax`, `Path: /`
+- BasicAuth middleware uses constant-time string comparison with length-independent padding to prevent timing side-channel attacks
+- BasicAuth middleware accepts credentials where the password portion is empty (colon at position 0 is now valid)
+- BodyLimit middleware uses `Number()` instead of `parseInt()` for Content-Length parsing, correctly rejecting non-numeric and partial-numeric values
+- SecHeaders middleware applies secure default values (`X-Frame-Options: SAMEORIGIN`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, etc.) when no explicit options are provided
+- `Handler.safePositive()` validates numeric configuration values (`maxUrlLength`, `maxRouteParamLength`, `requestTimeoutMs`), falling back to defaults when zero, negative, NaN, or Infinity is provided
+- `Handler.createHandler()` wraps request timeout in an `AbortController` instead of raw `setTimeout`, and cancels the timer in a `finally` block
+- `Handler.createHandler()` cancels the response body stream on HEAD requests instead of buffering it
+- `Scanner.createPattern()` rejects filenames containing multiple dots (e.g. `foo.test.ts`) to prevent test and config files from being registered as routes
+- `Context.parseCookies()` trims whitespace from cookie keys during parsing
+- `Context.query()` returns the first value for duplicate query parameters instead of the last
+
+#### Code Quality
+
+- Module-level `encoder` and `decoder` variables in Session moved into the class as `private static readonly` properties
+- `Response.ts` extracts `applyCookies()` and `mergedHeaders()` helpers to eliminate duplicated header-merge logic
+- `Handler.ts` extracts `safePositive()` helper for numeric option validation
+- `Helper.toRecord()` simplified to `Object.fromEntries()` directly
+- All `Object.hasOwnProperty` calls replaced with `Object.hasOwn()`
+- All `parseInt()` calls for numeric coercion replaced with `Number()`
+- Variable names across middleware and routing files updated to follow 2+ word naming convention (e.g. `err` to `statusError`, `value` to `headerValue`, `raw` to `rawListener`)
+- Method names shortened to 3-word maximum: `setErrorResponseBuilder` to `setErrorBuilder`, `buildUriTooLongResponse` to `buildUriTooLong`, `isIdentifierStartChar` to `isIdentStart`, `ensureBodyNotConsumed` to `guardBodyUse`, `buildClearCookieHeader` to `clearCookieHeader`, `buildSetCookieHeader` to `setCookieHeader`, `renderNodeToChunk` to `renderChunk`, `renderNodesToStream` to `renderStream`
+- Private static properties in `SecHeaders` and `Session` sorted alphabetically
+- JSDoc briefs trimmed to 6-word maximum and descriptions to 9-word maximum
+
+#### Public API
+
+- `src/index.ts` changed from `export *` (which leaked all internal classes) to named exports: `Router`, `Context`, `Mware`, `wrapMiddleware`, and all type declarations
+
+### Fixed
+
+- `Context.query()` first-wins semantics now match RFC 3986 and server-side convention, preventing parameter shadowing when duplicate keys appear in the query string
+- `Context.parseCookies()` first-wins semantics now match RFC 6265, preventing cookie value overwrite from duplicate keys
+- `Error.buildResponse()` no longer includes raw runtime details in responses for status codes outside the common mapped set
+- `Redirect.buildResponse()` no longer accepts non-redirect status codes (only 301, 302, 303, 307, 308 are valid)
+- `Handler.createHandler()` HEAD requests no longer hang waiting for a response body that is never sent
+- CORS preflight responses use `ctx.send.custom(null, { status: 204 })` instead of `ctx.handleError(204, ...)`, which previously caused Deno to throw on null-body status codes
+- WebSocket listener path `/ws` no longer incorrectly matches requests to `/ws-admin` or other paths sharing the same prefix
+
+---
+
 ## [0.11.0] - 2026-06-04
 
 ### Added
