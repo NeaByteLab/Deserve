@@ -34,6 +34,6 @@ export const Mware = {
 export const wrapMiddleware: (label: string, middleware: Types.Middleware) => Types.Middleware =
   Loader.Utils.wrapMiddleware.bind(Loader.Utils)
 
-/** Re-exports middleware public API. */
+/** Re-exports middleware public API */
 export * from '@middleware/Loaders.ts'
 export * from '@middleware/Utils.ts'

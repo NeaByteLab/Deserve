@@ -1,4 +1,4 @@
-/** Re-exports core public API. */
+/** Re-exports core public API */
 export * from '@core/Constant.ts'
 export * from '@core/Context.ts'
 export * from '@core/Error.ts'

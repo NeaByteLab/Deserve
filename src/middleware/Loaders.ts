@@ -1,4 +1,4 @@
-/** Re-exports middleware classes. */
+/** Re-exports middleware classes */
 export * from '@middleware/BasicAuth.ts'
 export * from '@middleware/BodyLimit.ts'
 export * from '@middleware/CORS.ts'
