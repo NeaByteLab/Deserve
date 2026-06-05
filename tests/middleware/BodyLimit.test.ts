@@ -21,7 +21,7 @@ Deno.test('bodyLimit Content-Length exactly at limit passes through', async () =
   }
 })
 
-Deno.test('bodyLimit Content-Length NaN treated as 0 passes', async () => {
+Deno.test('bodyLimit Content-Length NaN returns 413', async () => {
   const middleware = Middleware.Mware.bodyLimit({ limit: 100 })
   const ctx = createTestContext('http://localhost/', {
     method: 'POST',
@@ -31,7 +31,7 @@ Deno.test('bodyLimit Content-Length NaN treated as 0 passes', async () => {
   const res = await middleware(ctx, next)
   assertEquals(res !== undefined, true)
   if (res) {
-    assertEquals(await res.text(), 'ok')
+    assertEquals(res.status, 413)
   }
 })
 

@@ -509,7 +509,7 @@ Deno.test('Context#send.html returns 200 HTML response', () => {
   const ctx = createTestContext('http://localhost/')
   const res = ctx.send.html('<p>ok</p>')
   assertEquals(res.status, 200)
-  assertEquals(res.headers.get('Content-Type'), 'text/html')
+  assertEquals(res.headers.get('Content-Type'), 'text/html; charset=utf-8')
 })
 
 Deno.test('Context#send.json returns 200 with application/json', () => {
@@ -523,7 +523,7 @@ Deno.test('Context#send.text returns text/plain', () => {
   const ctx = createTestContext('http://localhost/')
   const res = ctx.send.text('plain')
   assertEquals(res.status, 200)
-  assertEquals(res.headers.get('Content-Type'), 'text/plain')
+  assertEquals(res.headers.get('Content-Type'), 'text/plain; charset=utf-8')
 })
 
 Deno.test('Context#setHeader chaining works', () => {
@@ -539,7 +539,7 @@ Deno.test('Context#setHeader merges into response', () => {
   ctx.setHeader('X-Custom', 'value')
   const res = ctx.send.html('<p>ok</p>')
   assertEquals(res.headers.get('X-Custom'), 'value')
-  assertEquals(res.headers.get('Content-Type'), 'text/html')
+  assertEquals(res.headers.get('Content-Type'), 'text/html; charset=utf-8')
 })
 
 Deno.test('Context#setHeaders returns this for chaining', () => {

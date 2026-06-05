@@ -26,35 +26,26 @@ Deno.test('cors credentials with array origin matching sets Allow-Credentials', 
   }
 })
 
-Deno.test('cors credentials with wildcard origin does not set Allow-Credentials on OPTIONS', async () => {
-  const middleware = Middleware.Mware.cors({ origin: '*', credentials: true })
-  const ctx = createTestContext('http://localhost/', {
-    method: 'OPTIONS',
-    headers: new Headers({ Origin: 'https://any.com' })
-  })
-  const next = async (): Promise<Response> => new Response()
-  const res = await middleware(ctx, next)
-  assertEquals(res !== undefined, true)
-  if (res) {
-    assertEquals(res.status, 204)
-    assertEquals(res.headers.get('Access-Control-Allow-Credentials'), null)
+Deno.test('cors credentials with wildcard origin throws InvalidData', () => {
+  let thrown = false
+  try {
+    Middleware.Mware.cors({ origin: '*', credentials: true })
+  } catch (error) {
+    thrown = true
+    assertEquals(error instanceof Deno.errors.InvalidData, true)
   }
+  assertEquals(thrown, true)
 })
 
-Deno.test('cors credentials=true with origin=* does not set Allow-Credentials', async () => {
-  const middleware = Middleware.Mware.cors({ origin: '*', credentials: true })
-  const ctx = createTestContext('http://localhost/', {
-    method: 'GET',
-    headers: new Headers({ Origin: 'https://site.com' })
-  })
-  const next = async (): Promise<Response> => new Response('ok')
-  const res = await middleware(ctx, next)
-  assertEquals(res !== undefined, true)
-  assertEquals(ctx.responseHeadersMap['Access-Control-Allow-Origin'], '*')
-  assertEquals(ctx.responseHeadersMap['Access-Control-Allow-Credentials'], undefined)
-  if (res) {
-    assertEquals(await res.text(), 'ok')
+Deno.test('cors credentials=true with origin=* throws InvalidData', () => {
+  let thrown = false
+  try {
+    Middleware.Mware.cors({ origin: '*', credentials: true })
+  } catch (error) {
+    thrown = true
+    assertEquals(error instanceof Deno.errors.InvalidData, true)
   }
+  assertEquals(thrown, true)
 })
 
 Deno.test('cors credentials=true with specific origin sets Allow-Credentials', async () => {

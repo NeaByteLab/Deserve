@@ -15,7 +15,7 @@ Deno.test('Handler 404 for unmatched route returns HTML without Accept json', as
   const handler = new Routing.Handler()
   const res = await handler.createHandler()(new Request('http://localhost/unknown'))
   assertEquals(res.status, 404)
-  assertEquals(res.headers.get('Content-Type'), 'text/html')
+  assertEquals(res.headers.get('Content-Type'), 'text/html; charset=utf-8')
   const html = await res.text()
   assertEquals(html.includes('404'), true)
 })
@@ -30,7 +30,7 @@ Deno.test('Handler 404 for unmatched route returns JSON when Accept json', async
   assertEquals(res.status, 404)
   assertEquals(res.headers.get('Content-Type'), 'application/json')
   const body = (await res.json()) as { error: string }
-  assertEquals(body.error, 'No route found for GET /unknown')
+  assertEquals(body.error, 'Not Found')
 })
 
 Deno.test('Handler addMiddleware path prefix only applies to matching routes', async () => {
@@ -87,7 +87,7 @@ Deno.test('Handler maxRouteParamLength returns 414 when exceeded', async () => {
   assertEquals(res.status, 414)
 })
 
-Deno.test('Handler maxRouteParamLength with zero disables check', async () => {
+Deno.test('Handler maxRouteParamLength with zero uses default', async () => {
   const handler = new Routing.Handler({ maxRouteParamLength: 0 })
   const routerInstance = (
     handler as unknown as { routerInstance: { add: (m: string, p: string, d: unknown) => void } }
@@ -98,7 +98,7 @@ Deno.test('Handler maxRouteParamLength with zero disables check', async () => {
   })
   const longId = 'a'.repeat(5000)
   const res = await handler.createHandler()(new Request(`http://localhost/items/${longId}`))
-  assertEquals(res.status, 200)
+  assertEquals(res.status, 414)
   await res.body?.cancel()
 })
 
@@ -107,7 +107,7 @@ Deno.test('Handler maxUrlLength 414 returns HTML without Accept json', async () 
   const longPath = 'a'.repeat(50)
   const res = await handler.createHandler()(new Request(`http://localhost/${longPath}`))
   assertEquals(res.status, 414)
-  assertEquals(res.headers.get('Content-Type'), 'text/html')
+  assertEquals(res.headers.get('Content-Type'), 'text/html; charset=utf-8')
 })
 
 Deno.test('Handler maxUrlLength 414 returns JSON when Accept json', async () => {
@@ -130,13 +130,13 @@ Deno.test('Handler maxUrlLength returns 414 when exceeded', async () => {
   assertEquals(res.status, 414)
 })
 
-Deno.test('Handler maxUrlLength with zero disables check', async () => {
+Deno.test('Handler maxUrlLength with zero uses default', async () => {
   const handler = new Routing.Handler({ maxUrlLength: 0 })
   handler.addMiddleware('', async () => new Response('ok'))
   const longPath = 'a'.repeat(50000)
   const handle = handler.createHandler()
   const res = await handle(new Request(`http://localhost/${longPath}`))
-  assertEquals(res.status, 200)
+  assertEquals(res.status, 414)
   await res.body?.cancel()
 })
 
@@ -260,9 +260,9 @@ Deno.test('Handler setErrorMiddleware sets custom error handler', async () => {
   assertEquals(await res.text(), 'custom not found')
 })
 
-Deno.test('Handler setErrorResponseBuilder overrides error response', async () => {
+Deno.test('Handler setErrorBuilder overrides error response', async () => {
   const handler = new Routing.Handler()
-  handler.setErrorResponseBuilder({
+  handler.setErrorBuilder({
     build: async (_ctx, statusCode) => new Response('custom error', { status: statusCode })
   })
   const res = await handler.createHandler()(new Request('http://localhost/nonexistent'))
@@ -414,7 +414,7 @@ Deno.test('Handler#handleResponse with Accept application/json returns JSON', as
   assertEquals(res.status, 404)
   assertEquals(res.headers.get('Content-Type'), 'application/json')
   const responseBody = (await res.json()) as { error: string; path: string; statusCode: number }
-  assertEquals(responseBody.error, 'Not found')
+  assertEquals(responseBody.error, 'Not Found')
   assertEquals(responseBody.path, '/foo')
   assertEquals(responseBody.statusCode, 404)
 })
@@ -426,7 +426,7 @@ Deno.test(
     const ctx = createTestContext('http://localhost/')
     const res = await handler.handleResponse(ctx, 500, new Error('Bad <script>'))
     assertEquals(res.status, 500)
-    assertEquals(res.headers.get('Content-Type'), 'text/html')
+    assertEquals(res.headers.get('Content-Type'), 'text/html; charset=utf-8')
     const html = await res.text()
     assertEquals(html.includes('500'), true)
     assertEquals(html.includes('Internal Server Error'), true)

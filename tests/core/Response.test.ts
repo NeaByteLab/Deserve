@@ -5,7 +5,7 @@ import * as Core from '@core/index.ts'
 const baseHeaders = { 'X-App': 'test' }
 const buildRedirect = (url: string, status: number): globalThis.Response =>
   new globalThis.Response(null, { status, headers: new Headers({ Location: url }) })
-const send = Core.Response.create(baseHeaders, buildRedirect)
+const send = Core.Response.create(baseHeaders, [], buildRedirect)
 
 Deno.test('Response#create custom merges base headers and options', async () => {
   const res = send.custom('body', { status: 201, headers: { 'X-Custom': 'y' } })
@@ -104,21 +104,21 @@ Deno.test('Response#create file with no custom filename uses path basename', asy
 
 Deno.test('Response#create html sets text/html', async () => {
   const res = send.html('<p>hi</p>', { status: 200 })
-  assertEquals(res.headers.get('Content-Type'), 'text/html')
+  assertEquals(res.headers.get('Content-Type'), 'text/html; charset=utf-8')
   assertEquals(await res.text(), '<p>hi</p>')
 })
 
 Deno.test('Response#create html with empty string', async () => {
   const res = send.html('')
   assertEquals(res.status, 200)
-  assertEquals(res.headers.get('Content-Type'), 'text/html')
+  assertEquals(res.headers.get('Content-Type'), 'text/html; charset=utf-8')
   assertEquals(await res.text(), '')
 })
 
 Deno.test('Response#create html with large content', async () => {
   const largeHtml = '<p>' + 'x'.repeat(10000) + '</p>'
   const res = send.html(largeHtml)
-  assertEquals(res.headers.get('Content-Type'), 'text/html')
+  assertEquals(res.headers.get('Content-Type'), 'text/html; charset=utf-8')
   assertEquals(await res.text(), largeHtml)
 })
 
@@ -212,12 +212,12 @@ Deno.test('Response#create stream with default contentType uses octet-stream', (
 
 Deno.test('Response#create text sets text/plain', async () => {
   const res = send.text('hello', { status: 200 })
-  assertEquals(res.headers.get('Content-Type'), 'text/plain')
+  assertEquals(res.headers.get('Content-Type'), 'text/plain; charset=utf-8')
   assertEquals(await res.text(), 'hello')
 })
 
 Deno.test('Response#create text with empty string', async () => {
   const res = send.text('')
-  assertEquals(res.headers.get('Content-Type'), 'text/plain')
+  assertEquals(res.headers.get('Content-Type'), 'text/plain; charset=utf-8')
   assertEquals(await res.text(), '')
 })

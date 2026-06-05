@@ -17,7 +17,7 @@ Deno.test(
     assertEquals(res.status, 400)
     assertEquals(res.headers.get('Content-Type'), 'application/json')
     const body = (await res.json()) as { error: string }
-    assertEquals(body.error, 'bad request')
+    assertEquals(body.error, 'Bad Request')
   }
 )
 
@@ -111,7 +111,7 @@ Deno.test(
     const ctx = new Core.Context(request, new URL('http://localhost/'), {})
     const res = await Core.Error.buildResponse(ctx, 500, new globalThis.Error('oops'), null)
     assertEquals(res.status, 500)
-    assertEquals(res.headers.get('Content-Type'), 'text/html')
+    assertEquals(res.headers.get('Content-Type'), 'text/html; charset=utf-8')
     const html = await res.text()
     assertEquals(html.includes('500'), true)
     assertEquals(html.includes('Internal Server Error'), true)
@@ -127,7 +127,7 @@ Deno.test('Error#buildResponse without errorMiddleware returns JSON when Accept 
   assertEquals(res.status, 404)
   assertEquals(res.headers.get('Content-Type'), 'application/json')
   const body = (await res.json()) as { error: string; path: string; statusCode: number }
-  assertEquals(body.error, 'gone')
+  assertEquals(body.error, 'Not Found')
   assertEquals(body.path, '/foo')
   assertEquals(body.statusCode, 404)
 })
