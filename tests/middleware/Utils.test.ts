@@ -18,7 +18,7 @@ Deno.test('Utils#wrapMiddleware calls handleError when middleware throws', async
     err.statusCode = 422
     throw err
   }
-  const wrapped = Middleware.Utils.wrapMiddleware('Label', inner)
+  const wrapped = Middleware.WrapMware('Label', inner)
   const request = new Request('http://localhost/')
   const ctx = new Core.Context(
     request,
@@ -41,7 +41,7 @@ Deno.test('Utils#wrapMiddleware defaults to 500 when no statusCode on error', as
   const inner = async (): Promise<Response | undefined> => {
     throw new Error('no status')
   }
-  const wrapped = Middleware.Utils.wrapMiddleware('Wrap', inner)
+  const wrapped = Middleware.WrapMware('Wrap', inner)
   const request = new Request('http://localhost/')
   const ctx = new Core.Context(
     request,
@@ -63,7 +63,7 @@ Deno.test('Utils#wrapMiddleware handles error without message', async () => {
   const inner = async (): Promise<Response | undefined> => {
     throw new Error('')
   }
-  const wrapped = Middleware.Utils.wrapMiddleware('ErrWrap', inner)
+  const wrapped = Middleware.WrapMware('ErrWrap', inner)
   const request = new Request('http://localhost/')
   const ctx = new Core.Context(
     request,
@@ -82,7 +82,7 @@ Deno.test('Utils#wrapMiddleware handles error without message', async () => {
 Deno.test('Utils#wrapMiddleware passes through when middleware succeeds', async () => {
   const inner = async (_ctx: Core.Context, next: () => Promise<Response | undefined>) =>
     await next()
-  const wrapped = Middleware.Utils.wrapMiddleware('Test', inner)
+  const wrapped = Middleware.WrapMware('Test', inner)
   const ctx = createTestContext('http://localhost/')
   const next = async (): Promise<Response> => new Response('ok')
   const res = await wrapped(ctx, next)
@@ -96,7 +96,7 @@ Deno.test('Utils#wrapMiddleware preserves middleware response', async () => {
   const inner = async (): Promise<Response | undefined> => {
     return new Response('custom', { status: 201 })
   }
-  const wrapped = Middleware.Utils.wrapMiddleware('Preserve', inner)
+  const wrapped = Middleware.WrapMware('Preserve', inner)
   const ctx = createTestContext('http://localhost/')
   const next = async (): Promise<Response> => new Response('should not')
   const res = await wrapped(ctx, next)
@@ -111,7 +111,7 @@ Deno.test('Utils#wrapMiddleware uses label in error message', async () => {
   const inner = async (): Promise<Response | undefined> => {
     throw new Error('something broke')
   }
-  const wrapped = Middleware.Utils.wrapMiddleware('MyLabel', inner)
+  const wrapped = Middleware.WrapMware('MyLabel', inner)
   const request = new Request('http://localhost/')
   const ctx = new Core.Context(
     request,
@@ -135,7 +135,7 @@ Deno.test('Utils#wrapMiddleware uses statusCode from thrown error', async () => 
     err.statusCode = 403
     throw err
   }
-  const wrapped = Middleware.Utils.wrapMiddleware('AuthCheck', inner)
+  const wrapped = Middleware.WrapMware('AuthCheck', inner)
   const request = new Request('http://localhost/')
   const ctx = new Core.Context(
     request,

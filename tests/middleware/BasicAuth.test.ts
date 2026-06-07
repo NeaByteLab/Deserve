@@ -48,6 +48,18 @@ Deno.test('basicAuth correct username but wrong password returns 401', async () 
   }
 })
 
+Deno.test('basicAuth does not leak WWW-Authenticate header on a successful request', async () => {
+  const middleware = Middleware.Mware.basicAuth({
+    users: [{ username: 'u', password: 'p' }]
+  })
+  const ctx = createTestContext('http://localhost/', {
+    headers: new Headers({ Authorization: 'Basic ' + btoa('u:p') })
+  })
+  const res = await middleware(ctx, async () => new Response('ok'))
+  assertEquals(ctx.responseHeadersMap['WWW-Authenticate'], undefined)
+  assertEquals(res?.headers.get('WWW-Authenticate'), null)
+})
+
 Deno.test('basicAuth returns 401 when Authorization base64 is invalid', async () => {
   const middleware = Middleware.Mware.basicAuth({
     users: [{ username: 'u', password: 'p' }]
