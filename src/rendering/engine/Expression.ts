@@ -15,31 +15,19 @@ export class Expression {
    */
   constructor(private readonly tokens: Types.ExprToken[]) {}
 
-  /**
-   * Assert no remaining tokens.
-   * @description Throws if unconsumed tokens remain.
-   * @throws {Deno.errors.InvalidData} When unexpected tokens remain
-   */
+  /** Assert no remaining tokens */
   assertEnd(): void {
     if (this.tokenIndex < this.tokens.length) {
       throw new Deno.errors.InvalidData('Unexpected token in DVE expression')
     }
   }
 
-  /**
-   * Parse tokens into expression AST.
-   * @description Parses ternary down to primary nodes.
-   * @returns Expression AST node
-   */
+  /** Parse tokens into expression AST */
   parse(): Types.ExprNode {
     return this.parseTry()
   }
 
-  /**
-   * Advance and return current token.
-   * @description Consumes token at index and increments.
-   * @returns Current token or undefined
-   */
+  /** Advance and return current token */
   private consume(): Types.ExprToken | undefined {
     const currentToken = this.tokens[this.tokenIndex]
     this.tokenIndex++
@@ -49,36 +37,32 @@ export class Expression {
   /**
    * Consume token and require operator.
    * @description Throws if current token is not given op.
-   * @param value - Expected operator string
+   * @param expectedOp - Expected operator string
    * @throws {Deno.errors.InvalidData} When token is not the operator
    */
-  private expectOp(value: Types.TokenOp): void {
+  private expectOp(expectedOp: Types.TokenOp): void {
     const currentToken = this.consume()
-    if (!currentToken || currentToken.kind !== 'op' || currentToken.value !== value) {
-      throw new Deno.errors.InvalidData(`Expected '${value}' in DVE expression`)
+    if (!currentToken || currentToken.kind !== 'op' || currentToken.value !== expectedOp) {
+      throw new Deno.errors.InvalidData(`Expected '${expectedOp}' in DVE expression`)
     }
   }
 
   /**
    * Match and consume operator if present.
    * @description Advances only when current op equals value.
-   * @param value - Operator to match
+   * @param expectedOp - Operator to match
    * @returns True when matched and consumed
    */
-  private matchOp(value: Types.TokenOp): boolean {
+  private matchOp(expectedOp: Types.TokenOp): boolean {
     const currentToken = this.peek()
-    if (currentToken?.kind === 'op' && currentToken.value === value) {
+    if (currentToken?.kind === 'op' && currentToken.value === expectedOp) {
       this.tokenIndex++
       return true
     }
     return false
   }
 
-  /**
-   * Parse additive expression.
-   * @description Handles plus and minus binary ops.
-   * @returns Expression AST node
-   */
+  /** Parse additive expression */
   private parseAdd(): Types.ExprNode {
     let exprNode = this.parseMul()
     while (true) {
@@ -96,11 +80,7 @@ export class Expression {
     }
   }
 
-  /**
-   * Parse logical AND expression.
-   * @description Handles && operator precedence.
-   * @returns Expression AST node
-   */
+  /** Parse logical AND expression */
   private parseAnd(): Types.ExprNode {
     let exprNode = this.parseEq()
     while (this.matchOp('&&')) {
@@ -110,11 +90,7 @@ export class Expression {
     return exprNode
   }
 
-  /**
-   * Parse equality expression.
-   * @description Handles ===, !==, ==, !=.
-   * @returns Expression AST node
-   */
+  /** Parse equality expression */
   private parseEq(): Types.ExprNode {
     let exprNode = this.parseRel()
     while (true) {
@@ -135,11 +111,7 @@ export class Expression {
     }
   }
 
-  /**
-   * Parse member access expression.
-   * @description Handles . and ?. property access.
-   * @returns Expression AST node
-   */
+  /** Parse member access expression */
   private parseMem(): Types.ExprNode {
     let exprNode = this.parsePrim()
     while (true) {
@@ -163,11 +135,7 @@ export class Expression {
     }
   }
 
-  /**
-   * Parse multiplicative expression.
-   * @description Handles *, /, % binary ops.
-   * @returns Expression AST node
-   */
+  /** Parse multiplicative expression */
   private parseMul(): Types.ExprNode {
     let exprNode = this.parseUn()
     while (true) {
@@ -185,11 +153,7 @@ export class Expression {
     }
   }
 
-  /**
-   * Parse nullish coalescing expression.
-   * @description Handles ?? operator.
-   * @returns Expression AST node
-   */
+  /** Parse nullish coalescing expression */
   private parseNil(): Types.ExprNode {
     let exprNode = this.parseOr()
     while (this.matchOp('??')) {
@@ -199,11 +163,7 @@ export class Expression {
     return exprNode
   }
 
-  /**
-   * Parse logical OR expression.
-   * @description Handles || operator precedence.
-   * @returns Expression AST node
-   */
+  /** Parse logical OR expression */
   private parseOr(): Types.ExprNode {
     let exprNode = this.parseAnd()
     while (this.matchOp('||')) {
@@ -213,12 +173,7 @@ export class Expression {
     return exprNode
   }
 
-  /**
-   * Parse primary expression.
-   * @description Literals, idents, or parenthesized expr.
-   * @returns Expression AST node
-   * @throws {Deno.errors.InvalidData} When invalid primary or unexpected end
-   */
+  /** Parse primary expression */
   private parsePrim(): Types.ExprNode {
     const currentToken = this.consume()
     if (!currentToken) {
@@ -241,11 +196,7 @@ export class Expression {
     throw new Deno.errors.InvalidData('Invalid primary in DVE expression')
   }
 
-  /**
-   * Parse relational expression.
-   * @description Handles >, <, >=, <=.
-   * @returns Expression AST node
-   */
+  /** Parse relational expression */
   private parseRel(): Types.ExprNode {
     let exprNode = this.parseAdd()
     while (true) {
@@ -266,11 +217,7 @@ export class Expression {
     }
   }
 
-  /**
-   * Parse ternary and nullish.
-   * @description Top level ? : and ??.
-   * @returns Expression AST node
-   */
+  /** Parse ternary and nullish */
   private parseTry(): Types.ExprNode {
     let exprNode = this.parseNil()
     if (this.matchOp('?')) {
@@ -282,11 +229,7 @@ export class Expression {
     return exprNode
   }
 
-  /**
-   * Parse unary or member expression.
-   * @description Handles !, +, - or delegates to member.
-   * @returns Expression AST node
-   */
+  /** Parse unary or member expression */
   private parseUn(): Types.ExprNode {
     const currentToken = this.peek()
     if (
@@ -300,11 +243,7 @@ export class Expression {
     return this.parseMem()
   }
 
-  /**
-   * Read current token without advancing.
-   * @description Returns token at current index.
-   * @returns Current token or undefined
-   */
+  /** Read current token without advancing */
   private peek(): Types.ExprToken | undefined {
     return this.tokens[this.tokenIndex]
   }
