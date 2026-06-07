@@ -13,10 +13,11 @@ export class WebSocket {
    * @param options - Listener path and lifecycle callbacks
    * @returns Middleware that upgrades matching requests
    */
-  static create(options: Types.WebSocketOptions = {}): Types.Middleware {
+  static create(options: Types.WebSocketOptions = {}): Types.MiddlewareFn {
     const rawListener = options.listener ?? ''
     const listener = rawListener.length > 1 ? rawListener.replace(/\/+$/, '') : rawListener
-    return Middleware.Utils.wrapMiddleware(
+    const allowedOrigins = options.allowedOrigins
+    return Middleware.WrapMware(
       'WebSocket upgrade failed',
       async (ctx: Core.Context, next) => {
         if (!listener) {
@@ -31,6 +32,14 @@ export class WebSocket {
           !ctx.pathname.startsWith(listener + '/')
         ) {
           return await next()
+        }
+        if (!WebSocket.isOriginAllowed(ctx, allowedOrigins)) {
+          return await ctx.handleError(
+            403,
+            new Deno.errors.PermissionDenied(
+              'WebSocket handshake rejected because the Origin is not allowed'
+            )
+          )
         }
         const { socket, response } = Deno.upgradeWebSocket(ctx.request)
         socket.addEventListener('open', (event) => {
@@ -48,5 +57,33 @@ export class WebSocket {
         return response
       }
     )
+  }
+
+  /**
+   * Decide whether a WebSocket handshake Origin is allowed.
+   * @description Validates Origin header to prevent CSWSH attacks.
+   * @param ctx - Request context
+   * @param allowedOrigins - Configured allowlist, '*', or undefined for same-origin
+   * @returns True when the handshake may proceed
+   */
+  private static isOriginAllowed(
+    ctx: Core.Context,
+    allowedOrigins: readonly string[] | '*' | undefined
+  ): boolean {
+    const requestOrigin = ctx.header('origin')
+    if (!requestOrigin) {
+      return true
+    }
+    if (allowedOrigins === '*') {
+      return true
+    }
+    if (Array.isArray(allowedOrigins)) {
+      return allowedOrigins.includes(requestOrigin)
+    }
+    try {
+      return new URL(ctx.request.url).origin === requestOrigin
+    } catch {
+      return false
+    }
   }
 }
