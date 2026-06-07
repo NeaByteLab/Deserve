@@ -1,27 +1,23 @@
 import type * as Types from '@interfaces/index.ts'
+import * as Core from '@core/index.ts'
 import * as Rendering from '@rendering/index.ts'
 import * as EngineParts from '@rendering/engine/index.ts'
-import Stackz from '@neabyte/stackz'
 
 /**
  * Template rendering engine.
  * @description Compiles and renders DVE templates with cache.
  */
 export class Engine implements Types.ViewEngine, Types.WatchableEngine {
-  /** Default max #each iterations */
-  private static readonly defaultMaxIterations = 100_000
-  /** Maximum include nesting depth */
-  private static readonly maxIncludeDepth = 64
   /** Default views directory */
   private readonly defaultViewsDir: string
   /** Max iterations per #each block */
   private readonly maxIterations: number
   /** Compiled template cache */
   private readonly compileCache = new Map<string, Types.CompileResult>()
-  /** Raw file contents cache */
-  private readonly fileCache = new Map<string, string>()
   /** Discovered template path cache */
   private discoveredPaths: Set<string> | null = null
+  /** Optional lifecycle event emitter */
+  private readonly emit: Types.EventEmit | undefined
 
   /**
    * Create new engine instance.
@@ -30,7 +26,8 @@ export class Engine implements Types.ViewEngine, Types.WatchableEngine {
    */
   constructor(options: Types.EngineOptions) {
     this.defaultViewsDir = options.viewsDir
-    this.maxIterations = options.maxIterations ?? Engine.defaultMaxIterations
+    this.maxIterations = options.maxIterations ?? Core.Constant.defaultMaxIterations
+    this.emit = options.emit
   }
 
   /** Views directory for path resolution */
@@ -44,8 +41,21 @@ export class Engine implements Types.ViewEngine, Types.WatchableEngine {
    * @param absPath - Absolute template file path
    */
   invalidateFile(absPath: string): void {
-    this.fileCache.delete(absPath)
     this.compileCache.delete(absPath)
+  }
+
+  /**
+   * Emit view:refreshed for changed paths.
+   * @description Called by watcher after invalidating changed paths.
+   * @param paths - Absolute paths that were refreshed
+   */
+  notifyRefresh(paths: readonly string[]): void {
+    this.emit?.({
+      type: 'internal',
+      kind: 'view:refreshed',
+      metadata: { paths: [...paths] },
+      timestamp: Date.now()
+    })
   }
 
   /** Reset discovered template paths */
@@ -64,13 +74,23 @@ export class Engine implements Types.ViewEngine, Types.WatchableEngine {
    * @throws {Deno.errors.InvalidData} When include depth exceeded
    */
   async render(templatePath: string, data: Types.DataRecord = {}, depth = 0): Promise<string> {
-    if (depth > Engine.maxIncludeDepth) {
+    if (depth > Core.Constant.maxIncludeDepth) {
       throw new Deno.errors.InvalidData(
-        `Template include depth exceeded ${Engine.maxIncludeDepth} for "${templatePath}"`
+        `Template include depth exceeded ${Core.Constant.maxIncludeDepth} for "${templatePath}"`
       )
     }
+    const renderStart = depth === 0 ? performance.now() : 0
     const compiled = await this.resolveTemplate(templatePath)
-    return await this.renderNodes(compiled.ast, data, this.defaultViewsDir, depth)
+    const outputHtml = await this.renderNodes(compiled.ast, data, this.defaultViewsDir, depth)
+    if (depth === 0) {
+      this.emit?.({
+        type: 'internal',
+        kind: 'view:rendered',
+        metadata: { path: templatePath, durationMs: performance.now() - renderStart },
+        timestamp: Date.now()
+      })
+    }
+    return outputHtml
   }
 
   /**
@@ -83,8 +103,13 @@ export class Engine implements Types.ViewEngine, Types.WatchableEngine {
    */
   streamRender(templatePath: string, data: Types.DataRecord = {}): ReadableStream {
     const { readable, writable } = new TransformStream()
-    this.renderStream(templatePath, data, writable).catch(async (error: Error) => {
-      console.error(`\n${await Stackz.format(error, 'detailed')}\n`)
+    this.renderStream(templatePath, data, writable).catch((error: Error) => {
+      this.emit?.({
+        type: 'internal',
+        kind: 'view:error',
+        metadata: { path: templatePath, error },
+        timestamp: Date.now()
+      })
     })
     return readable
   }
@@ -100,27 +125,18 @@ export class Engine implements Types.ViewEngine, Types.WatchableEngine {
     if (cachedCompile) {
       return cachedCompile
     }
-    const template = await this.loadTemplate(absTemplatePath)
+    const compileStart = performance.now()
+    const template = await Deno.readTextFile(absTemplatePath)
     const ast = EngineParts.Parser.parse(template)
     const compileResult = { ast }
     this.compileCache.set(absTemplatePath, compileResult)
+    this.emit?.({
+      type: 'internal',
+      kind: 'view:compiled',
+      metadata: { path: absTemplatePath, durationMs: performance.now() - compileStart },
+      timestamp: Date.now()
+    })
     return compileResult
-  }
-
-  /**
-   * Load template text with cache.
-   * @description Loads file contents from disk once.
-   * @param absPath - Absolute template file path
-   * @returns Template file contents
-   */
-  private async loadTemplate(absPath: string): Promise<string> {
-    const cachedTemplateText = this.fileCache.get(absPath)
-    if (cachedTemplateText !== undefined) {
-      return cachedTemplateText
-    }
-    const templateText = await Deno.readTextFile(absPath)
-    this.fileCache.set(absPath, templateText)
-    return templateText
   }
 
   /**
@@ -167,7 +183,7 @@ export class Engine implements Types.ViewEngine, Types.WatchableEngine {
         )
       }
       const length = lookupValue.length
-      let output = ''
+      let outputHtml = ''
       for (let index = 0; index < length; index++) {
         const item = lookupValue[index]
         const scopeData: Types.DataRecord = {
@@ -178,9 +194,9 @@ export class Engine implements Types.ViewEngine, Types.WatchableEngine {
           '@last': index === length - 1,
           '@length': length
         }
-        output += await this.renderNodes(node.nodes, scopeData, viewsDir, depth)
+        outputHtml += await this.renderNodes(node.nodes, scopeData, viewsDir, depth)
       }
-      return output
+      return outputHtml
     }
     return null
   }
@@ -223,15 +239,21 @@ export class Engine implements Types.ViewEngine, Types.WatchableEngine {
     writable: WritableStream
   ): Promise<void> {
     const writer = writable.getWriter()
-    const encoder = new TextEncoder()
+    const renderStart = performance.now()
     try {
       const compiled = await this.resolveTemplate(templatePath)
       for (const node of compiled.ast) {
         const chunk = await this.renderChunk(node, data, this.defaultViewsDir, 0)
         if (chunk) {
-          await writer.write(encoder.encode(chunk))
+          await writer.write(Core.Constant.encoder.encode(chunk))
         }
       }
+      this.emit?.({
+        type: 'internal',
+        kind: 'view:rendered',
+        metadata: { path: templatePath, durationMs: performance.now() - renderStart },
+        timestamp: Date.now()
+      })
     } finally {
       await writer.close()
     }
@@ -249,13 +271,13 @@ export class Engine implements Types.ViewEngine, Types.WatchableEngine {
       this.discoveredPaths = await Rendering.Discover.discoverPaths(this.defaultViewsDir)
     }
     const normalizedPath = templatePath.replace(/\\/g, '/')
-    const pathWithExt = normalizedPath.toLowerCase().endsWith('.dve')
+    const pathWithExtension = normalizedPath.toLowerCase().endsWith(Core.Constant.dveExtension)
       ? normalizedPath
-      : `${normalizedPath}.dve`
-    if (!this.discoveredPaths.has(pathWithExt)) {
+      : `${normalizedPath}${Core.Constant.dveExtension}`
+    if (!this.discoveredPaths.has(pathWithExtension)) {
       throw new Deno.errors.NotFound(`Template "${templatePath}" not found in views directory`)
     }
-    const absPath = EngineParts.Utils.join(this.defaultViewsDir, pathWithExt)
+    const absPath = EngineParts.Utils.join(this.defaultViewsDir, pathWithExtension)
     return await this.compileTemplate(absPath)
   }
 }
