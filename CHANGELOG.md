@@ -8,18 +8,44 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- Centralized observability event bus (`core/Observability.ts`) built on an error-isolated signal, exposing a single `router.on(listener)` tap that streams a discriminated `Event` union of twelve lifecycle and error types, each carrying a `timestamp` and, where relevant, the raw `Error` for developer-owned logging and APM/OTEL pipelines
+- Emit sites wired across the framework for route lifecycle (`route:loaded`, `route:skipped`, `route:reloaded`, `route:removed`, `route:error`, `reload:error`), view lifecycle (`view:compiled`, `view:rendered`, `view:refreshed`, `view:error`), `server:listening`, and `request:error`
+- `Context.send.file()` and `Context.send.data()` now emit an RFC 6266 / RFC 5987 compliant `Content-Disposition`, adding a `filename*=UTF-8''` parameter so Unicode download names round-trip alongside the ASCII fallback
+- `Handler.extractError()` maps standard `Deno.errors.*` classes to semantically matching HTTP status codes (`NotFound`→404, `PermissionDenied`→403, `AlreadyExists`→409, `InvalidData`→400, `NotSupported`→501, `TimedOut`→504)
+- Missing 405 Method Not Allowed: when a path exists under other HTTP methods, the framework returns 405 with an `Allow` header listing valid methods instead of 404
+- `Handler.errorResponse()` safe fallback rebuilds responses from hardened defaults when accumulated headers are malformed, guaranteeing valid masked output even on developer header poisoning
+- `Static.etagMatch()` implements RFC 9110 Section 13.1.2 weak comparison, supporting `W/` prefix stripping, comma-separated lists, and wildcard `*` for proper 304 handling
+- `Context.assertValidHeader()` validates header names and values using the WHATWG `Headers` built-in before assignment
+- `WrapMware` function (previously `Utils.wrapMiddleware`) inlined into `middleware/index.ts` as the public middleware wrapper export
+- Worker pool gains a configurable per-task `taskTimeoutMs` (default 30 seconds), bounding how long a single dispatch may run before the slot is reclaimed and replaced
+- DVE templates can now read own data properties of string values such as `{{ text.length }}` and character indices, while methods and the prototype chain stay unreachable
+
 ### Changed
 
 #### Security Hardening
 
+- All response construction paths now include baseline security headers, including 414 URI Too Long and 503 request timeout responses that previously produced bare responses
+- `Redirect.resolveLocation()` resolves the target URL with the standard parser first, then enforces same-origin for relative-looking inputs and requires an http(s) scheme, closing protocol-relative and backslash-normalization bypasses
+- WebSocket middleware validates the `Origin` header before upgrade, defaulting to same-origin enforcement with configurable allowlist or wildcard opt-out, preventing cross-site WebSocket hijacking
+- `Worker.run()` serializes tasks per worker via a tail-promise chain, preventing concurrent response cross-talk when multiple requests land on the same worker
+- Worker pool now contains uncaught worker errors instead of letting them terminate the host process, and self-heals by respawning a crashed worker at its slot so future dispatches never hang
+- Worker pool now bounds every task with a per-task timeout, so a dispatch that never settles is reclaimed and its slot replaced rather than tying up worker capacity indefinitely
+- `Handler.createHandler()` validates middleware and route handler return values with `instanceof Response`, routing non-Response returns through the full error pipeline instead of escaping to a bare 500
+- `Handler.buildResponse()` now accepts a custom error handler result only when it is an actual `Response`, so any other return value falls through to the safe default error path with security headers, content negotiation, and message masking intact
+- Middleware and static registration now fail fast at call time: `addMiddleware` rejects a non-function handler, `addStaticRoute` requires a non-empty string path, and `Router.use(path)` requires at least one handler, each throwing a descriptive `TypeError` instead of registering a broken entry that only fails on later requests
+- Request timeout (503) responses now flow through the same observability reporter as every other error path, emitting a `request:error` event with status 503 so operators can alert and trace on timeouts
+- `Eval.evalNode()` uses a fail-closed whitelist switch over known node types and operators, rejecting unknown constructs by default
+- `Utils.lookup()` and `Eval` ident/member resolution read only own enumerable data properties via `Object.hasOwn`, excluding the prototype chain from template resolution
+- `Engine` #each iteration scope built as flat own-property spread, preserving parent-scope visibility while keeping prototype chain clean
+- Session `base64UrlEncode` and `base64UrlDecode` use zero-allocation loops with single-pass regex instead of intermediate arrays and chained replacements
+- BasicAuth no longer leaks the `WWW-Authenticate` challenge header on successful requests
+- CORS middleware pre-joins allowed methods and headers at factory time instead of on every request
+- `SecHeaders` middleware pre-computes resolved header pairs at factory time, eliminating per-request branching and `Object.entries` allocation
 - `Context.setHeader('Set-Cookie', ...)` now appends to an internal array instead of overwriting, preserving all Set-Cookie values when multiple cookies are set in a single response
-- `Context.setHeaders()` routes Set-Cookie entries through the same append path, preventing silent cookie loss when bulk-setting headers
-- `Context.body()` formData parsing now catches malformed multipart payloads and returns null instead of crashing the request pipeline
-- `Redirect.buildResponse()` validates URL scheme against an allowlist (`http`, `https`) and rejects protocol-relative paths, preventing external destination abuse
+- `Context.setHeaders()` routes Set-Cookie entries through the same append path and validates the entire batch atomically (all-or-nothing) instead of applying partial state when an invalid entry is encountered
 - `Redirect.buildResponse()` applies Location header after extra headers, preventing caller-supplied headers from overriding the redirect target
-- `Response.sanitizeFilename()` strips control characters (ASCII 0-31 and 127), quotes, backslashes, and path separators from download filenames using a charCode loop
-- `Error.buildResponse()` returns generic status text for unmapped HTTP status codes instead of forwarding the raw error message to clients
-- `Error.defaultErrorHtml()` escapes special characters in error messages rendered into HTML error pages
 - CORS middleware sets `Vary: Origin` on all origin-bearing requests regardless of whether the origin matched, preventing CDN cache poisoning across different origins
 - CORS middleware throws at configuration time when `credentials: true` is combined with wildcard `origin: '*'`
 - WebSocket middleware normalizes trailing slashes on the listener path and uses exact segment matching (`path + '/'` prefix) instead of bare `startsWith`, preventing unintended path overlap
@@ -36,11 +62,44 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `Handler.createHandler()` wraps request timeout in an `AbortController` instead of raw `setTimeout`, and cancels the timer in a `finally` block
 - `Handler.createHandler()` cancels the response body stream on HEAD requests instead of buffering it
 - `Scanner.createPattern()` rejects filenames containing multiple dots (e.g. `foo.test.ts`) to prevent test and config files from being registered as routes
-- `Context.parseCookies()` trims whitespace from cookie keys during parsing
+- `Context.parseCookies()` trims whitespace from cookie keys during parsing and keeps first-wins semantics per RFC 6265
 - `Context.query()` returns the first value for duplicate query parameters instead of the last
+- Cookie, query, and header maps are built with `Object.create(null)` (null-prototype) so attacker-controlled key names can never shadow or collide with `Object.prototype` members
+- `Context.responseHeadersMap` getter returns an immutable snapshot instead of the live internal header object, so external reads cannot mutate the headers actually sent to the client
+- `Context.body()` formData parsing now catches malformed multipart payloads and returns null instead of crashing the request pipeline
+- `Response.sanitizeFilename()` strips control characters (ASCII 0-31 and 127), quotes, backslashes, and path separators from download filenames
+- `Error.buildResponse()` returns generic status text for unmapped HTTP status codes instead of forwarding the raw error message to clients
+- `Error.defaultErrorHtml()` escapes special characters in error messages rendered into HTML error pages
+
+#### Performance
+
+- `Static.serveStaticFile()` defers `Deno.open` until after the 304 cache check, eliminating wasted file descriptors on cache hits
+- `Static` ETag generation uses a deterministic fallback (`mtime ?? 0`) to prevent hash collisions when file modification time is unavailable
+- `Engine` compile cache layer consolidated: removed dead `fileCache` that was never hit, inlining `Deno.readTextFile` directly
+- `Engine` `TextEncoder` and `Static` `TextEncoder` moved to static singletons, matching the `Session.encoder` pattern
+- `Response.sanitizeFilename()` reduced from four regex passes to two, with patterns centralized in `Constant.ts`
+- `Response.toRecord()` and `Redirect.buildResponse()` guard against empty-object allocation when optional headers are undefined
+- `routing/Handler` hoists `workerPool`, `viewEngine`, and a pre-created `workerHandle` to factory scope, eliminating per-request property lookups and object allocations
+- `routing/Handler.executeMiddlewares()` inlines path matching inside the `next()` loop with a `while` + `continue`, removing per-request `.filter()` allocation
+- `Utils.lookup()` rewritten as zero-allocation single-pass dotted path resolution using `indexOf` + `charCodeAt`
+- `Scanner.validateModule()` reduced from two-pass iteration to a single pass over HTTP methods
+- `Context` `requestState` double initialization removed
+- `Worker` round-robin index reset uses modular arithmetic to prevent precision loss at `Number.MAX_SAFE_INTEGER`
+- `Session` base64url encoding uses pre-allocated `Uint8Array` with `for` loop instead of intermediate iterable
+- `Static` ETag hex generation uses single-pass `for` loop instead of 32-element intermediate array
+- `SecHeaders` middleware pre-computes resolved `[name, value]` pairs at factory time, zero branching per request
+- CORS middleware pre-joins allowed methods, headers, max-age, and exposed headers at factory time
+- `Static` pre-resolves absolute path at registration time, removing `Deno.cwd()` and `isAbsolute` from the per-request path
 
 #### Code Quality
 
+- All internal `console.*` logging removed in favor of the observability event bus, leaving log routing entirely to the developer
+- `@neabyte/stackz` dependency removed now that stack-trace formatting is no longer logged internally
+- `Response.sanitizeFilename()` replaced by `Response.contentDisposition()`, which builds the complete header value rather than a quoted-string fragment
+- `Helper.ts` and `Error.ts` merged into `Handler.ts` as the single source of truth for `toRecord`, `escapeHtml`, `safeMessage`, and `errorResponse`
+- All scattered static readonly data (`encoder`, `decoder`, regexes, defaults, maps) centralized into `Constant.ts`
+- `Context.handleError()` and `Handler.handleResponse()` catch unified to use `Constant.serverErrorMessages` for accurate status text across all error paths
+- `Context.handleError()` fallback and `Handler.handleResponse()` catch no longer expose raw error messages for 4xx responses, using generic status text instead
 - Module-level `encoder` and `decoder` variables in Session moved into the class as `private static readonly` properties
 - `Response.ts` extracts `applyCookies()` and `mergedHeaders()` helpers to eliminate duplicated header-merge logic
 - `Handler.ts` extracts `safePositive()` helper for numeric option validation
@@ -54,7 +113,10 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 #### Public API
 
-- `src/index.ts` changed from `export *` (which leaked all internal classes) to named exports: `Router`, `Context`, `Mware`, `wrapMiddleware`, and all type declarations
+- `src/index.ts` changed from `export *` (which leaked all internal classes) to named exports: `Router`, `Context`, `Mware`, `WrapMware`, and all type declarations
+- `router.on(listener)` added as the single public tap for the observability event bus
+- `WebSocketOptions` gains an optional `allowedOrigins` field accepting an exact allowlist or `'*'` opt-out
+- `WorkerPoolOptions` gains an optional `taskTimeoutMs` field bounding how long a single worker task may run before its slot is reclaimed
 
 ### Fixed
 
@@ -65,6 +127,25 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `Handler.createHandler()` HEAD requests no longer hang waiting for a response body that is never sent
 - CORS preflight responses use `ctx.send.custom(null, { status: 204 })` instead of `ctx.handleError(204, ...)`, which previously caused Deno to throw on null-body status codes
 - WebSocket listener path `/ws` no longer incorrectly matches requests to `/ws-admin` or other paths sharing the same prefix
+- Static routes used to answer any verb, so a POST or DELETE to a static path quietly returned the file. They now register on GET only, and other verbs correctly receive 405 Method Not Allowed
+- Malformed request body payloads (JSON, formData, text, arrayBuffer, blob) now produce 400 Bad Request instead of 500 Internal Server Error
+- `ctx.body()` re-throws status-bearing errors (e.g. body-limit 413) instead of silently returning null
+- We found that a bad response header value could slip past the pipeline and surface as a bare 500 with no protections. Now the error path rebuilds the response from hardened defaults so the request stays masked and safe
+- `Handler.errorResponse()` send path wrapped in try/catch so malformed accumulated headers cannot bypass the framework pipeline
+- `Context.setHeader()` and `Context.setHeaders()` reject invalid names and values immediately instead of deferring failure to response construction
+- `Engine` #each parent-scope variables now resolve correctly inside nested loops after the prototype-chain exclusion fix
+- Standard `Deno.errors.*` thrown by developers or internal paths now map to semantically correct HTTP status codes instead of collapsing to 500
+- A request could craft cookie, query, or header names that collided with built-in object keys and quietly confused the parsed maps. Those maps are now built without a prototype, so such names are treated as plain data and can no longer cause trouble
+- A refactor had quietly turned the `Context.responseHeadersMap` reader into a window onto the live internal headers, so anything that touched the returned map could reshape the real response. The reader now hands back an immutable snapshot, keeping the outgoing headers exactly as intended
+- A single task that threw inside a worker used to take the whole server down with it. Now that failure is contained to a masked 500, the server keeps serving, and the worker slot quietly recovers on its own so later requests are never left hanging
+- A handler that handed back something other than a real response, or a middleware that forgot to continue the chain, used to slip out of the framework untouched and surface as a bare error with none of the usual protections. Those returns are now caught at the boundary and routed back through the safe error path, masked and fully protected
+- The same gap lived on in the custom error handler, where a reply that was not a real response could still escape and strip away the safeguards meant to cover failures. That last path now holds to the same contract as the rest, so anything unexpected quietly falls back to the safe, protected error page
+- Registering a broken middleware or a malformed static configuration used to look fine at startup and only fall apart later on real traffic. The framework now checks these at the moment you register them and refuses clearly, so the mistake is caught where it is made rather than deep in a request
+- When a request ran out of time, the resulting timeout used to pass by completely unseen by anyone watching the server. That moment now reports itself through the same channel as every other error, so a timeout can finally be noticed, alerted on, and traced
+- A documented way to read and write per-request state had quietly disappeared in an earlier refactor, so following the official guides led straight into a masked error on the very routes that needed it most. The accessor is restored and behaves exactly as the docs describe, with the type-safe helpers living alongside it
+- Serving a download whose name carried everyday accented or non-Latin characters used to fail outright. Such names are now encoded the standard way so they arrive intact, while the plain fallback and every existing safeguard around the filename stay in place
+- A single worker task that never finished used to quietly tie up its slot for good, so every later piece of work routed to that slot just piled up behind it and waited forever. Each task is now given a deadline, and when one overruns it the slot is reclaimed and freshly replaced so the next request runs as normal
+- Reading an own property off a string inside a template, like the length of a value or a character at a position, used to come back empty even though the same patterns worked on arrays. String values now expose their own data the same way, while their methods and prototype remain out of reach
 
 ---
 
