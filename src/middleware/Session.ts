@@ -1,25 +1,11 @@
 import type * as Types from '@interfaces/index.ts'
-import type * as Core from '@core/index.ts'
+import * as Core from '@core/index.ts'
 
 /**
  * Cookie-based session middleware.
  * @description Manages set/clear in ctx.state with HMAC signing.
  */
 export class Session {
-  /** Default session cookie options */
-  private static readonly defaultOptions: Types.SessionCookieOpts = {
-    cookieName: 'session',
-    maxAge: 86400,
-    path: '/',
-    sameSite: 'Lax',
-    httpOnly: true,
-    secure: true
-  }
-  /** UTF-8 text decoder instance */
-  private static readonly decoder = new TextDecoder()
-  /** UTF-8 text encoder instance */
-  private static readonly encoder = new TextEncoder()
-
   /**
    * Create session middleware.
    * @description Populates ctx.state with session and helpers, requires cookieSecret.
@@ -27,50 +13,47 @@ export class Session {
    * @returns Middleware that populates ctx.state.session
    * @throws {Deno.errors.InvalidData} When cookieSecret is missing or empty
    */
-  static create(options: Types.SessionOptions): Types.Middleware {
+  static create(options: Types.SessionOptions): Types.MiddlewareFn {
     if (!options.cookieSecret || options.cookieSecret.length < 32) {
       throw new Deno.errors.InvalidData(
         'Session cookieSecret must be at least 32 characters for HMAC-SHA256 security'
       )
     }
-    const maxAge = options.maxAge ?? Session.defaultOptions.maxAge
+    const maxAge = options.maxAge ?? Core.Constant.defaultSessionOptions.maxAge
     if (maxAge <= 0 || !Number.isFinite(maxAge)) {
       throw new Deno.errors.InvalidData(
         'Session maxAge must be a positive finite number of seconds'
       )
     }
-    const path = options.path ?? Session.defaultOptions.path
+    const path = options.path ?? Core.Constant.defaultSessionOptions.path
     if (!path) {
       throw new Deno.errors.InvalidData('Session path must be a non-empty string')
     }
-    const sameSite = options.sameSite ?? Session.defaultOptions.sameSite
-    const secure = options.secure ?? Session.defaultOptions.secure
+    const sameSite = options.sameSite ?? Core.Constant.defaultSessionOptions.sameSite
+    const secure = options.secure ?? Core.Constant.defaultSessionOptions.secure
     if (sameSite === 'None' && !secure) {
       throw new Deno.errors.InvalidData(
         'Session SameSite=None requires secure=true, browsers reject insecure SameSite=None cookies'
       )
     }
     const sessionOptions: Types.SessionCookieOpts = {
-      cookieName: options.cookieName ?? Session.defaultOptions.cookieName,
+      cookieName: options.cookieName ?? Core.Constant.defaultSessionOptions.cookieName,
       maxAge,
       path,
       sameSite,
-      httpOnly: options.httpOnly ?? Session.defaultOptions.httpOnly,
+      httpOnly: options.httpOnly ?? Core.Constant.defaultSessionOptions.httpOnly,
       secure
     }
-    let hmacKey: CryptoKey | null = null
-    const getHmacKey = async (): Promise<CryptoKey> => {
-      if (hmacKey) {
-        return hmacKey
-      }
-      hmacKey = await crypto.subtle.importKey(
+    let hmacKeyPromise: Promise<CryptoKey> | null = null
+    const getHmacKey = (): Promise<CryptoKey> => {
+      hmacKeyPromise ??= crypto.subtle.importKey(
         'raw',
-        Session.encoder.encode(options.cookieSecret),
+        Core.Constant.encoder.encode(options.cookieSecret),
         { name: 'HMAC', hash: 'SHA-256' },
         false,
         ['sign', 'verify']
       )
-      return hmacKey
+      return hmacKeyPromise
     }
     return async (
       ctx: Core.Context,
@@ -78,22 +61,23 @@ export class Session {
     ): Types.AsyncMiddlewareResult => {
       const key = await getHmacKey()
       const cookieValue = ctx.cookie(sessionOptions.cookieName)
-      ctx.state['session'] = cookieValue
-        ? await Session.decodePayload(cookieValue, key, maxAge)
-        : null
-      ctx.state['setSession'] = async (data: Types.DataRecord) => {
-        const encodedPayload = await Session.encodePayload(data, key)
+      ctx.setState(
+        Core.Handler.StateKeys.session,
+        cookieValue ? await Session.decodePayload(cookieValue, key, maxAge) : null
+      )
+      ctx.setState(Core.Handler.StateKeys.setSession, async (sessionData: Types.DataRecord) => {
+        const encodedPayload = await Session.encodePayload(sessionData, key)
         ctx.setHeader(
           'Set-Cookie',
           Session.setCookieHeader(sessionOptions.cookieName, encodedPayload, sessionOptions)
         )
-      }
-      ctx.state['clearSession'] = () => {
+      })
+      ctx.setState(Core.Handler.StateKeys.clearSession, () => {
         ctx.setHeader(
           'Set-Cookie',
           Session.clearCookieHeader(sessionOptions.cookieName, sessionOptions.path)
         )
-      }
+      })
       return await next()
     }
   }
@@ -105,11 +89,15 @@ export class Session {
    * @returns Decoded byte array
    */
   private static base64UrlDecode(encodedStr: string): Uint8Array {
-    const base64 = encodedStr.replace(/-/g, '+').replace(/_/g, '/')
+    const base64 = encodedStr.replace(/[-_]/g, (ch) => ch === '-' ? '+' : '/')
     const padLength = base64.length % 4
     const padded = padLength ? base64 + '='.repeat(4 - padLength) : base64
     const binary = atob(padded)
-    return Uint8Array.from(binary, (ch) => ch.charCodeAt(0))
+    const bytes = new Uint8Array(binary.length)
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i)
+    }
+    return bytes
   }
 
   /**
@@ -119,12 +107,15 @@ export class Session {
    * @returns Base64url encoded string
    */
   private static base64UrlEncode(bytes: Uint8Array): string {
-    const binary = Array.from(bytes, (b) => String.fromCharCode(b)).join('')
-    return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+    let binary = ''
+    for (let i = 0; i < bytes.length; i++) {
+      binary += String.fromCharCode(bytes[i]!)
+    }
+    return btoa(binary).replace(/[+/=]/g, (ch) => ch === '+' ? '-' : ch === '/' ? '_' : '')
   }
 
   /**
-   * Build Set-Cookie header to clear session.
+   * Build cookie header to clear session.
    * @description Header string Max-Age=0 for name and path.
    * @param cookieName - Cookie name to clear
    * @param path - Cookie path
@@ -148,31 +139,33 @@ export class Session {
     maxAge: number
   ): Promise<Types.DataRecord | null> {
     try {
-      const value = encodedValue.includes('%') ? decodeURIComponent(encodedValue) : encodedValue
-      const dotIndex = value.lastIndexOf('.')
-      if (dotIndex <= 0 || dotIndex === value.length - 1) {
+      const decodedValue = encodedValue.includes('%')
+        ? decodeURIComponent(encodedValue)
+        : encodedValue
+      const dotIndex = decodedValue.lastIndexOf('.')
+      if (dotIndex <= 0 || dotIndex === decodedValue.length - 1) {
         return null
       }
-      const payloadB64 = value.slice(0, dotIndex)
-      const sigB64 = value.slice(dotIndex + 1)
+      const payloadB64 = decodedValue.slice(0, dotIndex)
+      const sigB64 = decodedValue.slice(dotIndex + 1)
       const sigBytes = Session.base64UrlDecode(sigB64)
-      const valid = await crypto.subtle.verify(
+      const isValid = await crypto.subtle.verify(
         'HMAC',
         key,
-        sigBytes.buffer as ArrayBuffer,
-        Session.encoder.encode(payloadB64)
+        new Uint8Array(sigBytes).buffer as ArrayBuffer,
+        Core.Constant.encoder.encode(payloadB64)
       )
-      if (!valid) {
+      if (!isValid) {
         return null
       }
       const payloadBytes = Session.base64UrlDecode(payloadB64)
-      const payloadStr = Session.decoder.decode(payloadBytes)
-      const parsed = JSON.parse(payloadStr) as Types.DataRecord
-      const issuedAt = parsed['_iat']
+      const payloadStr = Core.Constant.decoder.decode(payloadBytes)
+      const parsedPayload = JSON.parse(payloadStr) as Types.DataRecord
+      const issuedAt = parsedPayload['_iat']
       if (typeof issuedAt !== 'number' || Math.floor(Date.now() / 1000) - issuedAt > maxAge) {
         return null
       }
-      const { _iat: _, ...sessionData } = parsed
+      const { _iat: _, ...sessionData } = parsedPayload
       return sessionData
     } catch {
       return null
@@ -190,14 +183,14 @@ export class Session {
     sessionData: Types.DataRecord,
     key: CryptoKey
   ): Promise<string> {
-    const stamped = { ...sessionData, _iat: Math.floor(Date.now() / 1000) }
-    const payloadStr = JSON.stringify(stamped)
-    const payloadBytes = Session.encoder.encode(payloadStr)
+    const stampedPayload = { ...sessionData, _iat: Math.floor(Date.now() / 1000) }
+    const payloadStr = JSON.stringify(stampedPayload)
+    const payloadBytes = Core.Constant.encoder.encode(payloadStr)
     const payloadB64 = Session.base64UrlEncode(payloadBytes)
     const signatureBuffer = await crypto.subtle.sign(
       'HMAC',
       key,
-      Session.encoder.encode(payloadB64)
+      Core.Constant.encoder.encode(payloadB64)
     )
     const sigB64 = Session.base64UrlEncode(new Uint8Array(signatureBuffer))
     return `${payloadB64}.${sigB64}`
