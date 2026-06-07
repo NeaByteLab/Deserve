@@ -62,21 +62,6 @@ Deno.test('Context#blob then text throws already consumed', async () => {
   assertEquals(thrown, true)
 })
 
-Deno.test('Context#body parses form-urlencoded as FormData', async () => {
-  const ctx = createTestContext(
-    'http://localhost/',
-    {},
-    {
-      method: 'POST',
-      body: 'foo=bar&baz=qux',
-      headers: new Headers({ 'Content-Type': 'application/x-www-form-urlencoded' })
-    }
-  )
-  const formData = (await ctx.body()) as FormData
-  assertEquals(formData.get('foo'), 'bar')
-  assertEquals(formData.get('baz'), 'qux')
-})
-
 Deno.test('Context#body parses JSON and caches result', async () => {
   const ctx = createTestContext(
     'http://localhost/',
@@ -94,6 +79,21 @@ Deno.test('Context#body parses JSON and caches result', async () => {
   assertEquals(secondParsedBody, firstParsedBody)
 })
 
+Deno.test('Context#body parses form-urlencoded as FormData', async () => {
+  const ctx = createTestContext(
+    'http://localhost/',
+    {},
+    {
+      method: 'POST',
+      body: 'foo=bar&baz=qux',
+      headers: new Headers({ 'Content-Type': 'application/x-www-form-urlencoded' })
+    }
+  )
+  const formData = (await ctx.body()) as FormData
+  assertEquals(formData.get('foo'), 'bar')
+  assertEquals(formData.get('baz'), 'qux')
+})
+
 Deno.test('Context#body parses multipart/form-data', async () => {
   const multipartBody =
     `------TestBoundary\r\nContent-Disposition: form-data; name="field1"\r\n\r\nvalue1\r\n------TestBoundary--\r\n`
@@ -108,6 +108,58 @@ Deno.test('Context#body parses multipart/form-data', async () => {
   )
   const formData = (await ctx.body()) as FormData
   assertEquals(formData.get('field1'), 'value1')
+})
+
+Deno.test('Context#body re-throws a status-bearing JSON read error instead of returning null', async () => {
+  const stream = new ReadableStream({
+    pull() {
+      throw Object.assign(new globalThis.Error('Payload Too Large'), { statusCode: 413 })
+    }
+  })
+  const req = new Request(
+    'http://localhost/',
+    {
+      method: 'POST',
+      body: stream,
+      headers: new Headers({ 'Content-Type': 'application/json' }),
+      duplex: 'half'
+    } as RequestInit & { duplex: 'half' }
+  )
+  const ctx = new Core.Context(req, new URL('http://localhost/'), {})
+  let thrown = false
+  try {
+    await ctx.body()
+  } catch (e) {
+    thrown = true
+    assertEquals((e as { statusCode?: number }).statusCode, 413)
+  }
+  assertEquals(thrown, true)
+})
+
+Deno.test('Context#body re-throws a status-bearing form read error instead of returning null', async () => {
+  const stream = new ReadableStream({
+    pull() {
+      throw Object.assign(new globalThis.Error('Payload Too Large'), { statusCode: 413 })
+    }
+  })
+  const req = new Request(
+    'http://localhost/',
+    {
+      method: 'POST',
+      body: stream,
+      headers: new Headers({ 'Content-Type': 'multipart/form-data; boundary=x' }),
+      duplex: 'half'
+    } as RequestInit & { duplex: 'half' }
+  )
+  const ctx = new Core.Context(req, new URL('http://localhost/'), {})
+  let thrown = false
+  try {
+    await ctx.body()
+  } catch (e) {
+    thrown = true
+    assertEquals((e as { statusCode?: number }).statusCode, 413)
+  }
+  assertEquals(thrown, true)
 })
 
 Deno.test('Context#body returns null for malformed JSON instead of throwing', async () => {
@@ -128,41 +180,6 @@ Deno.test('Context#body returns null for malformed multipart instead of throwing
   })
   const result = await ctx.body()
   assertEquals(result, null)
-})
-
-Deno.test('Context#query returns first value when duplicate keys exist', () => {
-  const ctx = createTestContext('http://localhost/?role=user&role=admin')
-  assertEquals(ctx.query('role'), 'user')
-})
-
-Deno.test('Context#query all params returns first-wins map', () => {
-  const ctx = createTestContext('http://localhost/?a=1&a=2&b=3')
-  const all = ctx.query() as Record<string, string>
-  assertEquals(all['a'], '1')
-  assertEquals(all['b'], '3')
-})
-
-Deno.test('Context#cookie returns first value when duplicate keys exist', () => {
-  const ctx = createTestContext('http://localhost/', {}, {
-    headers: new Headers({ Cookie: 'sid=first; sid=second' })
-  })
-  assertEquals(ctx.cookie('sid'), 'first')
-})
-
-Deno.test('Context#cookie trims whitespace from cookie key', () => {
-  const ctx = createTestContext('http://localhost/', {}, {
-    headers: new Headers({ Cookie: '  token  =abc123' })
-  })
-  assertEquals(ctx.cookie('token'), 'abc123')
-})
-
-Deno.test('Context#cookie skips entries without equals sign', () => {
-  const ctx = createTestContext('http://localhost/', {}, {
-    headers: new Headers({ Cookie: 'malformed; valid=yes; alsobroken' })
-  })
-  assertEquals(ctx.cookie('malformed'), undefined)
-  assertEquals(ctx.cookie('valid'), 'yes')
-  assertEquals(ctx.cookie('alsobroken'), undefined)
 })
 
 Deno.test('Context#body then formData throws when body already parsed as non-form', async () => {
@@ -219,6 +236,21 @@ Deno.test('Context#cookie caching returns same map on repeated calls', () => {
   assertEquals(first['b'], '2')
 })
 
+Deno.test('Context#cookie map uses a null prototype', () => {
+  const ctx = createTestContext('http://localhost/', {}, {
+    headers: new Headers({ Cookie: 'sid=abc' })
+  })
+  const cookies = ctx.cookie() as Record<string, unknown>
+  assertEquals(Object.getPrototypeOf(cookies), null)
+})
+
+Deno.test('Context#cookie returns first value when duplicate keys exist', () => {
+  const ctx = createTestContext('http://localhost/', {}, {
+    headers: new Headers({ Cookie: 'sid=first; sid=second' })
+  })
+  assertEquals(ctx.cookie('sid'), 'first')
+})
+
 Deno.test('Context#cookie returns value by key', () => {
   const ctx = createTestContext(
     'http://localhost/',
@@ -232,10 +264,46 @@ Deno.test('Context#cookie returns value by key', () => {
   assertEquals(ctx.cookie('missing'), undefined)
 })
 
+Deno.test('Context#cookie skips entries without equals sign', () => {
+  const ctx = createTestContext('http://localhost/', {}, {
+    headers: new Headers({ Cookie: 'malformed; valid=yes; alsobroken' })
+  })
+  assertEquals(ctx.cookie('malformed'), undefined)
+  assertEquals(ctx.cookie('valid'), 'yes')
+  assertEquals(ctx.cookie('alsobroken'), undefined)
+})
+
+Deno.test('Context#cookie treats reserved names as plain data keys', () => {
+  const ctx = createTestContext('http://localhost/', {}, {
+    headers: new Headers({ Cookie: '__proto__=x; toString=y; constructor=z' })
+  })
+  const cookies = ctx.cookie() as Record<string, unknown>
+  assertEquals(cookies['__proto__'], 'x')
+  assertEquals(cookies['toString'], 'y')
+  assertEquals(cookies['constructor'], 'z')
+  assertEquals(Object.hasOwn(cookies, '__proto__'), true)
+})
+
+Deno.test('Context#cookie trims whitespace from cookie key', () => {
+  const ctx = createTestContext('http://localhost/', {}, {
+    headers: new Headers({ Cookie: '  token  =abc123' })
+  })
+  assertEquals(ctx.cookie('token'), 'abc123')
+})
+
 Deno.test('Context#cookie with empty cookie header returns empty map', () => {
   const ctx = createTestContext('http://localhost/')
   const all = ctx.cookie() as Record<string, string>
   assertEquals(Object.keys(all).length, 0)
+})
+
+Deno.test('Context#cookie with reserved names keeps Object prototype intact', () => {
+  const ctx = createTestContext('http://localhost/', {}, {
+    headers: new Headers({ Cookie: '__proto__=evil; toString=hijack' })
+  })
+  ctx.cookie()
+  assertEquals(typeof ({}).toString, 'function')
+  assertEquals(({} as Record<string, unknown>)['evil' as string], undefined)
 })
 
 Deno.test('Context#cookie with value containing = sign', () => {
@@ -310,6 +378,14 @@ Deno.test('Context#formData then blob throws already consumed', async () => {
   assertEquals(thrown, true)
 })
 
+Deno.test('Context#getState and setState are mutable and shared', () => {
+  const ctx = createTestContext('http://localhost/')
+  const sessionKey = Core.Handler.stateKey<{ user: string }>('session')
+  assertEquals(ctx.getState(sessionKey), undefined)
+  ctx.setState(sessionKey, { user: 'x' })
+  assertEquals(ctx.getState(sessionKey)?.user, 'x')
+})
+
 Deno.test('Context#handleError when errorHandler throws propagates', async () => {
   const request = new Request('http://localhost/')
   const ctx = new Core.Context(request, new URL('http://localhost/'), {}, (_ctx, _code, _err) => {
@@ -335,18 +411,26 @@ Deno.test('Context#handleError with handler uses custom response', async () => {
   assertEquals(await res.text(), 'custom 418')
 })
 
-Deno.test('Context#handleError without handler returns null body with status', async () => {
+Deno.test('Context#handleError without handler returns error page with status', async () => {
   const ctx = createTestContext('http://localhost/')
   const res = await ctx.handleError(503, new Error('unavailable'))
   assertEquals(res.status, 503)
   const body = await res.text()
-  assertEquals(body, '')
+  assertEquals(body.includes('503'), true)
 })
 
 Deno.test('Context#handleError without handler returns response with status only', async () => {
   const ctx = createTestContext('http://localhost/')
   const res = await ctx.handleError(503, new Error('unavailable'))
   assertEquals(res.status, 503)
+})
+
+Deno.test('Context#header map uses a null prototype', () => {
+  const ctx = createTestContext('http://localhost/', {}, {
+    headers: new Headers({ 'X-Custom': 'value' })
+  })
+  const all = ctx.header() as Record<string, unknown>
+  assertEquals(Object.getPrototypeOf(all), null)
 })
 
 Deno.test('Context#header returns value by key (case-insensitive)', () => {
@@ -359,6 +443,16 @@ Deno.test('Context#header returns value by key (case-insensitive)', () => {
   )
   assertEquals(ctx.header('x-custom'), 'value')
   assertEquals(ctx.header('Accept'), 'text/html')
+})
+
+Deno.test('Context#header treats reserved names as plain data keys', () => {
+  const ctx = createTestContext('http://localhost/', {}, {
+    headers: new Headers({ toString: 'y', constructor: 'z' })
+  })
+  const all = ctx.header() as Record<string, unknown>
+  assertEquals(all['tostring'], 'y')
+  assertEquals(all['constructor'], 'z')
+  assertEquals(typeof ({}).toString, 'function')
 })
 
 Deno.test('Context#header without key returns all headers', () => {
@@ -472,11 +566,38 @@ Deno.test('Context#queries returns empty array for missing key', () => {
   assertEquals(ctx.queries('missing'), [])
 })
 
+Deno.test('Context#query all params returns first-wins map', () => {
+  const ctx = createTestContext('http://localhost/?a=1&a=2&b=3')
+  const all = ctx.query() as Record<string, string>
+  assertEquals(all['a'], '1')
+  assertEquals(all['b'], '3')
+})
+
+Deno.test('Context#query map uses a null prototype', () => {
+  const ctx = createTestContext('http://localhost/?a=1')
+  const all = ctx.query() as Record<string, unknown>
+  assertEquals(Object.getPrototypeOf(all), null)
+})
+
+Deno.test('Context#query returns first value when duplicate keys exist', () => {
+  const ctx = createTestContext('http://localhost/?role=user&role=admin')
+  assertEquals(ctx.query('role'), 'user')
+})
+
 Deno.test('Context#query returns query value by key', () => {
   const ctx = createTestContext('http://localhost/?foo=bar&baz=qux')
   assertEquals(ctx.query('foo'), 'bar')
   assertEquals(ctx.query('baz'), 'qux')
   assertEquals(ctx.query('missing'), undefined)
+})
+
+Deno.test('Context#query treats reserved names as plain data keys', () => {
+  const ctx = createTestContext('http://localhost/?__proto__=p&toString=t&constructor=c')
+  const all = ctx.query() as Record<string, unknown>
+  assertEquals(all['__proto__'], 'p')
+  assertEquals(all['toString'], 't')
+  assertEquals(all['constructor'], 'c')
+  assertEquals(Object.hasOwn(all, '__proto__'), true)
 })
 
 Deno.test('Context#query without key returns all params', () => {
@@ -486,25 +607,36 @@ Deno.test('Context#query without key returns all params', () => {
   assertEquals(all['b'], '2')
 })
 
-Deno.test('Context#redirect returns 302 with Location header', () => {
-  const ctx = createTestContext('http://localhost/')
-  const res = ctx.redirect('/login')
-  assertEquals(res.status, 302)
-  assertEquals(res.headers.get('Location'), 'http://localhost/login')
+Deno.test('Context#redirect blocks open-redirect normalization bypass', () => {
+  const ctx = createTestContext('http://localhost/login')
+  let thrown = false
+  try {
+    ctx.redirect('/\\evil.com')
+  } catch (e) {
+    thrown = true
+    assertEquals(e instanceof Deno.errors.InvalidData, true)
+  }
+  assertEquals(thrown, true)
 })
 
-Deno.test('Context#redirect with extra headers', () => {
+Deno.test('Context#redirect defaults to 302', () => {
+  const ctx = createTestContext('http://localhost/login')
+  const res = ctx.redirect('/home')
+  assertEquals(res.status, 302)
+})
+
+Deno.test('Context#redirect returns same-origin relative redirect (documented convenience)', () => {
+  const ctx = createTestContext('http://localhost/login')
+  const res = ctx.redirect('/dashboard', 301)
+  assertEquals(res.status, 301)
+  assertEquals(res.headers.get('Location'), 'http://localhost/dashboard')
+})
+
+Deno.test('Context#redirect with extra headers merges them', () => {
   const ctx = createTestContext('http://localhost/')
   const res = ctx.redirect('/login', 302, { headers: new Headers({ 'X-Extra': 'val' }) })
-  assertEquals(res.status, 302)
   assertEquals(res.headers.get('Location'), 'http://localhost/login')
   assertEquals(res.headers.get('X-Extra'), 'val')
-})
-
-Deno.test('Context#redirect with status uses given status', () => {
-  const ctx = createTestContext('http://localhost/')
-  const res = ctx.redirect('/gone', 301)
-  assertEquals(res.status, 301)
 })
 
 Deno.test('Context#render throws Deno.errors.NotSupported', async () => {
@@ -553,6 +685,28 @@ Deno.test('Context#replaceRequest resets body so body can be read again', async 
   assertEquals(second.get('baz'), 'qux')
 })
 
+Deno.test('Context#responseHeadersMap mutation does not corrupt emitted response headers', () => {
+  const ctx = createTestContext()
+  ctx.setHeader('X-Real', 'real')
+  const map = ctx.responseHeadersMap as Record<string, string>
+  map['X-Injected-Via-Map'] = 'evil'
+  delete map['X-Real']
+  const res = ctx.send.html('<p>ok</p>')
+  assertEquals(res.headers.get('X-Real'), 'real')
+  assertEquals(res.headers.get('X-Injected-Via-Map'), null)
+})
+
+Deno.test('Context#responseHeadersMap returns snapshot, mutation does not leak into response', () => {
+  const ctx = createTestContext()
+  ctx.setHeader('X-Real', 'real')
+  const map = ctx.responseHeadersMap
+  ;(map as Record<string, string>)['X-Injected'] = 'mutated'
+  delete (map as Record<string, string>)['X-Real']
+  const fresh = ctx.responseHeadersMap
+  assertEquals(fresh['X-Real'], 'real')
+  assertEquals(fresh['X-Injected'], undefined)
+})
+
 Deno.test('Context#send.data with Uint8Array', () => {
   const ctx = createTestContext('http://localhost/')
   const data = new TextEncoder().encode('binary data')
@@ -574,11 +728,40 @@ Deno.test('Context#send.json returns 200 with application/json', () => {
   assertEquals(res.headers.get('Content-Type'), 'application/json')
 })
 
+Deno.test('Context#send.redirect returns 302 with Location header', () => {
+  const ctx = createTestContext('http://localhost/')
+  const res = ctx.send.redirect('/login')
+  assertEquals(res.status, 302)
+  assertEquals(res.headers.get('Location'), 'http://localhost/login')
+})
+
+Deno.test('Context#send.redirect with extra headers', () => {
+  const ctx = createTestContext('http://localhost/')
+  const res = ctx.send.redirect('/login', 302, { headers: new Headers({ 'X-Extra': 'val' }) })
+  assertEquals(res.status, 302)
+  assertEquals(res.headers.get('Location'), 'http://localhost/login')
+  assertEquals(res.headers.get('X-Extra'), 'val')
+})
+
+Deno.test('Context#send.redirect with status uses given status', () => {
+  const ctx = createTestContext('http://localhost/')
+  const res = ctx.send.redirect('/gone', 301)
+  assertEquals(res.status, 301)
+})
+
 Deno.test('Context#send.text returns text/plain', () => {
   const ctx = createTestContext('http://localhost/')
   const res = ctx.send.text('plain')
   assertEquals(res.status, 200)
   assertEquals(res.headers.get('Content-Type'), 'text/plain; charset=utf-8')
+})
+
+Deno.test('Context#setHeader Set-Cookie does not appear in responseHeadersMap', () => {
+  const ctx = createTestContext()
+  ctx.setHeader('Set-Cookie', 'token=abc')
+  ctx.setHeader('X-Custom', 'yes')
+  assertEquals(ctx.responseHeadersMap['X-Custom'], 'yes')
+  assertEquals(ctx.responseHeadersMap['Set-Cookie'], undefined)
 })
 
 Deno.test('Context#setHeader accumulates multiple Set-Cookie values', () => {
@@ -607,12 +790,47 @@ Deno.test('Context#setHeader merges into response', () => {
   assertEquals(res.headers.get('Content-Type'), 'text/html; charset=utf-8')
 })
 
-Deno.test('Context#setHeader Set-Cookie does not appear in responseHeadersMap', () => {
-  const ctx = createTestContext()
-  ctx.setHeader('Set-Cookie', 'token=abc')
-  ctx.setHeader('X-Custom', 'yes')
-  assertEquals(ctx.responseHeadersMap['X-Custom'], 'yes')
-  assertEquals(ctx.responseHeadersMap['Set-Cookie'], undefined)
+Deno.test('Context#setHeader rejects an invalid header name', () => {
+  const ctx = createTestContext('http://localhost/')
+  let thrown = false
+  try {
+    ctx.setHeader('Bad\nName', 'value')
+  } catch {
+    thrown = true
+  }
+  assertEquals(thrown, true)
+})
+
+Deno.test('Context#setHeader rejects an invalid header value', () => {
+  const ctx = createTestContext('http://localhost/')
+  let thrown = false
+  try {
+    ctx.setHeader('X-Ok', 'bad\nvalue')
+  } catch {
+    thrown = true
+  }
+  assertEquals(thrown, true)
+})
+
+Deno.test('Context#setHeaders applies nothing when a later entry is invalid', () => {
+  const ctx = createTestContext('http://localhost/')
+  try {
+    ctx.setHeaders({ 'X-Good': 'ok', 'In valid': 'bad' })
+  } catch {
+    ctx
+  }
+  assertEquals(ctx.responseHeadersMap['X-Good'], undefined)
+})
+
+Deno.test('Context#setHeaders rejects the whole batch when one entry is invalid', () => {
+  const ctx = createTestContext('http://localhost/')
+  let thrown = false
+  try {
+    ctx.setHeaders({ 'X-Good': 'ok', 'In valid': 'bad' })
+  } catch {
+    thrown = true
+  }
+  assertEquals(thrown, true)
 })
 
 Deno.test('Context#setHeaders returns this for chaining', () => {
@@ -645,11 +863,19 @@ Deno.test('Context#setParams merges additional params', () => {
   assertEquals(ctx.param('name'), 'test')
 })
 
-Deno.test('Context#state is mutable and shared', () => {
-  const ctx = createTestContext('http://localhost/')
-  assertEquals(ctx.state['session'], undefined)
-  ctx.state['session'] = { user: 'x' }
-  assertEquals((ctx.state['session'] as { user: string })?.user, 'x')
+Deno.test('Context#state exposes a live mutable record (documented API)', () => {
+  const ctx = createTestContext()
+  assertEquals(typeof ctx.state, 'object')
+  ctx.state['foo'] = 'bar'
+  assertEquals(ctx.state['foo'], 'bar')
+})
+
+Deno.test('Context#state reflects values set via setState (session/worker keys)', () => {
+  const ctx = createTestContext()
+  ctx.setState(Core.Handler.StateKeys.setSession, async () => {})
+  ctx.setState(Core.Handler.StateKeys.session, { userId: '1' })
+  assertEquals(typeof ctx.state['setSession'], 'function')
+  assertEquals((ctx.state['session'] as { userId: string }).userId, '1')
 })
 
 Deno.test('Context#streamRender throws Deno.errors.NotSupported', () => {

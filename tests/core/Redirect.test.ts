@@ -71,6 +71,20 @@ Deno.test('Redirect#buildResponse rejects // with various suffixes', () => {
   }
 })
 
+Deno.test('Redirect#buildResponse rejects backslash and tab normalization bypasses', () => {
+  const urls = ['/\\evil.com', '\\\\evil.com', '/\t/evil.com', '\\/evil.com']
+  for (const url of urls) {
+    let thrown = false
+    try {
+      Core.Redirect.buildResponse('http://localhost/', {}, [], url, 302)
+    } catch (e) {
+      thrown = true
+      assertEquals(e instanceof Deno.errors.InvalidData, true)
+    }
+    assertEquals(thrown, true)
+  }
+})
+
 Deno.test('Redirect#buildResponse rejects data scheme after resolution', () => {
   let thrown = false
   try {
@@ -97,7 +111,7 @@ Deno.test('Redirect#buildResponse rejects protocol-relative URL starting with //
     Core.Redirect.buildResponse('http://localhost/', {}, [], '//evil.com/phish', 302)
   } catch (e) {
     thrown = true
-    assertEquals((e as Error).message.includes('protocol-relative'), true)
+    assertEquals(e instanceof Deno.errors.InvalidData, true)
   }
   assertEquals(thrown, true)
 })

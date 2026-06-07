@@ -27,17 +27,17 @@ Deno.test('Response#create custom options.headers overrides base', () => {
   assertEquals(res.headers.get('X-App'), 'override')
 })
 
+Deno.test('Response#create custom with Headers instance merges correctly', () => {
+  const res = send.custom(null, { headers: new Headers({ 'X-Test': 'yes' }) })
+  assertEquals(res.headers.get('X-App'), 'test')
+  assertEquals(res.headers.get('X-Test'), 'yes')
+})
+
 Deno.test('Response#create custom with array headers merges correctly', () => {
   const headers: [string, string][] = [['X-Arr', 'val']]
   const res = send.custom(null, { headers })
   assertEquals(res.headers.get('X-App'), 'test')
   assertEquals(res.headers.get('X-Arr'), 'val')
-})
-
-Deno.test('Response#create custom with Headers instance merges correctly', () => {
-  const res = send.custom(null, { headers: new Headers({ 'X-Test': 'yes' }) })
-  assertEquals(res.headers.get('X-App'), 'test')
-  assertEquals(res.headers.get('X-Test'), 'yes')
 })
 
 Deno.test('Response#create custom with no body returns empty response', async () => {
@@ -52,11 +52,33 @@ Deno.test('Response#create custom with null body and no options', async () => {
   assertEquals(await res.text(), '')
 })
 
+Deno.test('Response#create data encodes non-ASCII filename via RFC 6266 filename*', () => {
+  const res = send.data(new TextEncoder().encode('x'), 'résumé-日本.pdf')
+  const cd = res.headers.get('Content-Disposition') ?? ''
+  assertEquals(res.status, 200)
+  assertEquals(cd.includes("filename*=UTF-8''"), true)
+  assertEquals(cd.includes(encodeURIComponent('résumé-日本.pdf')), true)
+  assertEquals(cd.includes('filename="r_sum_-__.pdf"'), true)
+})
+
+Deno.test('Response#create data escapes a backslash path separator from filename', () => {
+  const res = send.data(new TextEncoder().encode('x'), 'a\\b.txt')
+  const cd = res.headers.get('Content-Disposition') ?? ''
+  assertEquals(cd, 'attachment; filename="b.txt"')
+})
+
 Deno.test('Response#create data escapes quotes in filename', () => {
   const res = send.data(new TextEncoder().encode('x'), 'file"name.txt')
   const cd = res.headers.get('Content-Disposition') ?? ''
   assertEquals(cd.includes('\\"'), true)
   assertEquals(cd.includes('filename'), true)
+})
+
+Deno.test('Response#create data omits filename* for pure-ASCII filename', () => {
+  const res = send.data(new TextEncoder().encode('x'), 'plain.txt')
+  const cd = res.headers.get('Content-Disposition') ?? ''
+  assertEquals(cd, 'attachment; filename="plain.txt"')
+  assertEquals(cd.includes('filename*'), false)
 })
 
 Deno.test('Response#create data sets Content-Disposition and Content-Type', () => {
@@ -73,6 +95,12 @@ Deno.test('Response#create data string sets Content-Length', () => {
   assertEquals(res.headers.get('Content-Disposition'), 'attachment; filename="a.txt"')
 })
 
+Deno.test('Response#create data strips DEL character from filename', () => {
+  const res = send.data(new TextEncoder().encode('x'), 'file\x7Fname.txt')
+  const cd = res.headers.get('Content-Disposition') ?? ''
+  assertEquals(cd.includes('\x7F'), false)
+})
+
 Deno.test('Response#create data strips control characters from filename', () => {
   const res = send.data(new TextEncoder().encode('x'), 'file\x00name\x1F.txt')
   const cd = res.headers.get('Content-Disposition') ?? ''
@@ -81,17 +109,24 @@ Deno.test('Response#create data strips control characters from filename', () => 
   assertEquals(cd.includes('filename.txt'), true)
 })
 
-Deno.test('Response#create data strips DEL character from filename', () => {
-  const res = send.data(new TextEncoder().encode('x'), 'file\x7Fname.txt')
-  const cd = res.headers.get('Content-Disposition') ?? ''
-  assertEquals(cd.includes('\x7F'), false)
-})
-
 Deno.test('Response#create data strips path separators from filename', () => {
   const res = send.data(new TextEncoder().encode('x'), '../../etc/passwd')
   const cd = res.headers.get('Content-Disposition') ?? ''
   assertEquals(cd.includes('..'), false)
   assertEquals(cd.includes('passwd'), true)
+})
+
+Deno.test('Response#create data with Uint8Array sets Content-Length', () => {
+  const data = new TextEncoder().encode('hello')
+  const res = send.data(data, 'file.bin')
+  assertEquals(res.headers.get('Content-Length'), '5')
+})
+
+Deno.test('Response#create data with a non-ASCII name escapes quotes in the ASCII fallback', () => {
+  const res = send.data(new TextEncoder().encode('x'), '发"票.pdf')
+  const cd = res.headers.get('Content-Disposition') ?? ''
+  assertEquals(cd.includes('filename="_\\"_.pdf"'), true)
+  assertEquals(cd.includes(`filename*=UTF-8''${encodeURIComponent('发"票.pdf')}`), true)
 })
 
 Deno.test('Response#create data with default content-type uses octet-stream', () => {
@@ -105,18 +140,21 @@ Deno.test('Response#create data with empty Uint8Array', () => {
   assertEquals(res.headers.get('Content-Disposition'), 'attachment; filename="empty.bin"')
 })
 
-Deno.test('Response#create data with Uint8Array sets Content-Length', () => {
-  const data = new TextEncoder().encode('hello')
-  const res = send.data(data, 'file.bin')
-  assertEquals(res.headers.get('Content-Length'), '5')
-})
-
 Deno.test('Response#create file reads file and sets headers', async () => {
-  const filePath = fileURLToPath(new URL('../fixtures/response-file.txt', import.meta.url))
+  const filePath = fileURLToPath(import.meta.resolve('@tests/fixtures/response-file.txt'))
   const res = await send.file(filePath, 'custom.txt')
   assertEquals(res.headers.get('Content-Disposition'), 'attachment; filename="custom.txt"')
   assertEquals(res.headers.get('Content-Type'), 'application/octet-stream')
   assertEquals(await res.text(), 'fixture content\n')
+})
+
+Deno.test('Response#create file with a non-ASCII filename emits an RFC 6266 filename* parameter', async () => {
+  const filePath = fileURLToPath(import.meta.resolve('@tests/fixtures/response-file.txt'))
+  const res = await send.file(filePath, '发票-résumé.pdf')
+  const cd = res.headers.get('Content-Disposition') ?? ''
+  assertEquals(cd.includes('filename="__-r_sum_.pdf"'), true)
+  assertEquals(cd.includes(`filename*=UTF-8''${encodeURIComponent('发票-résumé.pdf')}`), true)
+  await res.body?.cancel()
 })
 
 Deno.test('Response#create file with missing path throws', async () => {
@@ -131,7 +169,7 @@ Deno.test('Response#create file with missing path throws', async () => {
 })
 
 Deno.test('Response#create file with no custom filename uses path basename', async () => {
-  const filePath = fileURLToPath(new URL('../fixtures/response-file.txt', import.meta.url))
+  const filePath = fileURLToPath(import.meta.resolve('@tests/fixtures/response-file.txt'))
   const res = await send.file(filePath)
   assertEquals(res.headers.get('Content-Disposition'), 'attachment; filename="response-file.txt"')
   assertEquals(await res.text(), 'fixture content\n')

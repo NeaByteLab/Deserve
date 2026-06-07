@@ -6,10 +6,10 @@ Deno.test('Error#buildResponse 500 does not leak error message', async () => {
     headers: new Headers({ Accept: 'application/json' })
   })
   const ctx = new Core.Context(request, new URL('http://localhost/'), {})
-  const res = await Core.Error.buildResponse(
+  const res = await Core.Handler.buildResponse(
     ctx,
     500,
-    new globalThis.Error('Connection to db://admin:password@host failed'),
+    new globalThis.Error('Connection to ************************ failed'),
     null
   )
   const body = (await res.json()) as { error: string }
@@ -20,10 +20,29 @@ Deno.test('Error#buildResponse 500 does not leak error message', async () => {
 Deno.test('Error#buildResponse HTML output escapes message content', async () => {
   const request = new Request('http://localhost/')
   const ctx = new Core.Context(request, new URL('http://localhost/'), {})
-  const res = await Core.Error.buildResponse(ctx, 404, new globalThis.Error('irrelevant'), null)
+  const res = await Core.Handler.buildResponse(ctx, 404, new globalThis.Error('irrelevant'), null)
   const html = await res.text()
   assertEquals(html.includes('<script>'), false)
   assertEquals(html.includes('Not Found'), true)
+})
+
+Deno.test('Error#buildResponse preserves security headers when errorMiddleware returns a non-Response', async () => {
+  const request = new Request('http://localhost/x', {
+    headers: new Headers({ Accept: 'application/json' })
+  })
+  const ctx = new Core.Context(request, new URL('http://localhost/x'), {})
+  ctx.setHeader('X-Content-Type-Options', 'nosniff')
+  const res = await Core.Handler.buildResponse(
+    ctx,
+    500,
+    new globalThis.Error('boom'),
+    async () => 'broke' as never
+  )
+  assertEquals(res.status, 500)
+  assertEquals(res.headers.get('X-Content-Type-Options'), 'nosniff')
+  assertEquals(res.headers.get('Content-Type'), 'application/json')
+  const body = (await res.json()) as { error: string }
+  assertEquals(body.error, 'Internal Server Error')
 })
 
 Deno.test('Error#buildResponse uses generic message for unmapped 418 status', async () => {
@@ -31,7 +50,7 @@ Deno.test('Error#buildResponse uses generic message for unmapped 418 status', as
     headers: new Headers({ Accept: 'application/json' })
   })
   const ctx = new Core.Context(request, new URL('http://localhost/'), {})
-  const res = await Core.Error.buildResponse(
+  const res = await Core.Handler.buildResponse(
     ctx,
     418,
     new globalThis.Error('secret internal detail'),
@@ -47,7 +66,7 @@ Deno.test('Error#buildResponse uses generic message for unmapped 599 status', as
     headers: new Headers({ Accept: 'application/json' })
   })
   const ctx = new Core.Context(request, new URL('http://localhost/'), {})
-  const res = await Core.Error.buildResponse(
+  const res = await Core.Handler.buildResponse(
     ctx,
     599,
     new globalThis.Error('db password leaked'),
@@ -61,7 +80,7 @@ Deno.test('Error#buildResponse with errorMiddleware receives correct error info'
   const request = new Request('http://localhost/test-path', { method: 'POST' })
   const ctx = new Core.Context(request, new URL('http://localhost/test-path'), {})
   let receivedInfo: unknown = null
-  await Core.Error.buildResponse(
+  await Core.Handler.buildResponse(
     ctx,
     422,
     new globalThis.Error('validation failed'),
@@ -88,7 +107,7 @@ Deno.test('Error#buildResponse with errorMiddleware returning null uses default'
     headers: new Headers({ Accept: 'application/json' })
   })
   const ctx = new Core.Context(request, new URL('http://localhost/bar'), {})
-  const res = await Core.Error.buildResponse(
+  const res = await Core.Handler.buildResponse(
     ctx,
     502,
     new globalThis.Error('bad'),
@@ -103,7 +122,7 @@ Deno.test('Error#buildResponse with errorMiddleware returning response uses it',
   const request = new Request('http://localhost/')
   const ctx = new Core.Context(request, new URL('http://localhost/'), {})
   const customRes = new globalThis.Response('custom body', { status: 499 })
-  const res = await Core.Error.buildResponse(
+  const res = await Core.Handler.buildResponse(
     ctx,
     500,
     new globalThis.Error('x'),
@@ -114,12 +133,32 @@ Deno.test('Error#buildResponse with errorMiddleware returning response uses it',
   assertEquals(res.status, 499)
 })
 
+Deno.test('Error#buildResponse with errorMiddleware returns non-Response falls through to safe default', async () => {
+  const nonResponseReturns: unknown[] = ['something broke', { error: 1 }, 42, true]
+  for (const ret of nonResponseReturns) {
+    const request = new Request('http://localhost/x', {
+      headers: new Headers({ Accept: 'application/json' })
+    })
+    const ctx = new Core.Context(request, new URL('http://localhost/x'), {})
+    const res = await Core.Handler.buildResponse(
+      ctx,
+      500,
+      new globalThis.Error('boom'),
+      async () => ret as never
+    )
+    assertEquals(res.status, 500)
+    assertEquals(res.headers.get('Content-Type'), 'application/json')
+    const body = (await res.json()) as { error: string }
+    assertEquals(body.error, 'Internal Server Error')
+  }
+})
+
 Deno.test('Error#buildResponse with errorMiddleware that throws propagates error', async () => {
   const request = new Request('http://localhost/')
   const ctx = new Core.Context(request, new URL('http://localhost/'), {})
   let thrown = false
   try {
-    await Core.Error.buildResponse(ctx, 500, new globalThis.Error('original'), () => {
+    await Core.Handler.buildResponse(ctx, 500, new globalThis.Error('original'), () => {
       throw new globalThis.Error('middleware threw')
     })
   } catch (e) {
@@ -134,7 +173,7 @@ Deno.test('Error#buildResponse with sync errorMiddleware returning null', async 
     headers: new Headers({ Accept: 'application/json' })
   })
   const ctx = new Core.Context(request, new URL('http://localhost/'), {})
-  const res = await Core.Error.buildResponse(ctx, 500, new globalThis.Error('fail'), () => null)
+  const res = await Core.Handler.buildResponse(ctx, 500, new globalThis.Error('fail'), () => null)
   assertEquals(res.status, 500)
   const body = (await res.json()) as { error: string }
   assertEquals(body.error, 'Internal Server Error')
@@ -145,7 +184,7 @@ Deno.test('Error#buildResponse without errorMiddleware returns JSON when Accept 
     headers: new Headers({ Accept: 'application/json' })
   })
   const ctx = new Core.Context(request, new URL('http://localhost/foo'), {})
-  const res = await Core.Error.buildResponse(ctx, 404, new globalThis.Error('gone'), null)
+  const res = await Core.Handler.buildResponse(ctx, 404, new globalThis.Error('gone'), null)
   assertEquals(res.status, 404)
   assertEquals(res.headers.get('Content-Type'), 'application/json')
   const body = (await res.json()) as { error: string; path: string; statusCode: number }
@@ -155,7 +194,7 @@ Deno.test('Error#buildResponse without errorMiddleware returns JSON when Accept 
 })
 
 Deno.test('Error#defaultErrorHtml escapes quotes and apostrophes in message', () => {
-  const html = Core.Error.defaultErrorHtml(500, 'Error "test" & \'value\'')
+  const html = Core.Handler.defaultErrorHtml(500, 'Error "test" & \'value\'')
   assertEquals(html.includes('&quot;test&quot;'), true)
   assertEquals(html.includes('&#39;value&#39;'), true)
   assertEquals(html.includes('&amp;'), true)
@@ -163,35 +202,107 @@ Deno.test('Error#defaultErrorHtml escapes quotes and apostrophes in message', ()
 })
 
 Deno.test('Error#defaultErrorHtml includes status and escaped message', () => {
-  const html = Core.Error.defaultErrorHtml(404, 'Not <found>')
+  const html = Core.Handler.defaultErrorHtml(404, 'Not <found>')
   assertEquals(html.includes('404'), true)
   assertEquals(html.includes('&lt;found&gt;'), true)
   assertEquals(html.includes('<found>'), false)
 })
 
+Deno.test('Error#errorResponse falls back to a hardened HTML response when headers are poisoned', async () => {
+  const request = new Request('http://localhost/')
+  const ctx = new Core.Context(request, new URL('http://localhost/'), {})
+  ;(ctx as unknown as { responseHeaders: Record<string, string> }).responseHeaders['Inva lid'] = 'x'
+  const res = Core.Handler.errorResponse(ctx, 500)
+  assertEquals(res.status, 500)
+  assertEquals(res.headers.get('Content-Type'), 'text/html; charset=utf-8')
+  assertEquals(res.headers.get('X-Content-Type-Options'), 'nosniff')
+  const html = await res.text()
+  assertEquals(html.includes('500'), true)
+  assertEquals(html.includes('Internal Server Error'), true)
+})
+
+Deno.test('Error#errorResponse falls back to a hardened JSON response when headers are poisoned', async () => {
+  const request = new Request('http://localhost/', {
+    headers: new Headers({ Accept: 'application/json' })
+  })
+  const ctx = new Core.Context(request, new URL('http://localhost/'), {})
+  ;(ctx as unknown as { responseHeaders: Record<string, string> }).responseHeaders['Inva lid'] = 'x'
+  const res = Core.Handler.errorResponse(ctx, 500)
+  assertEquals(res.status, 500)
+  assertEquals(res.headers.get('Content-Type'), 'application/json')
+  assertEquals(res.headers.get('X-Content-Type-Options'), 'nosniff')
+  const body = (await res.json()) as { error: string }
+  assertEquals(body.error, 'Internal Server Error')
+})
+
 Deno.test('Error#escapeHtml escapes &, <, >, ", \'', () => {
-  assertEquals(Core.Error.escapeHtml('a & b'), 'a &amp; b')
-  assertEquals(Core.Error.escapeHtml('<script>'), '&lt;script&gt;')
-  assertEquals(Core.Error.escapeHtml('x > 0'), 'x &gt; 0')
-  assertEquals(Core.Error.escapeHtml('"quoted"'), '&quot;quoted&quot;')
-  assertEquals(Core.Error.escapeHtml("it's"), 'it&#39;s')
+  assertEquals(Core.Handler.escapeHtml('a & b'), 'a &amp; b')
+  assertEquals(Core.Handler.escapeHtml('<script>'), '&lt;script&gt;')
+  assertEquals(Core.Handler.escapeHtml('x > 0'), 'x &gt; 0')
+  assertEquals(Core.Handler.escapeHtml('"quoted"'), '&quot;quoted&quot;')
+  assertEquals(Core.Handler.escapeHtml("it's"), 'it&#39;s')
 })
 
 Deno.test('Error#escapeHtml escapes all special chars together', () => {
   assertEquals(
-    Core.Error.escapeHtml('<img src="x" onerror=\'alert(1)\'>&'),
+    Core.Handler.escapeHtml('<img src="x" onerror=\'alert(1)\'>&'),
     '&lt;img src=&quot;x&quot; onerror=&#39;alert(1)&#39;&gt;&amp;'
   )
 })
 
 Deno.test('Error#escapeHtml passes through string with no special chars', () => {
-  assertEquals(Core.Error.escapeHtml('hello world'), 'hello world')
+  assertEquals(Core.Handler.escapeHtml('hello world'), 'hello world')
 })
 
 Deno.test('Error#escapeHtml returns empty string for empty input', () => {
-  assertEquals(Core.Error.escapeHtml(''), '')
+  assertEquals(Core.Handler.escapeHtml(''), '')
 })
 
 Deno.test('Error#escapeHtml with only special characters', () => {
-  assertEquals(Core.Error.escapeHtml('&<>"\''), '&amp;&lt;&gt;&quot;&#39;')
+  assertEquals(Core.Handler.escapeHtml('&<>"\''), '&amp;&lt;&gt;&quot;&#39;')
+})
+
+Deno.test('Error#extractError ignores an out-of-range statusCode carrier', () => {
+  const carrier = Object.assign(new globalThis.Error('x'), { statusCode: 999 })
+  assertEquals(Core.Handler.extractError(carrier).statusCode, 500)
+})
+
+Deno.test('Error#extractError maps Deno.errors.AlreadyExists to 409', () => {
+  assertEquals(Core.Handler.extractError(new Deno.errors.AlreadyExists('x')).statusCode, 409)
+})
+
+Deno.test('Error#extractError maps Deno.errors.InvalidData to 400', () => {
+  assertEquals(Core.Handler.extractError(new Deno.errors.InvalidData('x')).statusCode, 400)
+})
+
+Deno.test('Error#extractError maps Deno.errors.NotFound to 404', () => {
+  assertEquals(Core.Handler.extractError(new Deno.errors.NotFound('x')).statusCode, 404)
+})
+
+Deno.test('Error#extractError maps Deno.errors.NotSupported to 501', () => {
+  assertEquals(Core.Handler.extractError(new Deno.errors.NotSupported('x')).statusCode, 501)
+})
+
+Deno.test('Error#extractError maps Deno.errors.PermissionDenied to 403', () => {
+  assertEquals(Core.Handler.extractError(new Deno.errors.PermissionDenied('x')).statusCode, 403)
+})
+
+Deno.test('Error#extractError maps Deno.errors.TimedOut to 504', () => {
+  assertEquals(Core.Handler.extractError(new Deno.errors.TimedOut('x')).statusCode, 504)
+})
+
+Deno.test('Error#extractError maps a plain Error to 500', () => {
+  assertEquals(Core.Handler.extractError(new globalThis.Error('boom')).statusCode, 500)
+})
+
+Deno.test('Error#extractError preserves a valid statusCode carrier', () => {
+  const carrier = Object.assign(new globalThis.Error('teapot'), { statusCode: 418 })
+  assertEquals(Core.Handler.extractError(carrier).statusCode, 418)
+})
+
+Deno.test('Error#extractError wraps a non-error value as 500', () => {
+  const result = Core.Handler.extractError('plain string failure')
+  assertEquals(result.statusCode, 500)
+  assertEquals(result.error instanceof globalThis.Error, true)
+  assertEquals(result.error.message, 'plain string failure')
 })
