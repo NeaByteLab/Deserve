@@ -1,4 +1,5 @@
 import type * as Types from '@interfaces/index.ts'
+import * as Core from '@core/index.ts'
 import * as Middleware from '@middleware/index.ts'
 
 /**
@@ -12,9 +13,9 @@ export class BodyLimit {
    * @param options - Max size in bytes
    * @returns Middleware that enforces limit
    */
-  static create(options: Types.BodyLimitOptions): Types.Middleware {
+  static create(options: Types.BodyLimitOptions): Types.MiddlewareFn {
     const maxSize = options.limit
-    return Middleware.Utils.wrapMiddleware('Body limit error', async (ctx, next) => {
+    return Middleware.WrapMware('Body limit error', async (ctx, next) => {
       if (ctx.request.method === 'GET' || ctx.request.method === 'HEAD') {
         return await next()
       }
@@ -29,14 +30,14 @@ export class BodyLimit {
       }
       const requestBody = ctx.request.body
       if (requestBody) {
-        const limited = BodyLimit.createLimitStream(requestBody, maxSize)
-        const newReq = new Request(ctx.request.url, {
+        const limitedStream = BodyLimit.createLimitStream(requestBody, maxSize)
+        const limitedRequest = new Request(ctx.request.url, {
           method: ctx.request.method,
           headers: ctx.request.headers,
-          body: limited,
+          body: limitedStream,
           duplex: 'half'
         } as RequestInit)
-        ctx.replaceRequest(newReq)
+        ctx.replaceRequest(limitedRequest)
       }
       return await next()
     })
@@ -69,11 +70,9 @@ export class BodyLimit {
             bytesRead += value.length
             if (bytesRead > maxBytes) {
               reader.cancel()
-              const sizeError = new Deno.errors.InvalidData(
-                `Request body exceeds ${maxBytes} bytes limit`
-              ) as Types.StatusError
-              sizeError.statusCode = 413
-              controller.error(sizeError)
+              controller.error(
+                Core.Handler.createStatusError(413, `Request body exceeds ${maxBytes} bytes limit`)
+              )
               return
             }
             controller.enqueue(value)
