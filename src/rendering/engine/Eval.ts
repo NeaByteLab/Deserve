@@ -1,4 +1,5 @@
 import type * as Types from '@interfaces/index.ts'
+import * as Core from '@core/index.ts'
 import * as EngineParts from '@rendering/engine/index.ts'
 
 /**
@@ -6,10 +7,6 @@ import * as EngineParts from '@rendering/engine/index.ts'
  * @description Evaluates expression AST against scope object.
  */
 export class Eval {
-  /** Simple dotted path regex */
-  private static readonly simplePathRegex =
-    /^[a-zA-Z_$][a-zA-Z0-9_$]*(\.[a-zA-Z_$][a-zA-Z0-9_$]*)*$/
-
   /**
    * Evaluate expression in scope.
    * @description Tokenizes, parses, and evaluates expression.
@@ -23,122 +20,170 @@ export class Eval {
     if (!trimmedExpression) {
       return undefined
     }
-    if (Eval.simplePathRegex.test(trimmedExpression)) {
+    if (Core.Constant.simplePathRegex.test(trimmedExpression)) {
       return EngineParts.Utils.lookup(scope, trimmedExpression)
     }
-    const tokens = EngineParts.Tokenizer.tokenize(trimmedExpression)
-    const parser = new EngineParts.Expression(tokens)
-    const astNode = parser.parse()
-    parser.assertEnd()
+    const exprTokens = EngineParts.Tokenizer.tokenize(trimmedExpression)
+    const exprParser = new EngineParts.Expression(exprTokens)
+    const astNode = exprParser.parse()
+    exprParser.assertEnd()
     return Eval.evalNode(astNode, scope)
   }
 
   /**
+   * Evaluate binary expression node.
+   * @description Short-circuits logical ops, else applies the operator.
+   * @param exprNode - Binary AST node
+   * @param scope - Scope data for identifiers
+   * @returns Evaluated value
+   * @throws {Deno.errors.InvalidData} When the operator is not whitelisted
+   */
+  private static evalBinary(
+    exprNode: Extract<Types.ExprNode, { type: 'binary' }>,
+    scope: Types.DataRecord
+  ): unknown {
+    if (exprNode.op === '&&') {
+      const leftValue = Eval.evalNode(exprNode.left, scope)
+      return leftValue ? Eval.evalNode(exprNode.right, scope) : leftValue
+    }
+    if (exprNode.op === '||') {
+      const leftValue = Eval.evalNode(exprNode.left, scope)
+      return leftValue ? leftValue : Eval.evalNode(exprNode.right, scope)
+    }
+    if (exprNode.op === '??') {
+      const leftValue = Eval.evalNode(exprNode.left, scope)
+      return leftValue === null || leftValue === undefined
+        ? Eval.evalNode(exprNode.right, scope)
+        : leftValue
+    }
+    const leftValue = Eval.evalNode(exprNode.left, scope)
+    const rightValue = Eval.evalNode(exprNode.right, scope)
+    switch (exprNode.op) {
+      case '===':
+        return leftValue === rightValue
+      case '!==':
+        return leftValue !== rightValue
+      case '==':
+        return leftValue == rightValue
+      case '!=':
+        return leftValue != rightValue
+      case '>':
+        return (leftValue as never) > (rightValue as never)
+      case '<':
+        return (leftValue as never) < (rightValue as never)
+      case '>=':
+        return (leftValue as never) >= (rightValue as never)
+      case '<=':
+        return (leftValue as never) <= (rightValue as never)
+      case '+':
+        return (leftValue as never) + (rightValue as never)
+      case '-':
+        return (leftValue as never) - (rightValue as never)
+      case '*':
+        return (leftValue as never) * (rightValue as never)
+      case '/':
+        return (leftValue as never) / (rightValue as never)
+      case '%':
+        return (leftValue as never) % (rightValue as never)
+      default:
+        throw new Deno.errors.InvalidData(
+          `Unsupported DVE binary operator "${(exprNode as Types.ExprOpCarrier).op}"`
+        )
+    }
+  }
+
+  /**
+   * Resolve identifier to keyword or scope.
+   * @description Keywords return literals; names read own scope properties.
+   * @param identName - Identifier name
+   * @param scope - Scope data for identifiers
+   * @returns Resolved value
+   */
+  private static evalIdent(identName: string, scope: Types.DataRecord): unknown {
+    switch (identName) {
+      case 'true':
+        return true
+      case 'false':
+        return false
+      case 'null':
+        return null
+      case 'undefined':
+        return undefined
+      default:
+        return Object.hasOwn(scope, identName) ? scope[identName] : undefined
+    }
+  }
+
+  /**
+   * Resolve member access to own property.
+   * @description Reads only own properties via Object.hasOwn.
+   * @param exprNode - Member AST node
+   * @param scope - Scope data for identifiers
+   * @returns Resolved value or undefined
+   */
+  private static evalMember(
+    exprNode: Extract<Types.ExprNode, { type: 'member' }>,
+    scope: Types.DataRecord
+  ): unknown {
+    const objectValue = Eval.evalNode(exprNode.object, scope)
+    return EngineParts.Utils.readOwn(objectValue, exprNode.property)
+  }
+
+  /**
    * Evaluate single AST node.
-   * @description Recursively evaluates literal, ident, member, ops.
+   * @description Whitelist dispatch rejecting any unknown node type.
    * @param exprNode - Expression AST node
    * @param scope - Scope data for identifiers
    * @returns Evaluated value
+   * @throws {Deno.errors.InvalidData} When the node type is not whitelisted
    */
   private static evalNode(exprNode: Types.ExprNode, scope: Types.DataRecord): unknown {
-    if (exprNode.type === 'literal') {
-      return exprNode.value
+    switch (exprNode.type) {
+      case 'literal':
+        return exprNode.value
+      case 'ident':
+        return Eval.evalIdent(exprNode.name, scope)
+      case 'member':
+        return Eval.evalMember(exprNode, scope)
+      case 'unary':
+        return Eval.evalUnary(exprNode, scope)
+      case 'binary':
+        return Eval.evalBinary(exprNode, scope)
+      case 'ternary':
+        return Eval.evalNode(exprNode.test, scope)
+          ? Eval.evalNode(exprNode.consequent, scope)
+          : Eval.evalNode(exprNode.alternate, scope)
+      default:
+        throw new Deno.errors.InvalidData(
+          `Unsupported DVE expression node "${(exprNode as Types.ExprTypeCarrier).type}"`
+        )
     }
-    if (exprNode.type === 'ident') {
-      if (exprNode.name === 'true') {
-        return true
-      }
-      if (exprNode.name === 'false') {
-        return false
-      }
-      if (exprNode.name === 'null') {
-        return null
-      }
-      if (exprNode.name === 'undefined') {
-        return undefined
-      }
-      return Object.hasOwn(scope, exprNode.name) ? scope[exprNode.name] : undefined
-    }
-    if (exprNode.type === 'member') {
-      const objectValue = Eval.evalNode(exprNode.object, scope)
-      if (objectValue === null || objectValue === undefined) {
-        return undefined
-      }
-      if (typeof objectValue !== 'object') {
-        return undefined
-      }
-      if (!Object.hasOwn(objectValue as Types.DataRecord, exprNode.property)) {
-        return undefined
-      }
-      return (objectValue as Types.DataRecord)[exprNode.property]
-    }
-    if (exprNode.type === 'unary') {
-      const argValue = Eval.evalNode(exprNode.arg, scope)
-      if (exprNode.op === '!') {
+  }
+
+  /**
+   * Evaluate unary expression node.
+   * @description Rejects any operator outside the unary grammar.
+   * @param exprNode - Unary AST node
+   * @param scope - Scope data for identifiers
+   * @returns Evaluated value
+   * @throws {Deno.errors.InvalidData} When the operator is not whitelisted
+   */
+  private static evalUnary(
+    exprNode: Extract<Types.ExprNode, { type: 'unary' }>,
+    scope: Types.DataRecord
+  ): unknown {
+    const argValue = Eval.evalNode(exprNode.arg, scope)
+    switch (exprNode.op) {
+      case '!':
         return !argValue
-      }
-      if (exprNode.op === '+') {
+      case '+':
         return typeof argValue === 'number' ? argValue : Number(argValue)
-      }
-      if (exprNode.op === '-') {
+      case '-':
         return -(typeof argValue === 'number' ? argValue : Number(argValue))
-      }
-      return undefined
+      default:
+        throw new Deno.errors.InvalidData(
+          `Unsupported DVE unary operator "${(exprNode as Types.ExprOpCarrier).op}"`
+        )
     }
-    if (exprNode.type === 'binary') {
-      if (exprNode.op === '&&') {
-        const leftValue = Eval.evalNode(exprNode.left, scope)
-        return leftValue ? Eval.evalNode(exprNode.right, scope) : leftValue
-      }
-      if (exprNode.op === '||') {
-        const leftValue = Eval.evalNode(exprNode.left, scope)
-        return leftValue ? leftValue : Eval.evalNode(exprNode.right, scope)
-      }
-      if (exprNode.op === '??') {
-        const leftValue = Eval.evalNode(exprNode.left, scope)
-        return leftValue === null || leftValue === undefined
-          ? Eval.evalNode(exprNode.right, scope)
-          : leftValue
-      }
-      const leftValue = Eval.evalNode(exprNode.left, scope)
-      const rightValue = Eval.evalNode(exprNode.right, scope)
-      switch (exprNode.op) {
-        case '===':
-          return leftValue === rightValue
-        case '!==':
-          return leftValue !== rightValue
-        case '==':
-          return leftValue == rightValue
-        case '!=':
-          return leftValue != rightValue
-        case '>':
-          return (leftValue as never) > (rightValue as never)
-        case '<':
-          return (leftValue as never) < (rightValue as never)
-        case '>=':
-          return (leftValue as never) >= (rightValue as never)
-        case '<=':
-          return (leftValue as never) <= (rightValue as never)
-        case '+':
-          return (leftValue as never) + (rightValue as never)
-        case '-':
-          return (leftValue as never) - (rightValue as never)
-        case '*':
-          return (leftValue as never) * (rightValue as never)
-        case '/':
-          return (leftValue as never) / (rightValue as never)
-        case '%':
-          return (leftValue as never) % (rightValue as never)
-        default:
-          return undefined
-      }
-    }
-    if (exprNode.type === 'ternary') {
-      const testValue = Eval.evalNode(exprNode.test, scope)
-      return testValue
-        ? Eval.evalNode(exprNode.consequent, scope)
-        : Eval.evalNode(exprNode.alternate, scope)
-    }
-    return undefined
   }
 }
