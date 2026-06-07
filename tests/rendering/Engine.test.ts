@@ -1,9 +1,10 @@
+import type * as Types from '@interfaces/index.ts'
 import { assertEquals, assertRejects } from '@std/assert'
 import { fileURLToPath } from 'node:url'
 import * as Rendering from '@rendering/index.ts'
 
 Deno.test('Engine#invalidateFile clears cache so template is reloaded', async () => {
-  const viewsDir = fileURLToPath(new URL('../fixtures/views/', import.meta.url)).replace(
+  const viewsDir = fileURLToPath(import.meta.resolve('@tests/fixtures/views/')).replace(
     /[\\/]$/,
     ''
   )
@@ -16,8 +17,27 @@ Deno.test('Engine#invalidateFile clears cache so template is reloaded', async ()
   assertEquals(second.trim(), 'Hello B.')
 })
 
+Deno.test('Engine#notifyRefresh emits a view:refreshed event with the changed paths', () => {
+  const viewsDir = fileURLToPath(import.meta.resolve('@tests/fixtures/views/')).replace(
+    /[\\/]$/,
+    ''
+  )
+  const events: Types.EventBase[] = []
+  const engine = new Rendering.Engine({ viewsDir, emit: (event) => events.push(event) })
+  engine.notifyRefresh(['/v.dve'])
+  assertEquals(events.length, 1)
+  const refreshed = events[0] as {
+    type: string
+    kind: string
+    metadata: { paths: readonly string[] }
+  }
+  assertEquals(refreshed.kind, 'view:refreshed')
+  assertEquals(refreshed.type, 'internal')
+  assertEquals(refreshed.metadata.paths, ['/v.dve'])
+})
+
 Deno.test('Engine#refreshPaths resets discovered paths', async () => {
-  const viewsDir = fileURLToPath(new URL('../fixtures/views/', import.meta.url)).replace(
+  const viewsDir = fileURLToPath(import.meta.resolve('@tests/fixtures/views/')).replace(
     /[\\/]$/,
     ''
   )
@@ -29,7 +49,7 @@ Deno.test('Engine#refreshPaths resets discovered paths', async () => {
 })
 
 Deno.test('Engine#render appends .dve when omitted', async () => {
-  const viewsDir = fileURLToPath(new URL('../fixtures/views/', import.meta.url)).replace(
+  const viewsDir = fileURLToPath(import.meta.resolve('@tests/fixtures/views/')).replace(
     /[\\/]$/,
     ''
   )
@@ -39,7 +59,7 @@ Deno.test('Engine#render appends .dve when omitted', async () => {
 })
 
 Deno.test('Engine#render caches compiled template', async () => {
-  const viewsDir = fileURLToPath(new URL('../fixtures/views/', import.meta.url)).replace(
+  const viewsDir = fileURLToPath(import.meta.resolve('@tests/fixtures/views/')).replace(
     /[\\/]$/,
     ''
   )
@@ -50,8 +70,18 @@ Deno.test('Engine#render caches compiled template', async () => {
   assertEquals(second.trim(), 'Hello B.')
 })
 
+Deno.test('Engine#render each does not resolve item prototype members', async () => {
+  const viewsDir = fileURLToPath(import.meta.resolve('@tests/fixtures/views/')).replace(
+    /[\\/]$/,
+    ''
+  )
+  const engine = new Rendering.Engine({ viewsDir })
+  const html = await engine.render('each-proto.dve', { items: [{ x: 1 }] })
+  assertEquals(html.trim(), '[]')
+})
+
 Deno.test('Engine#render each exposes @index/@first/@last/@length', async () => {
-  const viewsDir = fileURLToPath(new URL('../fixtures/views/', import.meta.url)).replace(
+  const viewsDir = fileURLToPath(import.meta.resolve('@tests/fixtures/views/')).replace(
     /[\\/]$/,
     ''
   )
@@ -60,8 +90,18 @@ Deno.test('Engine#render each exposes @index/@first/@last/@length', async () => 
   assertEquals(html.trim(), '(0/3 F-=a);(1/3 --=b);(2/3 -L=c);')
 })
 
+Deno.test('Engine#render each exposes parent-scope variables inside the loop', async () => {
+  const viewsDir = fileURLToPath(import.meta.resolve('@tests/fixtures/views/')).replace(
+    /[\\/]$/,
+    ''
+  )
+  const engine = new Rendering.Engine({ viewsDir })
+  const html = await engine.render('each-parent.dve', { title: 'T', items: ['a', 'b'] })
+  assertEquals(html.trim(), 'T:a;T:b;')
+})
+
 Deno.test('Engine#render each renders all items', async () => {
-  const viewsDir = fileURLToPath(new URL('../fixtures/views/', import.meta.url)).replace(
+  const viewsDir = fileURLToPath(import.meta.resolve('@tests/fixtures/views/')).replace(
     /[\\/]$/,
     ''
   )
@@ -71,7 +111,7 @@ Deno.test('Engine#render each renders all items', async () => {
 })
 
 Deno.test('Engine#render each with empty array renders nothing', async () => {
-  const viewsDir = fileURLToPath(new URL('../fixtures/views/', import.meta.url)).replace(
+  const viewsDir = fileURLToPath(import.meta.resolve('@tests/fixtures/views/')).replace(
     /[\\/]$/,
     ''
   )
@@ -81,7 +121,7 @@ Deno.test('Engine#render each with empty array renders nothing', async () => {
 })
 
 Deno.test('Engine#render each with non-array data renders nothing', async () => {
-  const viewsDir = fileURLToPath(new URL('../fixtures/views/', import.meta.url)).replace(
+  const viewsDir = fileURLToPath(import.meta.resolve('@tests/fixtures/views/')).replace(
     /[\\/]$/,
     ''
   )
@@ -91,7 +131,7 @@ Deno.test('Engine#render each with non-array data renders nothing', async () => 
 })
 
 Deno.test('Engine#render each with null data renders nothing', async () => {
-  const viewsDir = fileURLToPath(new URL('../fixtures/views/', import.meta.url)).replace(
+  const viewsDir = fileURLToPath(import.meta.resolve('@tests/fixtures/views/')).replace(
     /[\\/]$/,
     ''
   )
@@ -100,8 +140,39 @@ Deno.test('Engine#render each with null data renders nothing', async () => {
   assertEquals(html.trim(), '')
 })
 
+Deno.test('Engine#render emits view:compiled only once across cached renders', async () => {
+  const viewsDir = fileURLToPath(import.meta.resolve('@tests/fixtures/views/')).replace(
+    /[\\/]$/,
+    ''
+  )
+  const events: Types.EventBase[] = []
+  const engine = new Rendering.Engine({ viewsDir, emit: (event) => events.push(event) })
+  await engine.render('hello.dve', { name: 'A' })
+  await engine.render('hello.dve', { name: 'B' })
+  assertEquals(events.filter((event) => event.kind === 'view:compiled').length, 1)
+  assertEquals(events.filter((event) => event.kind === 'view:rendered').length, 2)
+})
+
+Deno.test('Engine#render emits view:compiled then view:rendered with timing', async () => {
+  const viewsDir = fileURLToPath(import.meta.resolve('@tests/fixtures/views/')).replace(
+    /[\\/]$/,
+    ''
+  )
+  const events: Types.EventBase[] = []
+  const engine = new Rendering.Engine({ viewsDir, emit: (event) => events.push(event) })
+  await engine.render('hello.dve', { name: 'X' })
+  assertEquals(events.map((event) => event.kind), ['view:compiled', 'view:rendered'])
+  assertEquals(events.every((event) => event.type === 'internal'), true)
+  const rendered = events.find((event) => event.kind === 'view:rendered') as
+    | { metadata: { path: string; durationMs: number } }
+    | undefined
+  assertEquals(rendered?.metadata.path, 'hello.dve')
+  assertEquals(typeof rendered?.metadata.durationMs, 'number')
+  assertEquals((rendered?.metadata.durationMs ?? -1) >= 0, true)
+})
+
 Deno.test('Engine#render escapes variable by default', async () => {
-  const viewsDir = fileURLToPath(new URL('../fixtures/views/', import.meta.url)).replace(
+  const viewsDir = fileURLToPath(import.meta.resolve('@tests/fixtures/views/')).replace(
     /[\\/]$/,
     ''
   )
@@ -111,7 +182,7 @@ Deno.test('Engine#render escapes variable by default', async () => {
 })
 
 Deno.test('Engine#render if/else chooses correct branch', async () => {
-  const viewsDir = fileURLToPath(new URL('../fixtures/views/', import.meta.url)).replace(
+  const viewsDir = fileURLToPath(import.meta.resolve('@tests/fixtures/views/')).replace(
     /[\\/]$/,
     ''
   )
@@ -123,7 +194,7 @@ Deno.test('Engine#render if/else chooses correct branch', async () => {
 })
 
 Deno.test('Engine#render include renders nested template', async () => {
-  const viewsDir = fileURLToPath(new URL('../fixtures/views/', import.meta.url)).replace(
+  const viewsDir = fileURLToPath(import.meta.resolve('@tests/fixtures/views/')).replace(
     /[\\/]$/,
     ''
   )
@@ -132,8 +203,20 @@ Deno.test('Engine#render include renders nested template', async () => {
   assertEquals(html.trim(), 'Hello Nea.')
 })
 
+Deno.test('Engine#render nested each keeps outer-scope variables visible', async () => {
+  const viewsDir = fileURLToPath(import.meta.resolve('@tests/fixtures/views/')).replace(
+    /[\\/]$/,
+    ''
+  )
+  const engine = new Rendering.Engine({ viewsDir })
+  const html = await engine.render('each-nested.dve', {
+    groups: [{ name: 'G1', items: [1, 2] }, { name: 'G2', items: [3] }]
+  })
+  assertEquals(html.trim(), 'G1-1,G1-2,G2-3,')
+})
+
 Deno.test('Engine#render nested if/else works correctly', async () => {
-  const viewsDir = fileURLToPath(new URL('../fixtures/views/', import.meta.url)).replace(
+  const viewsDir = fileURLToPath(import.meta.resolve('@tests/fixtures/views/')).replace(
     /[\\/]$/,
     ''
   )
@@ -147,7 +230,7 @@ Deno.test('Engine#render nested if/else works correctly', async () => {
 })
 
 Deno.test('Engine#render raw var (triple braces) does not escape', async () => {
-  const viewsDir = fileURLToPath(new URL('../fixtures/views/', import.meta.url)).replace(
+  const viewsDir = fileURLToPath(import.meta.resolve('@tests/fixtures/views/')).replace(
     /[\\/]$/,
     ''
   )
@@ -157,7 +240,7 @@ Deno.test('Engine#render raw var (triple braces) does not escape', async () => {
 })
 
 Deno.test('Engine#render rejects else without if', async () => {
-  const viewsDir = fileURLToPath(new URL('../fixtures/views/', import.meta.url)).replace(
+  const viewsDir = fileURLToPath(import.meta.resolve('@tests/fixtures/views/')).replace(
     /[\\/]$/,
     ''
   )
@@ -170,7 +253,7 @@ Deno.test('Engine#render rejects else without if', async () => {
 })
 
 Deno.test('Engine#render rejects unclosed block', async () => {
-  const viewsDir = fileURLToPath(new URL('../fixtures/views/', import.meta.url)).replace(
+  const viewsDir = fileURLToPath(import.meta.resolve('@tests/fixtures/views/')).replace(
     /[\\/]$/,
     ''
   )
@@ -183,7 +266,7 @@ Deno.test('Engine#render rejects unclosed block', async () => {
 })
 
 Deno.test('Engine#render renders simple variable', async () => {
-  const viewsDir = fileURLToPath(new URL('../fixtures/views/', import.meta.url)).replace(
+  const viewsDir = fileURLToPath(import.meta.resolve('@tests/fixtures/views/')).replace(
     /[\\/]$/,
     ''
   )
@@ -193,7 +276,7 @@ Deno.test('Engine#render renders simple variable', async () => {
 })
 
 Deno.test('Engine#render security: assignment is rejected', async () => {
-  const viewsDir = fileURLToPath(new URL('../fixtures/views/', import.meta.url)).replace(
+  const viewsDir = fileURLToPath(import.meta.resolve('@tests/fixtures/views/')).replace(
     /[\\/]$/,
     ''
   )
@@ -202,7 +285,7 @@ Deno.test('Engine#render security: assignment is rejected', async () => {
 })
 
 Deno.test('Engine#render security: bracket indexing is rejected', async () => {
-  const viewsDir = fileURLToPath(new URL('../fixtures/views/', import.meta.url)).replace(
+  const viewsDir = fileURLToPath(import.meta.resolve('@tests/fixtures/views/')).replace(
     /[\\/]$/,
     ''
   )
@@ -211,7 +294,7 @@ Deno.test('Engine#render security: bracket indexing is rejected', async () => {
 })
 
 Deno.test('Engine#render security: escaped output prevents basic XSS payload', async () => {
-  const viewsDir = fileURLToPath(new URL('../fixtures/views/', import.meta.url)).replace(
+  const viewsDir = fileURLToPath(import.meta.resolve('@tests/fixtures/views/')).replace(
     /[\\/]$/,
     ''
   )
@@ -225,7 +308,7 @@ Deno.test('Engine#render security: escaped output prevents basic XSS payload', a
 })
 
 Deno.test('Engine#render security: function call expression is rejected', async () => {
-  const viewsDir = fileURLToPath(new URL('../fixtures/views/', import.meta.url)).replace(
+  const viewsDir = fileURLToPath(import.meta.resolve('@tests/fixtures/views/')).replace(
     /[\\/]$/,
     ''
   )
@@ -234,7 +317,7 @@ Deno.test('Engine#render security: function call expression is rejected', async 
 })
 
 Deno.test('Engine#render security: include path traversal is blocked by discover set', async () => {
-  const viewsDir = fileURLToPath(new URL('../fixtures/views/', import.meta.url)).replace(
+  const viewsDir = fileURLToPath(import.meta.resolve('@tests/fixtures/views/')).replace(
     /[\\/]$/,
     ''
   )
@@ -247,7 +330,7 @@ Deno.test('Engine#render security: include path traversal is blocked by discover
 })
 
 Deno.test('Engine#render security: raw output renders payload as-is (XSS risk)', async () => {
-  const viewsDir = fileURLToPath(new URL('../fixtures/views/', import.meta.url)).replace(
+  const viewsDir = fileURLToPath(import.meta.resolve('@tests/fixtures/views/')).replace(
     /[\\/]$/,
     ''
   )
@@ -257,8 +340,21 @@ Deno.test('Engine#render security: raw output renders payload as-is (XSS risk)',
   assertEquals(html.trim(), payload)
 })
 
+Deno.test('Engine#render security: self-including template is stopped by include depth limit', async () => {
+  const viewsDir = fileURLToPath(import.meta.resolve('@tests/fixtures/views/')).replace(
+    /[\\/]$/,
+    ''
+  )
+  const engine = new Rendering.Engine({ viewsDir })
+  await assertRejects(
+    () => engine.render('each-recurse.dve', {}),
+    Deno.errors.InvalidData,
+    'include depth'
+  )
+})
+
 Deno.test('Engine#render security: unterminated string literal is rejected', async () => {
-  const viewsDir = fileURLToPath(new URL('../fixtures/views/', import.meta.url)).replace(
+  const viewsDir = fileURLToPath(import.meta.resolve('@tests/fixtures/views/')).replace(
     /[\\/]$/,
     ''
   )
@@ -271,7 +367,7 @@ Deno.test('Engine#render security: unterminated string literal is rejected', asy
 })
 
 Deno.test('Engine#render supports JS-like expressions in {{ ... }}', async () => {
-  const viewsDir = fileURLToPath(new URL('../fixtures/views/', import.meta.url)).replace(
+  const viewsDir = fileURLToPath(import.meta.resolve('@tests/fixtures/views/')).replace(
     /[\\/]$/,
     ''
   )
@@ -294,7 +390,7 @@ Deno.test('Engine#render throws when template not found', async () => {
 })
 
 Deno.test('Engine#render variable with undefined value renders empty', async () => {
-  const viewsDir = fileURLToPath(new URL('../fixtures/views/', import.meta.url)).replace(
+  const viewsDir = fileURLToPath(import.meta.resolve('@tests/fixtures/views/')).replace(
     /[\\/]$/,
     ''
   )
@@ -304,7 +400,7 @@ Deno.test('Engine#render variable with undefined value renders empty', async () 
 })
 
 Deno.test('Engine#render with backslash in path normalizes', async () => {
-  const viewsDir = fileURLToPath(new URL('../fixtures/views/', import.meta.url)).replace(
+  const viewsDir = fileURLToPath(import.meta.resolve('@tests/fixtures/views/')).replace(
     /[\\/]$/,
     ''
   )
@@ -314,7 +410,7 @@ Deno.test('Engine#render with backslash in path normalizes', async () => {
 })
 
 Deno.test('Engine#render with empty data object', async () => {
-  const viewsDir = fileURLToPath(new URL('../fixtures/views/', import.meta.url)).replace(
+  const viewsDir = fileURLToPath(import.meta.resolve('@tests/fixtures/views/')).replace(
     /[\\/]$/,
     ''
   )
@@ -324,7 +420,7 @@ Deno.test('Engine#render with empty data object', async () => {
 })
 
 Deno.test('Engine#render with null variable value renders empty', async () => {
-  const viewsDir = fileURLToPath(new URL('../fixtures/views/', import.meta.url)).replace(
+  const viewsDir = fileURLToPath(import.meta.resolve('@tests/fixtures/views/')).replace(
     /[\\/]$/,
     ''
   )
@@ -336,7 +432,7 @@ Deno.test('Engine#render with null variable value renders empty', async () => {
 Deno.test({
   name: 'Engine#streamRender produces correct output',
   fn: async () => {
-    const viewsDir = fileURLToPath(new URL('../fixtures/views/', import.meta.url)).replace(
+    const viewsDir = fileURLToPath(import.meta.resolve('@tests/fixtures/views/')).replace(
       /[\\/]$/,
       ''
     )
@@ -358,7 +454,7 @@ Deno.test({
 })
 
 Deno.test('Engine#streamRender returns ReadableStream response', () => {
-  const viewsDir = fileURLToPath(new URL('../fixtures/views/', import.meta.url)).replace(
+  const viewsDir = fileURLToPath(import.meta.resolve('@tests/fixtures/views/')).replace(
     /[\\/]$/,
     ''
   )
@@ -383,4 +479,10 @@ Deno.test({
 Deno.test('Engine#viewsDir returns configured directory', () => {
   const engine = new Rendering.Engine({ viewsDir: '/tmp/views' })
   assertEquals(engine.viewsDir, '/tmp/views')
+})
+
+Deno.test('Watcher#watch skips a non-existent views directory without throwing', () => {
+  const engine = new Rendering.Engine({ viewsDir: './does-not-exist-views-dir-xyz' })
+  Rendering.Watcher.watch(engine)
+  assertEquals(true, true)
 })

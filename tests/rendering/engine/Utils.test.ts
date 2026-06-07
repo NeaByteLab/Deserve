@@ -53,8 +53,52 @@ Deno.test('Utils#join with empty root', () => {
   assertEquals(Utils.join('', 'file.dve'), '/file.dve')
 })
 
+Deno.test('Utils#lookup does not resolve inherited __proto__', () => {
+  assertEquals(Utils.lookup({}, '__proto__'), undefined)
+})
+
+Deno.test('Utils#lookup does not resolve inherited constructor', () => {
+  assertEquals(Utils.lookup({}, 'constructor'), undefined)
+})
+
+Deno.test('Utils#lookup does not resolve inherited member mid-path', () => {
+  assertEquals(Utils.lookup({ a: { x: 1 } }, 'a.constructor'), undefined)
+})
+
+Deno.test('Utils#lookup does not resolve inherited toString', () => {
+  assertEquals(Utils.lookup({}, 'toString'), undefined)
+})
+
+Deno.test('Utils#lookup does not resolve string prototype __proto__', () => {
+  assertEquals(Utils.lookup({ s: 'abc' }, 's.__proto__'), undefined)
+})
+
+Deno.test('Utils#lookup does not resolve string prototype constructor', () => {
+  assertEquals(Utils.lookup({ s: 'abc' }, 's.constructor'), undefined)
+})
+
+Deno.test('Utils#lookup does not resolve string prototype method', () => {
+  assertEquals(Utils.lookup({ s: 'abc' }, 's.toUpperCase'), undefined)
+})
+
 Deno.test('Utils#lookup handles empty segments in path', () => {
   assertEquals(Utils.lookup({ a: { b: 1 } }, 'a..b'), 1)
+})
+
+Deno.test('Utils#lookup reads a nested string length through a multi-segment path', () => {
+  assertEquals(Utils.lookup({ obj: { s: 'hello' } }, 'obj.s.length'), 5)
+})
+
+Deno.test('Utils#lookup reads own char index of a string primitive', () => {
+  assertEquals(Utils.lookup({ s: 'hi' }, 's.1'), 'i')
+})
+
+Deno.test('Utils#lookup reads own length of a string primitive', () => {
+  assertEquals(Utils.lookup({ s: 'hello' }, 's.length'), 5)
+})
+
+Deno.test('Utils#lookup resolves an own key that shadows a builtin name', () => {
+  assertEquals(Utils.lookup({ toString: 'mine' }, 'toString'), 'mine')
 })
 
 Deno.test('Utils#lookup resolves dotted path', () => {
@@ -68,6 +112,10 @@ Deno.test('Utils#lookup resolves simple key', () => {
 Deno.test('Utils#lookup returns root object for empty path', () => {
   const obj = { x: 1 }
   assertEquals(Utils.lookup(obj, ''), obj)
+})
+
+Deno.test('Utils#lookup returns undefined for an out-of-range string char index', () => {
+  assertEquals(Utils.lookup({ s: 'hi' }, 's.5'), undefined)
 })
 
 Deno.test('Utils#lookup returns undefined for missing path', () => {

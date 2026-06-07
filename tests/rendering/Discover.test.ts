@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url'
 import * as Rendering from '@rendering/index.ts'
 
 Deno.test('Discover#discoverPaths finds .dve files in directory', async () => {
-  const fixtureDir = fileURLToPath(new URL('../fixtures/static/', import.meta.url)).replace(
+  const fixtureDir = fileURLToPath(import.meta.resolve('@tests/fixtures/static/')).replace(
     /[\\/]$/,
     ''
   )
@@ -12,7 +12,7 @@ Deno.test('Discover#discoverPaths finds .dve files in directory', async () => {
 })
 
 Deno.test('Discover#discoverPaths finds .dve files in views directory', async () => {
-  const viewsDir = fileURLToPath(new URL('../fixtures/views/', import.meta.url)).replace(
+  const viewsDir = fileURLToPath(import.meta.resolve('@tests/fixtures/views/')).replace(
     /[\\/]$/,
     ''
   )
@@ -33,7 +33,7 @@ Deno.test('Discover#discoverPaths returns empty set for non-existent dir', async
 })
 
 Deno.test('Discover#discoverPaths returns Set type', async () => {
-  const viewsDir = fileURLToPath(new URL('../fixtures/views/', import.meta.url)).replace(
+  const viewsDir = fileURLToPath(import.meta.resolve('@tests/fixtures/views/')).replace(
     /[\\/]$/,
     ''
   )
