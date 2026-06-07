@@ -1,45 +1,127 @@
 import type * as Core from '@core/index.ts'
-import type { StaticFileHandler } from '@interfaces/Static.ts'
-import type { MaybeAsync } from '@interfaces/Utility.ts'
+import type { ContextFn, HttpMethod } from '@interfaces/index.ts'
+
+/** Basic Auth middleware options. */
+export interface BasicAuthOptions {
+  /** Allowed user credentials list */
+  readonly users: readonly BasicAuthUser[]
+}
+
+/** Single Basic Auth user credential. */
+export interface BasicAuthUser {
+  /** Login username string */
+  readonly username: string
+  /** Login password string */
+  readonly password: string
+}
+
+/** Body size limit middleware options. */
+export interface BodyLimitOptions {
+  /** Maximum body size in bytes */
+  readonly limit: number
+}
+
+/** CORS middleware options. */
+export interface CorsOptions {
+  /** Allowed request header names */
+  readonly allowedHeaders?: readonly string[]
+  /** Allow credentials in requests */
+  readonly credentials?: boolean
+  /** Headers exposed to client scripts */
+  readonly exposedHeaders?: readonly string[]
+  /** Preflight cache duration in seconds */
+  readonly maxAge?: number
+  /** Allowed HTTP methods for CORS */
+  readonly methods?: readonly HttpMethod[]
+  /** Allowed origin or origin list */
+  readonly origin?: string | readonly string[]
+}
 
 /** Middleware bound to optional path. */
 export interface MiddlewareEntry {
-  /** Middleware function */
-  readonly handler: Middleware
-  /** Path prefix or exact match */
+  /** Middleware handler function */
+  readonly handler: MiddlewareFn
+  /** Path prefix to match */
   readonly path: string
 }
 
-/** Route match result with handler. */
-export interface RouteMetadata {
-  /** Route or static file handler */
-  readonly handler: RouteHandler | StaticFileHandler
-  /** Path pattern used for matching */
-  readonly pattern: string
+/** Session middleware cookie options. */
+export interface SessionOptions {
+  /** Session cookie name */
+  readonly cookieName?: string
+  /** Secret key for cookie signing */
+  readonly cookieSecret: string
+  /** Restrict cookie to HTTP only */
+  readonly httpOnly?: boolean
+  /** Cookie expiry in seconds */
+  readonly maxAge?: number
+  /** Cookie path scope */
+  readonly path?: string
+  /** SameSite cookie policy attribute */
+  readonly sameSite?: SameSitePolicy
+  /** Require HTTPS for cookie */
+  readonly secure?: boolean
 }
 
-/** Async-only middleware result derived from MiddlewareResult. */
+/** WebSocket upgrade middleware options. */
+export interface WebSocketOptions {
+  /** Allowed handshake origins or wildcard */
+  readonly allowedOrigins?: readonly string[] | '*'
+  /** Listener event name override */
+  readonly listener?: string
+  /** Called on socket connection open */
+  readonly onConnect?: SocketCallback<Event>
+  /** Called on socket connection close */
+  readonly onDisconnect?: SocketCallback<CloseEvent>
+  /** Called on socket error event */
+  readonly onError?: SocketCallback<Event>
+  /** Called on incoming socket message */
+  readonly onMessage?: SocketCallback<MessageEvent>
+}
+
+/** Async-resolved middleware result promise. */
 export type AsyncMiddlewareResult = Promise<Awaited<MiddlewareResult>>
 
 /**
  * Middleware function with context.
- * @description Processes request and optionally delegates to next.
- * @param ctx - Request context
- * @param next - Calls next middleware in chain
- * @returns Response or undefined, sync or async
+ * @description Processes request with context and next chain.
  */
-export type Middleware = (ctx: Core.Context, next: NextFn) => MiddlewareResult
+export type MiddlewareFn = ContextFn<[next: NextFn], Response | undefined>
 
-/** Middleware result type alias. */
-export type MiddlewareResult = MaybeAsync<Response | undefined>
+/** Middleware return type alias. */
+export type MiddlewareResult = ReturnType<MiddlewareFn>
 
-/** Next function passed to middleware. */
+/** Next function in middleware chain. */
 export type NextFn = () => AsyncMiddlewareResult
 
+/** Route handler receiving context. */
+export type RouteHandler = ContextFn<[], Response>
+
+/** SameSite cookie attribute value. */
+export type SameSitePolicy = 'Strict' | 'Lax' | 'None'
+
+/** Derived security header option key union. */
+export type SecurityHeaderKey = keyof typeof Core.Constant.securityHeaders
+
+/** Header value or false to omit. */
+export type SecurityHeaderValue = string | false
+
+/** Security header partial options map. */
+export type SecurityHeadersOptions = Partial<Record<SecurityHeaderKey, SecurityHeaderValue>>
+
+/** Session cookie options all required. */
+export type SessionCookieOpts = Required<Omit<SessionOptions, 'cookieSecret'>>
+
 /**
- * Route handler receiving context.
- * @description Processes matched route and returns response.
- * @param context - Request context
- * @returns Response sync or async
+ * Socket lifecycle callback with event.
+ * @description Handles WebSocket events with socket and context.
+ * @template E - Event subtype constraint
+ * @param socket - WebSocket connection instance
+ * @param event - DOM event from socket
+ * @param ctx - Request context instance
  */
-export type RouteHandler = (context: Core.Context) => MaybeAsync<Response>
+export type SocketCallback<E extends Event = Event> = (
+  socket: WebSocket,
+  event: E,
+  ctx: Core.Context
+) => void
