@@ -2,7 +2,7 @@ import type * as Types from '@interfaces/index.ts'
 import type * as Core from '@core/index.ts'
 
 /**
- * Basic Auth middleware with user list.
+ * Basic Auth middleware for users.
  * @description Validates Authorization header, constant-time compare.
  */
 export class BasicAuth {
@@ -13,7 +13,7 @@ export class BasicAuth {
    * @returns Middleware that returns 401 when invalid
    * @throws {Deno.errors.InvalidData} When users array is empty
    */
-  static create(options: Types.BasicAuthOptions): Types.Middleware {
+  static create(options: Types.BasicAuthOptions): Types.MiddlewareFn {
     if (!options.users || options.users.length === 0) {
       throw new Deno.errors.InvalidData('BasicAuth requires at least one user in the users array')
     }
@@ -22,9 +22,9 @@ export class BasicAuth {
       ctx: Core.Context,
       next: Types.NextFn
     ): Types.AsyncMiddlewareResult => {
-      ctx.setHeader('WWW-Authenticate', 'Basic realm="Secure Area"')
       const authHeader = ctx.header('authorization')
       if (!authHeader || !authHeader.startsWith('Basic ')) {
+        ctx.setHeader('WWW-Authenticate', 'Basic realm="Secure Area"')
         return await ctx.handleError(
           401,
           new Deno.errors.PermissionDenied('Missing or invalid Authorization header')
@@ -34,6 +34,7 @@ export class BasicAuth {
         const credentials = atob(authHeader.slice(6))
         const colonIndex = credentials.indexOf(':')
         if (colonIndex <= 0) {
+          ctx.setHeader('WWW-Authenticate', 'Basic realm="Secure Area"')
           return await ctx.handleError(
             401,
             new Deno.errors.PermissionDenied('Malformed Basic Auth credentials')
@@ -46,6 +47,7 @@ export class BasicAuth {
           }
         }
         if (!isValid) {
+          ctx.setHeader('WWW-Authenticate', 'Basic realm="Secure Area"')
           return await ctx.handleError(
             401,
             new Deno.errors.PermissionDenied('Invalid username or password')
@@ -53,6 +55,7 @@ export class BasicAuth {
         }
         return await next()
       } catch (error) {
+        ctx.setHeader('WWW-Authenticate', 'Basic realm="Secure Area"')
         return await ctx.handleError(
           401,
           new Deno.errors.PermissionDenied(
@@ -71,9 +74,9 @@ export class BasicAuth {
    * @returns True when equal
    */
   private static constantTimeEqual(inputStr: string, expectedStr: string): boolean {
-    const maxLen = Math.max(inputStr.length, expectedStr.length)
+    const maxLength = Math.max(inputStr.length, expectedStr.length)
     let mismatch = inputStr.length ^ expectedStr.length
-    for (let i = 0; i < maxLen; i++) {
+    for (let i = 0; i < maxLength; i++) {
       mismatch |= (inputStr.charCodeAt(i) || 0) ^ (expectedStr.charCodeAt(i) || 0)
     }
     return mismatch === 0
