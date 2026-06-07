@@ -1,6 +1,5 @@
 import type * as Types from '@interfaces/index.ts'
 import type { FastRouter } from '@neabyte/fast-router'
-import Stackz from '@neabyte/stackz'
 import nodeUrl from 'node:url'
 
 /**
@@ -20,8 +19,8 @@ export class Scanner {
     if (!extensions.includes(pathExtension)) {
       return null
     }
-    const pathWithoutExt = routePath.slice(0, -`.${pathExtension}`.length)
-    const segments = pathWithoutExt.split('/')
+    const pathWithoutExtension = routePath.slice(0, -`.${pathExtension}`.length)
+    const segments = pathWithoutExtension.split('/')
     if (segments.some((segment) => segment.startsWith('_') || segment.startsWith('@'))) {
       return null
     }
@@ -33,7 +32,7 @@ export class Scanner {
     if (!/^[a-zA-Z0-9_\[\]~\-+]+$/.test(lastSegment ?? '')) {
       return null
     }
-    let pathPattern = `/${pathWithoutExt}`.replace(/\[([^\]]+)\]/g, ':$1')
+    let pathPattern = `/${pathWithoutExtension}`.replace(/\[([^\]]+)\]/g, ':$1')
     if (pathPattern.toLowerCase().endsWith('/index')) {
       pathPattern = pathPattern.slice(0, -6) || '/'
     }
@@ -48,20 +47,22 @@ export class Scanner {
    * @param basePath - Path prefix for route paths
    * @param methods - HTTP methods to register
    * @param extensions - Allowed file extensions
+   * @param emit - Optional lifecycle event emitter
    */
   static async explore(
-    routerInstance: FastRouter<Types.RouteMetadata>,
+    routerInstance: FastRouter<Types.RouteEntry>,
     targetDir: string,
     basePath: string,
     methods: readonly string[],
-    extensions: readonly string[]
+    extensions: readonly string[],
+    emit?: Types.EventEmit
   ): Promise<void> {
     try {
       for await (const dirEntry of Deno.readDir(targetDir)) {
         const fullPath = `${targetDir}/${dirEntry.name}`
         const routePath = basePath ? `${basePath}/${dirEntry.name}` : dirEntry.name
         if (dirEntry.isDirectory) {
-          await Scanner.explore(routerInstance, fullPath, routePath, methods, extensions)
+          await Scanner.explore(routerInstance, fullPath, routePath, methods, extensions, emit)
         } else {
           const pathExtension = dirEntry.name.split('.').pop()?.toLowerCase()
           if (!extensions.includes(pathExtension ?? '')) {
@@ -73,16 +74,30 @@ export class Scanner {
             if (routePattern) {
               Scanner.validateModule(fileModule, routePath, methods)
               Scanner.registerHandlers(routerInstance, fileModule, routePattern, methods)
+              emit?.({
+                type: 'internal',
+                kind: 'route:loaded',
+                metadata: { routePath, pattern: routePattern },
+                timestamp: Date.now()
+              })
             } else if (/[^\x20-\x7E]/.test(dirEntry.name)) {
-              console.warn(
-                `[Deserve] Skipped route "${routePath}" because filename contains non-ASCII characters`
-              )
+              emit?.({
+                type: 'internal',
+                kind: 'route:skipped',
+                metadata: { routePath, reason: 'filename contains non-ASCII characters' },
+                timestamp: Date.now()
+              })
             }
           } catch (fileError) {
-            const formatted = fileError instanceof globalThis.Error
-              ? `\n${await Stackz.format(fileError, 'detailed')}\n`
-              : String(fileError)
-            console.error(`[Deserve] Skipped route file ${routePath}\n${formatted}`)
+            emit?.({
+              type: 'internal',
+              kind: 'route:error',
+              metadata: {
+                routePath,
+                error: fileError instanceof Error ? fileError : new Error(String(fileError))
+              },
+              timestamp: Date.now()
+            })
           }
         }
       }
@@ -103,8 +118,8 @@ export class Scanner {
    * @param methods - HTTP methods to register
    */
   static registerHandlers(
-    routerInstance: FastRouter<Types.RouteMetadata>,
-    fileModule: Record<string, unknown>,
+    routerInstance: FastRouter<Types.RouteEntry>,
+    fileModule: Types.RouteModule,
     routePattern: string,
     methods: readonly string[]
   ): void {
@@ -113,8 +128,12 @@ export class Scanner {
       if (typeof routeHandler !== 'function') {
         continue
       }
-      const metadata: Types.RouteMetadata = { handler: routeHandler, pattern: routePattern }
-      routerInstance.add(method, routePattern, metadata)
+      const routeEntry: Types.RouteEntry = {
+        kind: 'handler',
+        handler: routeHandler,
+        pattern: routePattern
+      }
+      routerInstance.add(method, routePattern, routeEntry)
     }
   }
 
@@ -127,24 +146,27 @@ export class Scanner {
    * @throws {Deno.errors.InvalidData} When no method or non-function export
    */
   static validateModule(
-    module: Record<string, unknown>,
+    module: Types.RouteModule,
     routePath: string,
     methods: readonly string[]
   ): void {
-    const exportedMethods = Object.keys(module).filter((methodName) => methods.includes(methodName))
-    if (exportedMethods.length === 0) {
+    let hasMethod = false
+    for (const method of methods) {
+      const exportValue = module[method]
+      if (exportValue === undefined) {
+        continue
+      }
+      if (typeof exportValue !== 'function') {
+        throw new TypeError(
+          `Route "${routePath}" export "${method}" must be a function, got ${typeof exportValue}`
+        )
+      }
+      hasMethod = true
+    }
+    if (!hasMethod) {
       throw new Deno.errors.InvalidData(
         `Route "${routePath}" must export at least one HTTP method (${methods.join(', ')})`
       )
-    }
-    for (const [methodName, exportValue] of Object.entries(module)) {
-      if (methods.includes(methodName)) {
-        if (typeof exportValue !== 'function') {
-          throw new TypeError(
-            `Route "${routePath}" export "${methodName}" must be a function, got ${typeof exportValue}`
-          )
-        }
-      }
     }
   }
 }
