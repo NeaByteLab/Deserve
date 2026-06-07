@@ -35,10 +35,10 @@ export class Parser {
       const eachNode = stackFrame.node as Extract<Types.AstNode, { type: 'each' }>
       eachNode.nodes.push(node)
     }
-    let match: RegExpExecArray | null
-    while ((match = templateTagRegex.exec(templateText)) !== null) {
-      const rawTemplateTag = match[0] ?? ''
-      const tagStartIndex = match.index
+    let tagMatch: RegExpExecArray | null
+    while ((tagMatch = templateTagRegex.exec(templateText)) !== null) {
+      const rawTemplateTag = tagMatch[0] ?? ''
+      const tagStartIndex = tagMatch.index
       if (tagStartIndex > scanIndex) {
         appendAstNode({ type: 'text', value: templateText.slice(scanIndex, tagStartIndex) })
       }
@@ -119,8 +119,8 @@ export class Parser {
     }
     if (frameStack.length > 0) {
       const unclosedFrame = frameStack[frameStack.length - 1]
-      const label = unclosedFrame?.kind === 'each' ? '#each' : '#if'
-      throw new Deno.errors.InvalidData(`Unclosed {{${label}}} block in DVE template`)
+      const blockLabel = unclosedFrame?.kind === 'each' ? '#each' : '#if'
+      throw new Deno.errors.InvalidData(`Unclosed {{${blockLabel}}} block in DVE template`)
     }
     return astNodes
   }
