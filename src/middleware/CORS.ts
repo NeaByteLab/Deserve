@@ -13,7 +13,7 @@ export class Cors {
    * @param options - Origin, methods, headers, credentials, maxAge
    * @returns Middleware function
    */
-  static create(options: Types.CorsOptions = {}): Types.Middleware {
+  static create(options: Types.CorsOptions = {}): Types.MiddlewareFn {
     const allowedOrigins = options.origin ?? '*'
     const methods = options.methods ?? Core.Constant.httpMethods
     const allowedHeaders = options.allowedHeaders ?? [
@@ -30,7 +30,11 @@ export class Cors {
       )
     }
     const hasVaryOrigin = allowedOrigins !== '*'
-    return Middleware.Utils.wrapMiddleware('CORS error', async (ctx, next) => {
+    const methodsHeader = methods.join(', ')
+    const headersHeader = allowedHeaders.join(', ')
+    const maxAgeHeader = maxAge.toString()
+    const exposedHeader = exposedHeaders.length > 0 ? exposedHeaders.join(', ') : null
+    return Middleware.WrapMware('CORS error', async (ctx, next) => {
       const requestOrigin = ctx.header('origin')
       if (!requestOrigin) {
         return await next()
@@ -47,14 +51,14 @@ export class Cors {
         }
         if (matchedOrigin) {
           ctx.setHeader('Access-Control-Allow-Origin', matchedOrigin)
-          ctx.setHeader('Access-Control-Allow-Methods', methods.join(', '))
-          ctx.setHeader('Access-Control-Allow-Headers', allowedHeaders.join(', '))
-          ctx.setHeader('Access-Control-Max-Age', maxAge.toString())
+          ctx.setHeader('Access-Control-Allow-Methods', methodsHeader)
+          ctx.setHeader('Access-Control-Allow-Headers', headersHeader)
+          ctx.setHeader('Access-Control-Max-Age', maxAgeHeader)
           if (credentials) {
             ctx.setHeader('Access-Control-Allow-Credentials', 'true')
           }
-          if (exposedHeaders.length > 0) {
-            ctx.setHeader('Access-Control-Expose-Headers', exposedHeaders.join(', '))
+          if (exposedHeader) {
+            ctx.setHeader('Access-Control-Expose-Headers', exposedHeader)
           }
           return ctx.send.custom(null, { status: 204 })
         }
@@ -68,8 +72,8 @@ export class Cors {
         if (credentials) {
           ctx.setHeader('Access-Control-Allow-Credentials', 'true')
         }
-        if (exposedHeaders.length > 0) {
-          ctx.setHeader('Access-Control-Expose-Headers', exposedHeaders.join(', '))
+        if (exposedHeader) {
+          ctx.setHeader('Access-Control-Expose-Headers', exposedHeader)
         }
       }
       return await next()
