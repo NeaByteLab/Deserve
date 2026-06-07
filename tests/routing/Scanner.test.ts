@@ -112,7 +112,7 @@ Deno.test('Scanner#createPattern with tilde and plus in name', () => {
 })
 
 Deno.test('Scanner#registerHandlers adds function exports to router', () => {
-  const router = new FastRouter<Types.RouteMetadata>()
+  const router = new FastRouter<Types.RouteEntry>()
   const getHandler = () => new Response('get')
   const postHandler = () => new Response('post')
   Routing.Scanner.registerHandlers(
@@ -128,7 +128,7 @@ Deno.test('Scanner#registerHandlers adds function exports to router', () => {
 })
 
 Deno.test('Scanner#registerHandlers skips non-function exports', () => {
-  const router = new FastRouter<Types.RouteMetadata>()
+  const router = new FastRouter<Types.RouteEntry>()
   Routing.Scanner.registerHandlers(
     router,
     { GET: () => new Response('ok'), config: { timeout: 5000 } },
@@ -140,7 +140,7 @@ Deno.test('Scanner#registerHandlers skips non-function exports', () => {
 })
 
 Deno.test('Scanner#registerHandlers with empty module adds nothing', () => {
-  const router = new FastRouter<Types.RouteMetadata>()
+  const router = new FastRouter<Types.RouteEntry>()
   Routing.Scanner.registerHandlers(router, {}, '/items', Core.Constant.httpMethods)
   const result = router.find('GET', '/items')
   assertEquals(result == null, true)

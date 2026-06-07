@@ -8,7 +8,7 @@ function createTestContext(url = 'http://localhost/', requestInit?: RequestInit)
   return new Core.Context(request, new URL(url), {})
 }
 
-const echoWorkerUrl = new URL('../fixtures/echo_worker.ts', import.meta.url).href
+const echoWorkerUrl = import.meta.resolve('@tests/fixtures/echo_worker.ts')
 
 Deno.test('BodyLimit with limit 0 rejects Content-Length 1', async () => {
   const middleware = Middleware.Mware.bodyLimit({ limit: 0 })
@@ -43,7 +43,9 @@ Deno.test('BodyLimit with negative limit returns 413', async () => {
   assertEquals(res !== undefined, true)
   if (res) {
     assertEquals(res.status, 413)
-    assertEquals(await res.text(), '')
+    const body = (await res.json()) as { error: string; statusCode: number }
+    assertEquals(body.error, 'Payload Too Large')
+    assertEquals(body.statusCode, 413)
   }
 })
 

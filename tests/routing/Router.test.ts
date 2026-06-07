@@ -1,18 +1,18 @@
 import { assertEquals } from '@std/assert'
 import * as Routing from '@routing/index.ts'
 
-const echoWorkerUrl = new URL('../fixtures/echo_worker.ts', import.meta.url).href
+const echoWorkerUrl = import.meta.resolve('@tests/fixtures/echo_worker.ts')
 
 Deno.test('Router options accepts HandlerOptions fields', () => {
   const router = new Routing.Router({
     routesDir: './routes',
     maxUrlLength: 4096,
-    maxRouteParamLength: 512,
+    maxParamLength: 512,
     requestTimeoutMs: 5000
   })
   const handler = (router as unknown as { handler: unknown }).handler as {
     maxUrlLength?: number
-    maxRouteParamLength?: number
+    maxParamLength?: number
     requestTimeoutMs?: number
   }
   assertEquals(handler.requestTimeoutMs, 5000)
@@ -75,9 +75,92 @@ Deno.test('Router#constructor without options uses defaults', () => {
   assertEquals(router instanceof Routing.Router, true)
 })
 
+Deno.test('Router#on receives request:error events from the pipeline', async () => {
+  const router = new Routing.Router({ routesDir: './routes' })
+  const events: string[] = []
+  router.on((event) => events.push(event.kind))
+  const handler = (router as unknown as { handler: Routing.Handler }).handler
+  const serve = handler.createHandler()
+  const res = await serve(new Request('http://localhost/missing-route'))
+  await res.body?.cancel()
+  assertEquals(res.status, 404)
+  assertEquals(events.includes('request:error'), true)
+})
+
+Deno.test('Router#on returns an unsubscribe function', () => {
+  const router = new Routing.Router({ routesDir: './routes' })
+  const unsub = router.on(() => {})
+  assertEquals(typeof unsub, 'function')
+  unsub()
+})
+
+Deno.test('Router#on unsubscribe stops receiving events', async () => {
+  const router = new Routing.Router({ routesDir: './routes' })
+  let count = 0
+  const unsub = router.on(() => count++)
+  const handler = (router as unknown as { handler: Routing.Handler }).handler
+  const serve = handler.createHandler()
+  await serve(new Request('http://localhost/missing-one')).then((r) => r.body?.cancel())
+  const afterFirst = count
+  unsub()
+  await serve(new Request('http://localhost/missing-two')).then((r) => r.body?.cancel())
+  assertEquals(afterFirst > 0, true)
+  assertEquals(count, afterFirst)
+})
+
 Deno.test('Router#static does not throw', () => {
   const router = new Routing.Router({ routesDir: './routes' })
   router.static('/assets', { path: './public' })
+})
+
+Deno.test('Router#static throws when path option is missing or not a string', () => {
+  const router = new Routing.Router({ routesDir: './routes' })
+  for (const bad of [{}, { path: 123 }, { path: '' }]) {
+    let threw = false
+    try {
+      router.static('/assets', bad as unknown as { path: string })
+    } catch (e) {
+      threw = true
+      assertEquals(e instanceof TypeError, true)
+    }
+    assertEquals(threw, true)
+  }
+})
+
+Deno.test('Router#use throws when called with a path string and no middleware', () => {
+  const router = new Routing.Router({ routesDir: './routes' })
+  let threw = false
+  try {
+    router.use('/api' as unknown as () => Response)
+  } catch (e) {
+    threw = true
+    assertEquals(e instanceof TypeError, true)
+  }
+  assertEquals(threw, true)
+})
+
+Deno.test('Router#use throws when middleware is not a function', () => {
+  const router = new Routing.Router({ routesDir: './routes' })
+  let threw = false
+  try {
+    router.use(null as unknown as () => Response)
+  } catch (e) {
+    threw = true
+    assertEquals(e instanceof TypeError, true)
+  }
+  assertEquals(threw, true)
+})
+
+Deno.test('Router#use throws when path-scoped middleware is not a function', () => {
+  const router = new Routing.Router({ routesDir: './routes' })
+  let threw = false
+  try {
+    router.use('/api', undefined as unknown as () => Response)
+  } catch (e) {
+    threw = true
+    assertEquals(e instanceof TypeError, true)
+  }
+  assertEquals(threw, true)
 })
 
 Deno.test('Router#use with middleware only (no path) does not throw', () => {
@@ -96,4 +179,10 @@ Deno.test('Router#use with multiple middleware functions does not throw', () => 
 Deno.test('Router#use with path and middleware does not throw', () => {
   const router = new Routing.Router({ routesDir: './routes' })
   router.use('/api', async (_ctx, next) => await next())
+})
+
+Deno.test('Watcher#watch skips a non-existent routes directory without throwing', () => {
+  const handler = new Routing.Handler()
+  Routing.Watcher.watch(handler, './does-not-exist-routes-dir-xyz')
+  assertEquals(true, true)
 })
