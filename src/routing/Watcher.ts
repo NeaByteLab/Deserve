@@ -1,8 +1,8 @@
 import type * as Types from '@interfaces/index.ts'
-import { Superwatcher } from '@neabyte/superwatcher'
-import { createSequential } from '@neabyte/utils-core'
 import * as Core from '@core/index.ts'
 import * as Routing from '@routing/index.ts'
+import { Superwatcher } from '@neabyte/superwatcher'
+import { createSequential } from '@neabyte/utils-core'
 import nodePath from 'node:path'
 
 /**
@@ -10,9 +10,6 @@ import nodePath from 'node:path'
  * @description Watches routesDir and hot-reloads routes on change.
  */
 export class Watcher {
-  /** Debounce delay in milliseconds */
-  private static readonly debounceMs = 150
-
   /**
    * Start watching routes directory.
    * @description Uses Superwatcher with sequential reloading.
@@ -23,11 +20,14 @@ export class Watcher {
     const extensions = Core.Constant.allowedExtensions
     const extensionSet: Set<string> = new Set(extensions)
     const resolvedDir = nodePath.resolve(routesDir)
+    if (!Core.Handler.isDirectory(resolvedDir)) {
+      return
+    }
     const reloader = createSequential(async () => {
       for (const routePath of pendingRemovals) {
-        const pattern = Routing.Scanner.createPattern(routePath, extensions)
-        if (pattern) {
-          handler.removeRoute(pattern)
+        const routePattern = Routing.Scanner.createPattern(routePath, extensions)
+        if (routePattern) {
+          handler.removeRoute(routePattern, routePath)
         }
       }
       for (const entry of pendingChanges.values()) {
@@ -40,11 +40,11 @@ export class Watcher {
     const pendingRemovals = new Set<string>()
     const watcher = new Superwatcher({
       path: resolvedDir,
-      debounceMs: Watcher.debounceMs,
+      debounceMs: Core.Constant.routeDebounceMs,
       ignore: [
         (path: string) => {
-          const ext = path.split('.').pop()?.toLowerCase() ?? ''
-          return !extensionSet.has(ext)
+          const fileExtension = path.split('.').pop()?.toLowerCase() ?? ''
+          return !extensionSet.has(fileExtension)
         }
       ],
       onChange(events) {
