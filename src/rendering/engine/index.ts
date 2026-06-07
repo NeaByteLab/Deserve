@@ -1,4 +1,4 @@
-/** Re-export engine public API */
+/** Re-export engine public API. */
 export * from '@rendering/engine/Eval.ts'
 export * from '@rendering/engine/Expression.ts'
 export * from '@rendering/engine/Parser.ts'
