@@ -13,7 +13,7 @@ export class Utils {
    * @returns Escaped HTML-safe string
    */
   static escape(rawText: string): string {
-    return Core.Error.escapeHtml(rawText)
+    return Core.Handler.escapeHtml(rawText)
   }
 
   /**
@@ -31,29 +31,54 @@ export class Utils {
 
   /**
    * Lookup dotted path value.
-   * @description Safely traverses object by path segments.
+   * @description Traverses object by dot-separated segments using own properties.
    * @param dataObject - Root data object
    * @param dataPath - Dotted lookup path
    * @returns Resolved value or undefined
    */
   static lookup(dataObject: unknown, dataPath: string): unknown {
-    const pathSegments = dataPath
-      .split('.')
-      .map((pathSegment) => pathSegment.trim())
-      .filter(Boolean)
     let currentValue: unknown = dataObject
-    for (const pathSegment of pathSegments) {
-      if (currentValue === null || currentValue === undefined) {
-        return undefined
+    let scanStart = 0
+    const pathLength = dataPath.length
+    while (scanStart <= pathLength) {
+      let scanEnd = dataPath.indexOf('.', scanStart)
+      if (scanEnd === -1) {
+        scanEnd = pathLength
       }
-      if (typeof currentValue !== 'object') {
-        return undefined
+      let segStart = scanStart
+      let segEnd = scanEnd
+      while (segStart < segEnd && dataPath.charCodeAt(segStart) === 32) {
+        segStart++
       }
-      if (!Object.hasOwn(currentValue as Types.DataRecord, pathSegment)) {
-        return undefined
+      while (segEnd > segStart && dataPath.charCodeAt(segEnd - 1) === 32) {
+        segEnd--
       }
-      currentValue = (currentValue as Types.DataRecord)[pathSegment]
+      if (segEnd > segStart) {
+        const pathSegment = dataPath.slice(segStart, segEnd)
+        currentValue = Utils.readOwn(currentValue, pathSegment)
+      }
+      scanStart = scanEnd + 1
     }
     return currentValue
+  }
+
+  /**
+   * Read one own property safely.
+   * @description Reads own data properties from object or string bases.
+   * @param base - Value to read the property from
+   * @param key - Property name to resolve
+   * @returns Own property value or undefined when not safely readable
+   */
+  static readOwn(base: unknown, key: string): unknown {
+    if (base === null || base === undefined) {
+      return undefined
+    }
+    if (typeof base !== 'object' && typeof base !== 'string') {
+      return undefined
+    }
+    if (!Object.hasOwn(base as Types.DataRecord, key)) {
+      return undefined
+    }
+    return (base as Types.DataRecord)[key]
   }
 }
