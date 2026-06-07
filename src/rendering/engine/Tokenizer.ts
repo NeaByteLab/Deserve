@@ -164,46 +164,46 @@ export class Tokenizer {
   /**
    * Check if character is digit.
    * @description Tests for ASCII 0-9 characters.
-   * @param char - Single character to test
+   * @param inputChar - Single character to test
    * @returns True when digit
    */
-  private static isDigitChar(char: string): boolean {
-    return char >= '0' && char <= '9'
+  private static isDigitChar(inputChar: string): boolean {
+    return inputChar >= '0' && inputChar <= '9'
   }
 
   /**
    * Check if character starts identifier.
    * @description Tests for letters, underscore, dollar, at sign.
-   * @param char - Single character to test
+   * @param inputChar - Single character to test
    * @returns True when valid identifier start
    */
-  private static isIdentStart(char: string): boolean {
+  private static isIdentStart(inputChar: string): boolean {
     return (
-      (char >= 'a' && char <= 'z') ||
-      (char >= 'A' && char <= 'Z') ||
-      char === '_' ||
-      char === '$' ||
-      char === '@'
+      (inputChar >= 'a' && inputChar <= 'z') ||
+      (inputChar >= 'A' && inputChar <= 'Z') ||
+      inputChar === '_' ||
+      inputChar === '$' ||
+      inputChar === '@'
     )
   }
 
   /**
    * Check if character continues identifier.
    * @description Tests for identifier start chars or digits.
-   * @param char - Single character to test
+   * @param inputChar - Single character to test
    * @returns True when valid identifier char
    */
-  private static isIdentifierChar(char: string): boolean {
-    return Tokenizer.isIdentStart(char) || Tokenizer.isDigitChar(char)
+  private static isIdentifierChar(inputChar: string): boolean {
+    return Tokenizer.isIdentStart(inputChar) || Tokenizer.isDigitChar(inputChar)
   }
 
   /**
    * Check if character is whitespace.
    * @description Tests for space, newline, tab, carriage return.
-   * @param char - Single character to test
+   * @param inputChar - Single character to test
    * @returns True when whitespace
    */
-  private static isWhitespace(char: string): boolean {
-    return char === ' ' || char === '\n' || char === '\t' || char === '\r'
+  private static isWhitespace(inputChar: string): boolean {
+    return inputChar === ' ' || inputChar === '\n' || inputChar === '\t' || inputChar === '\r'
   }
 }
