@@ -2,7 +2,7 @@ import type * as Types from '@interfaces/index.ts'
 import * as Core from '@core/index.ts'
 
 /**
- * Serves static files with etag and cache.
+ * Serves static files with caching.
  * @description Resolves path under base, enforces same directory.
  */
 export class Static {
@@ -29,9 +29,7 @@ export class Static {
       } else if (filePath.startsWith('/')) {
         filePath = filePath.slice(1)
       }
-      const isAbsolute = options.path.startsWith('/') || /^[A-Za-z]:[\\/]/.test(options.path)
-      const staticBasePath = isAbsolute ? options.path : `${Deno.cwd()}/${options.path}`
-      const baseNormalized = staticBasePath.replace(/^\.\//, '').replace(/[\\/]+$/, '') || '/'
+      const baseNormalized = options.path.replace(/^\.\//, '').replace(/[\\/]+$/, '') || '/'
       const fileSegments = filePath.split('/')
       for (const segment of fileSegments) {
         if (segment.startsWith('.')) {
@@ -71,29 +69,29 @@ export class Static {
           new Deno.errors.NotFound(`Static file "${filePath}" is outside the base directory`)
         )
       }
-      const extension = filePath.split('.').pop()?.toLowerCase() ?? ''
-      const contentType = Core.Constant.contentTypes[extension] ?? 'application/octet-stream'
-      const file = await Deno.open(fileResolved, { read: true })
+      const fileExtension = filePath.split('.').pop()?.toLowerCase() ?? ''
+      const contentType = Core.Constant.contentTypes[fileExtension] ?? 'application/octet-stream'
       let etag: string | null = null
       if (options.etag) {
-        const digest = await crypto.subtle.digest(
+        const hashDigest = await crypto.subtle.digest(
           'SHA-256',
-          new TextEncoder().encode(`${fileInfo.size}-${fileInfo.mtime?.getTime()}`)
+          Core.Constant.encoder.encode(`${fileInfo.size}-${fileInfo.mtime?.getTime() ?? 0}`)
         )
-        const hashHex = Array.from(
-          new Uint8Array(digest),
-          (byte) => byte.toString(16).padStart(2, '0')
-        ).join('')
+        const hashBytes = new Uint8Array(hashDigest)
+        let hashHex = ''
+        for (let i = 0; i < hashBytes.length; i++) {
+          hashHex += (hashBytes[i]!).toString(16).padStart(2, '0')
+        }
         etag = `"${hashHex}"`
       }
-      if (etag && ctx.request.headers.get('If-None-Match') === etag) {
-        file.close()
+      if (etag && Static.etagMatch(ctx.request.headers.get('If-None-Match'), etag)) {
         ctx.setHeader('ETag', etag)
         if (options.cacheControl !== undefined && options.cacheControl >= 0) {
           ctx.setHeader('Cache-Control', `public, max-age=${options.cacheControl}`)
         }
-        return ctx.send.custom(null, { status: 304, headers: ctx.responseHeadersMap })
+        return ctx.send.custom(null, { status: 304 })
       }
+      const fsFile = await Deno.open(fileResolved, { read: true })
       ctx.setHeader('Content-Type', contentType)
       ctx.setHeader('Content-Length', fileInfo.size.toString())
       if (etag) {
@@ -102,9 +100,38 @@ export class Static {
       if (options.cacheControl !== undefined && options.cacheControl >= 0) {
         ctx.setHeader('Cache-Control', `public, max-age=${options.cacheControl}`)
       }
-      return ctx.send.custom(file.readable)
+      return ctx.send.custom(fsFile.readable)
     } catch (staticFileError) {
-      return await ctx.handleError(500, staticFileError as Error)
+      const extractedError = Core.Handler.extractError(staticFileError)
+      return await ctx.handleError(extractedError.statusCode, extractedError.error)
     }
+  }
+
+  /**
+   * Weak ETag comparison for If-None-Match.
+   * @description Matches exact, W/ stripped, list, or wildcard.
+   * @param headerValue - If-None-Match header value
+   * @param etag - Server-generated strong ETag
+   * @returns True when any value matches
+   */
+  private static etagMatch(headerValue: string | null, etag: string): boolean {
+    if (!headerValue) {
+      return false
+    }
+    if (headerValue === '*') {
+      return true
+    }
+    const strippedEtag = etag.startsWith('W/') ? etag.slice(2) : etag
+    for (const part of headerValue.split(',')) {
+      const candidate = part.trim()
+      if (candidate === etag || candidate === strippedEtag) {
+        return true
+      }
+      const weakStripped = candidate.startsWith('W/') ? candidate.slice(2) : candidate
+      if (weakStripped === strippedEtag) {
+        return true
+      }
+    }
+    return false
   }
 }
