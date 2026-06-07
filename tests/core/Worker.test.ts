@@ -129,7 +129,7 @@ Deno.test('Worker#run recovers the slot after a hung task times out', async () =
   const pool = Core.Worker.createPool({
     scriptURL: hangWorkerUrl,
     poolSize: 1,
-    taskTimeoutMs: 200
+    taskTimeoutMs: 600
   })
   try {
     await assertRejects(() => pool.run({ hang: true }), Deno.errors.TimedOut)
@@ -144,7 +144,7 @@ Deno.test('Worker#run rejects a hung task once taskTimeoutMs elapses', async () 
   const pool = Core.Worker.createPool({
     scriptURL: hangWorkerUrl,
     poolSize: 1,
-    taskTimeoutMs: 200
+    taskTimeoutMs: 600
   })
   try {
     await assertRejects(() => pool.run({ hang: true }), Deno.errors.TimedOut)
