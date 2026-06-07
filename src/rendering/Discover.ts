@@ -1,11 +1,10 @@
+import * as Core from '@core/index.ts'
+
 /**
  * Scan directory for .dve templates.
  * @description Collects relative paths for Engine validation.
  */
 export class Discover {
-  /** DVE template file extension */
-  private static readonly dveExtension = '.dve'
-
   /**
    * Discover .dve template paths.
    * @description Recursively scans viewsDir for templates.
@@ -36,7 +35,9 @@ export class Discover {
         const relativePath = basePath ? `${basePath}/${dirEntry.name}` : dirEntry.name
         if (dirEntry.isDirectory) {
           await Discover.collectPaths(fullPath, relativePath, collectedPaths)
-        } else if (dirEntry.isFile && relativePath.toLowerCase().endsWith(Discover.dveExtension)) {
+        } else if (
+          dirEntry.isFile && relativePath.toLowerCase().endsWith(Core.Constant.dveExtension)
+        ) {
           collectedPaths.add(relativePath)
         }
       }
