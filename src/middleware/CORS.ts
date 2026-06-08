@@ -40,8 +40,10 @@ export class Cors {
         return await next()
       }
       let matchedOrigin: string | null = null
-      if (typeof allowedOrigins === 'string') {
-        matchedOrigin = allowedOrigins
+      if (allowedOrigins === '*') {
+        matchedOrigin = '*'
+      } else if (typeof allowedOrigins === 'string') {
+        matchedOrigin = allowedOrigins === requestOrigin ? requestOrigin : null
       } else if (allowedOrigins.includes(requestOrigin)) {
         matchedOrigin = requestOrigin
       }

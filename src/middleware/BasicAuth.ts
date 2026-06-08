@@ -8,7 +8,7 @@ import type * as Core from '@core/index.ts'
 export class BasicAuth {
   /**
    * Create Basic Auth middleware.
-   * @description Validates Authorization header against user list.
+   * @description Validates Authorization header against the user list.
    * @param options - List of username/password pairs
    * @returns Middleware that returns 401 when invalid
    * @throws {Deno.errors.InvalidData} When users array is empty
@@ -23,7 +23,9 @@ export class BasicAuth {
       next: Types.NextFn
     ): Types.AsyncMiddlewareResult => {
       const authHeader = ctx.header('authorization')
-      if (!authHeader || !authHeader.startsWith('Basic ')) {
+      const spaceIndex = authHeader ? authHeader.indexOf(' ') : -1
+      const scheme = spaceIndex > 0 ? authHeader!.slice(0, spaceIndex) : ''
+      if (scheme.toLowerCase() !== 'basic') {
         ctx.setHeader('WWW-Authenticate', 'Basic realm="Secure Area"')
         return await ctx.handleError(
           401,
@@ -31,7 +33,7 @@ export class BasicAuth {
         )
       }
       try {
-        const credentials = atob(authHeader.slice(6))
+        const credentials = atob(authHeader!.slice(spaceIndex + 1).trim())
         const colonIndex = credentials.indexOf(':')
         if (colonIndex <= 0) {
           ctx.setHeader('WWW-Authenticate', 'Basic realm="Secure Area"')

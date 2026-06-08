@@ -7,6 +7,9 @@ import * as Middleware from '@middleware/index.ts'
  * @description Rejects or streams with limit, returns 413 when exceeded.
  */
 export class BodyLimit {
+  /** Cached body-support verdict per method */
+  private static readonly bodyMethodCache = new Map<string, boolean>()
+
   /**
    * Create body limit middleware.
    * @description Rejects or limits body stream, returns 413.
@@ -15,6 +18,11 @@ export class BodyLimit {
    */
   static create(options: Types.BodyLimitOptions): Types.MiddlewareFn {
     const maxSize = options.limit
+    if (!Number.isFinite(maxSize) || maxSize <= 0) {
+      throw new Deno.errors.InvalidData(
+        'Body limit must be a positive finite number of bytes'
+      )
+    }
     return Middleware.WrapMware('Body limit error', async (ctx, next) => {
       if (ctx.request.method === 'GET' || ctx.request.method === 'HEAD') {
         return await next()
@@ -29,7 +37,7 @@ export class BodyLimit {
         }
       }
       const requestBody = ctx.request.body
-      if (requestBody) {
+      if (requestBody && BodyLimit.methodAllowsBody(ctx.request.method)) {
         const limitedStream = BodyLimit.createLimitStream(requestBody, maxSize)
         const limitedRequest = new Request(ctx.request.url, {
           method: ctx.request.method,
@@ -83,5 +91,31 @@ export class BodyLimit {
         }
       }
     })
+  }
+
+  /**
+   * Check if method supports body.
+   * @description Probes Request constructor and memoizes per method.
+   * @param method - Incoming request method
+   * @returns True when method allows a body
+   */
+  private static methodAllowsBody(method: string): boolean {
+    const cached = BodyLimit.bodyMethodCache.get(method)
+    if (cached !== undefined) {
+      return cached
+    }
+    let allowed: boolean
+    try {
+      void new Request('http://body-limit.invalid/', {
+        method,
+        body: new ReadableStream(),
+        duplex: 'half'
+      } as RequestInit)
+      allowed = true
+    } catch {
+      allowed = false
+    }
+    BodyLimit.bodyMethodCache.set(method, allowed)
+    return allowed
   }
 }

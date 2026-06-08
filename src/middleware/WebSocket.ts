@@ -9,7 +9,7 @@ import * as Middleware from '@middleware/index.ts'
 export class WebSocket {
   /**
    * Create WebSocket upgrade middleware.
-   * @description Upgrades request on path, runs connect/message/close/error.
+   * @description Upgrades matching GET requests into WebSockets.
    * @param options - Listener path and lifecycle callbacks
    * @returns Middleware that upgrades matching requests
    */
@@ -24,6 +24,9 @@ export class WebSocket {
           return await next()
         }
         if (ctx.header('upgrade')?.toLowerCase() !== 'websocket') {
+          return await next()
+        }
+        if (ctx.request.method !== 'GET') {
           return await next()
         }
         if (
@@ -41,7 +44,20 @@ export class WebSocket {
             )
           )
         }
-        const { socket, response } = Deno.upgradeWebSocket(ctx.request)
+        let upgrade: ReturnType<typeof Deno.upgradeWebSocket>
+        try {
+          upgrade = Deno.upgradeWebSocket(ctx.request)
+        } catch (upgradeError) {
+          return await ctx.handleError(
+            400,
+            new Deno.errors.InvalidData(
+              `WebSocket handshake is malformed because ${
+                upgradeError instanceof Error ? upgradeError.message : String(upgradeError)
+              }`
+            )
+          )
+        }
+        const { socket, response } = upgrade
         socket.addEventListener('open', (event) => {
           options.onConnect?.(socket, event, ctx)
         })
@@ -60,7 +76,7 @@ export class WebSocket {
   }
 
   /**
-   * Decide whether a WebSocket handshake Origin is allowed.
+   * Decide whether handshake Origin is allowed.
    * @description Validates Origin header to prevent CSWSH attacks.
    * @param ctx - Request context
    * @param allowedOrigins - Configured allowlist, '*', or undefined for same-origin
