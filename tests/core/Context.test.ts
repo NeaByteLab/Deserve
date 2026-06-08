@@ -62,6 +62,20 @@ Deno.test('Context#blob then text throws already consumed', async () => {
   assertEquals(thrown, true)
 })
 
+Deno.test('Context#body is not fooled by a parameter containing a type token', async () => {
+  const ctx = createTestContext(
+    'http://localhost/',
+    {},
+    {
+      method: 'POST',
+      body: '{"a":3}',
+      headers: new Headers({ 'Content-Type': 'text/html; z=application/json' })
+    }
+  )
+  const body = await ctx.body()
+  assertEquals(body, '{"a":3}')
+})
+
 Deno.test('Context#body parses JSON and caches result', async () => {
   const ctx = createTestContext(
     'http://localhost/',
@@ -94,6 +108,20 @@ Deno.test('Context#body parses form-urlencoded as FormData', async () => {
   assertEquals(formData.get('baz'), 'qux')
 })
 
+Deno.test('Context#body parses mixed-case Application/Json as JSON', async () => {
+  const ctx = createTestContext(
+    'http://localhost/',
+    {},
+    {
+      method: 'POST',
+      body: '{"a":2}',
+      headers: new Headers({ 'Content-Type': 'Application/Json; charset=utf-8' })
+    }
+  )
+  const body = (await ctx.body()) as { a: number }
+  assertEquals(body.a, 2)
+})
+
 Deno.test('Context#body parses multipart/form-data', async () => {
   const multipartBody =
     `------TestBoundary\r\nContent-Disposition: form-data; name="field1"\r\n\r\nvalue1\r\n------TestBoundary--\r\n`
@@ -108,6 +136,20 @@ Deno.test('Context#body parses multipart/form-data', async () => {
   )
   const formData = (await ctx.body()) as FormData
   assertEquals(formData.get('field1'), 'value1')
+})
+
+Deno.test('Context#body parses uppercase application/json case-insensitively', async () => {
+  const ctx = createTestContext(
+    'http://localhost/',
+    {},
+    {
+      method: 'POST',
+      body: '{"a":1}',
+      headers: new Headers({ 'Content-Type': 'APPLICATION/JSON' })
+    }
+  )
+  const body = (await ctx.body()) as { a: number }
+  assertEquals(body.a, 1)
 })
 
 Deno.test('Context#body re-throws a status-bearing JSON read error instead of returning null', async () => {
@@ -203,6 +245,20 @@ Deno.test('Context#body then formData throws when body already parsed as non-for
   assertEquals(thrown, true)
 })
 
+Deno.test('Context#body trims surrounding whitespace in content-type', async () => {
+  const ctx = createTestContext(
+    'http://localhost/',
+    {},
+    {
+      method: 'POST',
+      body: '{"a":4}',
+      headers: new Headers({ 'Content-Type': '  application/json  ' })
+    }
+  )
+  const body = (await ctx.body()) as { a: number }
+  assertEquals(body.a, 4)
+})
+
 Deno.test('Context#body with no content-type returns text', async () => {
   const ctx = createTestContext('http://localhost/', {}, { method: 'POST', body: 'default text' })
   const body = await ctx.body()
@@ -234,6 +290,14 @@ Deno.test('Context#cookie caching returns same map on repeated calls', () => {
   assertEquals(first, second)
   assertEquals(first['a'], '1')
   assertEquals(first['b'], '2')
+})
+
+Deno.test('Context#cookie does not let a non-breaking-space name shadow a real cookie', () => {
+  const ctx = createTestContext('http://localhost/', {}, {
+    headers: new Headers({ Cookie: '\u00A0sid=attacker; sid=legit' })
+  })
+  assertEquals(ctx.cookie('sid'), 'legit')
+  assertEquals(ctx.cookie('\u00A0sid'), 'attacker')
 })
 
 Deno.test('Context#cookie map uses a null prototype', () => {
@@ -282,6 +346,14 @@ Deno.test('Context#cookie treats reserved names as plain data keys', () => {
   assertEquals(cookies['toString'], 'y')
   assertEquals(cookies['constructor'], 'z')
   assertEquals(Object.hasOwn(cookies, '__proto__'), true)
+})
+
+Deno.test('Context#cookie trims only SP and HTAB around names like browsers do', () => {
+  const ctx = createTestContext('http://localhost/', {}, {
+    headers: new Headers({ Cookie: '  sid \t=value;\tfoo = bar' })
+  })
+  assertEquals(ctx.cookie('sid'), 'value')
+  assertEquals(ctx.cookie('foo'), ' bar')
 })
 
 Deno.test('Context#cookie trims whitespace from cookie key', () => {
@@ -535,6 +607,22 @@ Deno.test('Context#json then text throws already consumed', async () => {
     assertEquals((e as Error).message, 'Request body already consumed')
   }
   assertEquals(thrown, true)
+})
+
+Deno.test('Context#param falls back to raw value on malformed percent-encoding', () => {
+  const ctx = createTestContext('http://localhost/x', { id: '%', other: '%zz', plain: 'ok' })
+  assertEquals(ctx.param('id'), '%')
+  assertEquals(ctx.param('other'), '%zz')
+  assertEquals(ctx.param('plain'), 'ok')
+})
+
+Deno.test('Context#param percent-decodes route params (consistent with query)', () => {
+  const ctx = createTestContext('http://localhost/users/john%20doe', { id: 'john%20doe' })
+  assertEquals(ctx.param('id'), 'john doe')
+  const unicodeCtx = createTestContext('http://localhost/users/caf%C3%A9', { id: 'caf%C3%A9' })
+  assertEquals(unicodeCtx.param('id'), 'café')
+  const slashCtx = createTestContext('http://localhost/x', { id: 'a%2Fb' })
+  assertEquals(slashCtx.param('id'), 'a/b')
 })
 
 Deno.test('Context#param returns route param by key', () => {
@@ -863,6 +951,12 @@ Deno.test('Context#setParams merges additional params', () => {
   assertEquals(ctx.param('name'), 'test')
 })
 
+Deno.test('Context#setParams percent-decodes merged params', () => {
+  const ctx = createTestContext('http://localhost/', {})
+  ctx.setParams({ name: 'a%20b' })
+  assertEquals(ctx.param('name'), 'a b')
+})
+
 Deno.test('Context#state exposes a live mutable record (documented API)', () => {
   const ctx = createTestContext()
   assertEquals(typeof ctx.state, 'object')
@@ -878,11 +972,11 @@ Deno.test('Context#state reflects values set via setState (session/worker keys)'
   assertEquals((ctx.state['session'] as { userId: string }).userId, '1')
 })
 
-Deno.test('Context#streamRender throws Deno.errors.NotSupported', () => {
+Deno.test('Context#streamRender throws Deno.errors.NotSupported', async () => {
   const ctx = createTestContext('http://localhost/')
   let thrown = false
   try {
-    ctx.streamRender('hello.dve')
+    await ctx.streamRender('hello.dve')
   } catch (e) {
     thrown = true
     assertEquals(e instanceof Deno.errors.NotSupported, true)
@@ -890,11 +984,11 @@ Deno.test('Context#streamRender throws Deno.errors.NotSupported', () => {
   assertEquals(thrown, true)
 })
 
-Deno.test('Context#streamRender throws when view engine not configured', () => {
+Deno.test('Context#streamRender throws when view engine not configured', async () => {
   const ctx = createTestContext('http://localhost/')
   let thrown = false
   try {
-    ctx.streamRender('hello.dve')
+    await ctx.streamRender('hello.dve')
   } catch (e) {
     thrown = true
     assertEquals((e as Error).message.includes('View engine not configured'), true)
