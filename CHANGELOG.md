@@ -12,6 +12,7 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - Centralized observability event bus (`core/Observability.ts`) built on an error-isolated signal, exposing a single `router.on(listener)` tap that streams a discriminated `Event` union of thirteen lifecycle and error types, each carrying a `timestamp` and, where relevant, the raw `Error` for developer-owned logging and APM/OTEL pipelines
 - Emit sites wired across the framework for route lifecycle (`route:loaded`, `route:skipped`, `route:reloaded`, `route:removed`, `route:error`, `reload:error`), view lifecycle (`view:compiled`, `view:rendered`, `view:refreshed`, `view:error`), `server:listening`, `request:error`, and `process:error`
+- `request:complete` / `request:error` events now also carry the resolved client `ip` (the real client behind a trusted proxy) and OpenTelemetry-style attributes (`route` template, `serverAddress`, `serverPort`, `userAgent`, `requestSize`, `responseSize`), each omitted when unknown so an operator can attribute and trace a request without external correlation
 - `core/Guard.ts` process-fault sentinel registered by `Router.serve()`, catching `unhandledrejection` and uncaught `error` events once across all routers and surfacing each as a `process:error` event instead of letting it terminate the process
 - `core/Guard.ts` additionally interposes native termination APIs (`Deno.exit`, `Deno.kill`, and the node `process.exit`/`abort`/`reallyExit`/`kill` shims), blocking a self-kill or exit from application code and reporting it as a `process:error` while kills aimed at other PIDs still pass through
 - `Context.send.file()` and `Context.send.data()` now emit an RFC 6266 / RFC 5987 compliant `Content-Disposition`, adding a `filename*=UTF-8''` parameter so Unicode download names round-trip alongside the ASCII fallback
@@ -21,6 +22,12 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `Static.etagMatch()` implements RFC 9110 Section 13.1.2 weak comparison, supporting `W/` prefix stripping, comma-separated lists, and wildcard `*` for proper 304 handling
 - `Context.assertValidHeader()` validates header names and values using the WHATWG `Headers` built-in before assignment
 - `WrapMware` function (previously `Utils.wrapMiddleware`) inlined into `middleware/index.ts` as the public middleware wrapper export
+- `Mware.csrf()` CSRF protection middleware (`middleware/CSRF.ts`) that guards state-changing methods by validating the `Origin` and `Sec-Fetch-Site` headers, defaulting to same-origin and denying when both headers are absent
+- `Mware.ip()` IP restriction middleware (`middleware/IP.ts`) that allows or denies by connection IP using exact, CIDR, or wildcard rules, with whitelist taking precedence over blacklist and a fail-safe deny when the IP is unknown
+- `Context.ip` accessor exposing the resolved client IP, plus `Context.directIp` for the raw TCP peer; by default forwarded headers are ignored so neither can be spoofed
+- `RouterOptions.trustProxy` configuration (a list of IPs/CIDRs, the named presets `loopback`/`linklocal`/`uniquelocal`, or a predicate) and `core/IpResolver.ts` that, only behind a trusted peer, prefers a single-IP forwarding header (`cf-connecting-ip`, `x-real-ip`) and otherwise walks the `X-Forwarded-For` or RFC 7239 `Forwarded` chain right-to-left to recover the real client IP, falling back to the direct peer otherwise
+- `core/IpAddress.ts` extracted from the IP middleware as the shared canonical IPv4/IPv6 + CIDR parser used by both `Mware.ip()` and the trusted-proxy check
+- Graceful shutdown: when `serve()` is given no `AbortSignal`, it now installs default `SIGTERM`/`SIGINT` listeners (`SIGINT`-only on Windows) that stop accepting new connections, wait for in-flight requests to finish, release the file watchers and worker pool, and emit a `server:shutdown` event before the process exits
 - Worker pool gains a configurable per-task `taskTimeoutMs` (default 30 seconds), bounding how long a single dispatch may run before the slot is reclaimed and replaced
 - `Context.param()` now percent-decodes route param values once, so `/users/john%20doe` yields `john doe`, matching the decoded contract `Context.query()` already provides
 - `Context.finalizeRaw()` applies middleware-accumulated headers and `Set-Cookie` values to a native `Response` returned directly from a handler, so security headers, CORS, and session cookies survive the raw-return path
@@ -30,6 +37,15 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 #### Security Hardening
 
+- `Mware.csrf()` denies an unsafe-method request by default unless its `Origin` or `Sec-Fetch-Site` header passes the allowlist, validating regardless of Content-Type so a request with no Content-Type or no headers cannot skip the check
+- `Mware.ip()` decides access from the resolved client IP and denies a request whose IP is unknown, so a forwarded-for header cannot spoof past the allow/deny rules
+- Client IP resolution is safe-by-default: with `trustProxy` unset every forwarded header is ignored and `ctx.ip` stays the direct peer, and even when set the forwarded chain is only honored behind a trusted peer
+- Framework-wired request state (`view`, `worker`, `session`, `setSession`, `clearSession`) is held in a separate store the public `ctx.state` getter never returns, so userland can no longer read or clobber framework internals through it
+- Framework-only Context methods (`finalizeRaw`, `replaceRequest`, `setParams`, `setInternalState`, error inspectors, header/cookie snapshots) are now private and reachable only cross-module through an `InternalContext` symbol, so they no longer appear on the public `Context` type a handler can call
+- The framework now snapshots the native built-ins it relies on (`Response`, `Headers`, `Request`, `URL`, `Worker`, `Error`, `TextEncoder`/`TextDecoder`, `JSON.parse`/`stringify`, `crypto.subtle`) at load and uses those pinned references internally, so application or third-party code that later monkey-patches a global cannot subvert response building, routing, workers, auth hashing, or origin checks
+- The `Mware` factory registry is frozen at module load, so application or third-party code can no longer swap or tamper with a built-in middleware factory after import
+- A `Router` instance and its prototype are frozen, so its wiring and methods cannot be reassigned or monkey-patched after construction
+- The `Context` prototype is frozen, so its request/response methods cannot be replaced on the shared prototype to subvert every request
 - All response construction paths now include baseline security headers, including 414 URI Too Long and 503 request timeout responses that previously produced bare responses
 - `Redirect.resolveLocation()` resolves the target URL with the standard parser first, then enforces same-origin for relative-looking inputs and requires an http(s) scheme, closing protocol-relative and backslash-normalization bypasses
 - WebSocket middleware validates the `Origin` header before upgrade, defaulting to same-origin enforcement with configurable allowlist or wildcard opt-out, preventing cross-site WebSocket hijacking
@@ -86,6 +102,9 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 #### Performance
 
+- The per-request observability report is now skipped entirely when nobody is subscribed: the event bus tracks its active listener count and the request hot path builds the metadata (user-agent, content-length, URL parse) only when `hasListeners()` is true, so an app with no `router.on()` tap pays zero collection cost
+- `requestMetrics` reuses the request URL the funnel already parsed instead of parsing `new URL(req.url)` a second time, falling back to a guarded parse only on the rare path where the URL was rejected before parsing
+- `Context.finalizeRaw()` only runs its header-merge loop when middleware actually accumulated headers, so a raw `Response` from a route with no header-setting middleware (the common case) skips the wasted array allocation and empty loop
 - `Static.serveStaticFile()` defers `Deno.open` until after the 304 cache check, eliminating wasted file descriptors on cache hits
 - `Static` ETag generation uses a deterministic fallback (`mtime ?? 0`) to prevent hash collisions when file modification time is unavailable
 - `Engine` compile cache layer consolidated: removed dead `fileCache` that was never hit, inlining `Deno.readTextFile` directly
@@ -115,7 +134,16 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `Context.handleError()` fallback and `Handler.handleResponse()` catch no longer expose raw error messages for 4xx responses, using generic status text instead
 - Module-level `encoder` and `decoder` variables in Session moved into the class as `private static readonly` properties
 - `Response.ts` extracts `applyCookies()` and `mergedHeaders()` helpers to eliminate duplicated header-merge logic
-- `Handler.ts` extracts `safePositive()` helper for numeric option validation
+- The route-handler funnel dropped its inner `try/catch` that duplicated the outer funnel's error handling, so a throwing route handler now propagates to the single outer catch with no behavior change
+- The routing layer's observability and response-building helpers moved out of `Handler` into dedicated `Report` (boundary emit + OTel metric derivation) and `Respond` (genuine-Response check, negotiated/safe error builders, HEAD response) classes, leaving `Handler` to orchestrate the request flow only, with no behavior change
+- The built-in Basic Auth, WebSocket, and Session middleware now run their logic inside `WrapMware`, so an error thrown in any of them is caught, labeled, and routed through the standard error path instead of escaping the middleware
+- `Static` extracts an `applyCacheHeaders()` helper and a local `notFound` helper, removing the repeated ETag/Cache-Control and 404 construction blocks
+- `Response.ts` extracts an `isNullBodyStatus()` helper and reuses `Handler.appendCookies()`, removing the duplicated null-body-status and Set-Cookie logic
+- `Context` body accessors (`json`, `text`, `arrayBuffer`, `blob`, `formData`) collapse onto a single generic `readBody()` that owns the parse-once cache, double-use guard, and error wrapping, and the header/param/query record building and view-engine lookup move into shared `collectRecord()`, `applyHeader()`, and `requireViewEngine()` helpers
+- Interface declarations (`Middleware`, `Rendering`, `Routing`, `Observability`) switched to a single `import type * as Types` namespace import for consistency across the codebase
+- `Observability.internalEvent()` factory (backed by a new `EventByKind` helper type) centralizes internal event construction, replacing the inline event literals across `Guard`, `Router`, `Engine`, and `Scanner`
+- `Handler.ts` extracts `appendCookies()` and `wantsJson()` helpers, replacing duplicated Set-Cookie and Accept-header logic
+- `Handler.ts` extracts `assertPositiveFinite()` helper for numeric option validation, now shared by the worker task timeout, request timeout, body limit, and session max-age checks
 - `Helper.toRecord()` simplified to `Object.fromEntries()` directly
 - All `Object.hasOwnProperty` calls replaced with `Object.hasOwn()`
 - All `parseInt()` calls for numeric coercion replaced with `Number()`
@@ -128,11 +156,17 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 #### Public API
 
 - `src/index.ts` changed from `export *` (which leaked all internal classes) to named exports: `Router`, `Context`, `Mware`, `WrapMware`, and all type declarations
+- `Handler` is no longer exported from `src/index.ts`, and the internal Context methods (`finalizeRaw`, `replaceRequest`, `setParams`, `setInternalState`, framework-error inspectors, header/cookie snapshots) moved behind the `InternalContext` symbol channel and off the public `Context` type
 - `router.on(listener)` added as the single public tap for the observability event bus
+- `Mware.csrf(options?)` factory added with a `CsrfOptions` interface (`origin` and `secFetchSite`, each an exact string, list, or predicate)
+- `Mware.ip(options?)` factory added with an `IpOptions` interface (`whitelist` / `blacklist` rule lists) and an `IpMatcher` type, plus `Context.ip` and `Context.directIp` getters
+- `RouterOptions.trustProxy` field added with a `TrustProxyConfig` type, a list of IPs/CIDRs/presets or an `IpMatcher` predicate
+- New `server:shutdown` lifecycle event emitted on `router.on()`, plus `Handler.dispose()` and watcher `watch()` calls now returning a stop handle
 - `WebSocketOptions` gains an optional `allowedOrigins` field accepting an exact allowlist or `'*'` opt-out
 - `WorkerPoolOptions` gains an optional `taskTimeoutMs` field bounding how long a single worker task may run before its slot is reclaimed
 - `Context.streamRender()` and `ViewEngine.streamRender()` are now async (return a `Promise`), so a missing or uncompilable template surfaces before the response status is committed
 - `process:error` added to the observability `Event` union, carrying the fault `origin` (`unhandledrejection`, `uncaughterror`, or `process:exit`) and the raw `Error`
+- `request:complete` / `request:error` event metadata gained optional `ip`, `route`, `serverAddress`, `serverPort`, `userAgent`, `requestSize`, and `responseSize` fields
 
 ### Fixed
 
@@ -183,6 +217,13 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - A malformed WebSocket handshake (e.g. a missing `Sec-WebSocket-Key`) used to come back as a 500 because the upgrade threw an unmapped error. A failed upgrade is always a client problem, so we now return a clean 400 and the real cause still reaches the logged error event
 - A non-GET request (POST, PUT, etc.) carrying an `Upgrade: websocket` header used to be upgraded anyway, shadowing the real same-path HTTP route and bypassing its method and auth checks. Only GET can open a handshake now, so any other method falls through to normal routing
 - Basic Auth matched the `Basic` scheme case-sensitively, so a valid client sending `basic` or `BASIC` was wrongly rejected. The scheme token is now matched case-insensitively per RFC 7235, while the credential check stays constant-time and unchanged
+- A throwing custom `origin` or `secFetchSite` validator passed to `Mware.csrf()` used to surface a 500 and cancel the other check entirely. A predicate that throws now just fails its own check (deny), so the request still falls safe to 403 and the `Origin`-or-`Sec-Fetch-Site` fallback keeps working
+- On a dual-stack server an IPv4 client arrives as an IPv4-mapped IPv6 address (`::ffff:127.0.0.1`), which used to slip past an IPv4 `Mware.ip()` blacklist and lock out an IPv4 whitelist. We now canonicalize the mapped form back to its IPv4 identity so rules match either way, and reject zero-padded octets that were ambiguously accepted
+- Aborting a `serve()` `AbortSignal` used to force-close the listener and cut requests that were still running. We now drain instead, letting in-flight requests finish before the server stops and always releasing the watchers and worker pool on the way out
+- `ctx.state` used to hand back the live internal record, so a handler could read or delete framework wiring like `ctx.state.view` and break rendering, sessions, or workers for that request. The public `ctx.state` now exposes app state only, framework keys live in a separate store, and writing a reserved key through `setState()` is rejected
+- A middleware that called `next()` twice used to be silently ignored on the second call, hiding a real bug. Calling `next()` more than once in the same middleware now throws and surfaces as a masked 500 instead of passing unnoticed
+- A handler or middleware could return a fake `Response` (an object grafted onto `Response.prototype`) that passed the `instanceof` check but threw later, escaping as a naked error with no security headers. We now verify a returned value is a genuine `Response` and route anything else through the normal masked-500 path
+- A throwing custom `trustProxy` predicate, reachable via an attacker-supplied `X-Forwarded-For` hop, used to escape to the runtime as a naked error without security headers. Client IP resolution now runs inside the request error boundary, so any predicate fault returns a masked, security-header-protected 500
 - A fault during request setup (before the per-request try block) could reject straight to the runtime, producing a bare 500 with no logging. The outer handler is now fully wrapped, so every request emits its completion event and returns a masked, security-header-protected response no matter where it fails
 
 ---
