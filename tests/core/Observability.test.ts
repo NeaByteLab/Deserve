@@ -79,6 +79,21 @@ Deno.test('Observability emit does not throw when a listener throws', () => {
   assertEquals(emitThrew, false)
 })
 
+Deno.test('Observability emit is a no-op while no listener is registered', () => {
+  const bus = new Core.Observability()
+  let delivered = 0
+  const unsub = bus.on(() => delivered++)
+  unsub()
+  bus.emit({
+    type: 'internal',
+    kind: 'route:loaded',
+    metadata: { routePath: 'd.ts', pattern: '/d' },
+    timestamp: Date.now()
+  })
+  assertEquals(delivered, 0)
+  assertEquals(bus.hasListeners(), false)
+})
+
 Deno.test('Observability emit with no subscriber is a safe no-op', () => {
   const bus = new Core.Observability()
   bus.emit({
@@ -87,6 +102,38 @@ Deno.test('Observability emit with no subscriber is a safe no-op', () => {
     metadata: { routePath: 'x.ts', pattern: '/x' },
     timestamp: Date.now()
   })
+})
+
+Deno.test('Observability hasListeners reflects subscribe and unsubscribe', () => {
+  const bus = new Core.Observability()
+  assertEquals(bus.hasListeners(), false)
+  const first = bus.on(() => {})
+  assertEquals(bus.hasListeners(), true)
+  const second = bus.on(() => {})
+  assertEquals(bus.hasListeners(), true)
+  first()
+  assertEquals(bus.hasListeners(), true)
+  second()
+  assertEquals(bus.hasListeners(), false)
+})
+
+Deno.test('Observability hasListeners stays correct under repeated unsubscribe', () => {
+  const bus = new Core.Observability()
+  const unsub = bus.on(() => {})
+  assertEquals(bus.hasListeners(), true)
+  unsub()
+  unsub()
+  unsub()
+  assertEquals(bus.hasListeners(), false)
+  let delivered = 0
+  bus.on(() => delivered++)
+  bus.emit({
+    type: 'internal',
+    kind: 'route:loaded',
+    metadata: { routePath: 'c.ts', pattern: '/c' },
+    timestamp: Date.now()
+  })
+  assertEquals(delivered, 1)
 })
 
 Deno.test('Observability isolates a throwing listener from others', () => {
