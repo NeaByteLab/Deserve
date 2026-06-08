@@ -95,15 +95,17 @@ export class Engine implements Types.ViewEngine, Types.WatchableEngine {
 
   /**
    * Render template with streaming.
-   * @description Streams HTML output as it renders.
+   * @description Resolves template up front, then streams compiled AST.
    * @param templatePath - Relative template path
    * @param data - Template scope data
-   * @returns ReadableStream with HTML content
+   * @returns Promise resolving to a ReadableStream with HTML content
    * @throws {Deno.errors.NotFound} When template not found
+   * @throws {Deno.errors.InvalidData} When the template fails to compile
    */
-  streamRender(templatePath: string, data: Types.DataRecord = {}): ReadableStream {
+  async streamRender(templatePath: string, data: Types.DataRecord = {}): Promise<ReadableStream> {
+    const compiled = await this.resolveTemplate(templatePath)
     const { readable, writable } = new TransformStream()
-    this.renderStream(templatePath, data, writable).catch((error: Error) => {
+    this.renderStream(compiled, templatePath, data, writable).catch((error: Error) => {
       this.emit?.({
         type: 'internal',
         kind: 'view:error',
@@ -227,13 +229,15 @@ export class Engine implements Types.ViewEngine, Types.WatchableEngine {
   }
 
   /**
-   * Render template nodes to stream.
-   * @description Streams HTML output progressively.
-   * @param templatePath - Relative template path
+   * Render compiled template nodes to stream.
+   * @description Streams HTML output progressively from an already-compiled AST.
+   * @param compiled - Pre-resolved compiled template
+   * @param templatePath - Relative template path for events
    * @param data - Template scope data
    * @param writable - Writable stream for output
    */
   private async renderStream(
+    compiled: Types.CompileResult,
     templatePath: string,
     data: Types.DataRecord,
     writable: WritableStream
@@ -241,7 +245,6 @@ export class Engine implements Types.ViewEngine, Types.WatchableEngine {
     const writer = writable.getWriter()
     const renderStart = performance.now()
     try {
-      const compiled = await this.resolveTemplate(templatePath)
       for (const node of compiled.ast) {
         const chunk = await this.renderChunk(node, data, this.defaultViewsDir, 0)
         if (chunk) {

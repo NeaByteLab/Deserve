@@ -42,9 +42,9 @@ export interface ViewEngine {
    * Render template to readable stream.
    * @param templatePath - Path to template file
    * @param data - Template data record
-   * @returns ReadableStream of rendered output
+   * @returns Promise resolving to a ReadableStream of rendered output
    */
-  streamRender(...args: TemplateArgs): ReadableStream
+  streamRender(...args: TemplateArgs): Promise<ReadableStream>
 }
 
 /**
