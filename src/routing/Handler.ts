@@ -33,6 +33,8 @@ export class Handler {
   private maxUrlLength: number | undefined
   /** Request timeout in milliseconds */
   private requestTimeoutMs: number | undefined
+  /** Compiled trusted-proxy tester or null */
+  private trustTester: Types.IpMatcher | null
   /** Static file handler instance */
   private staticHandler: Types.StaticHandler
   /** Optional worker pool instance */
@@ -61,15 +63,11 @@ export class Handler {
       'maxParamLength'
     )
     const timeoutValue = options?.requestTimeoutMs
-    if (
-      timeoutValue !== undefined &&
-      (!Number.isFinite(timeoutValue) || timeoutValue <= 0)
-    ) {
-      throw new Deno.errors.InvalidData(
-        `requestTimeoutMs must be a positive finite number of milliseconds, got ${timeoutValue}`
-      )
+    if (timeoutValue !== undefined) {
+      Core.Handler.assertPositiveFinite(timeoutValue, 'requestTimeoutMs', 'milliseconds')
     }
     this.requestTimeoutMs = timeoutValue
+    this.trustTester = Core.IpResolver.compile(options?.trustProxy)
     this.workerPool = options?.worker !== undefined
       ? Core.Worker.createPool(options.worker)
       : undefined
@@ -113,7 +111,6 @@ export class Handler {
           ?.path}`
       )
     }
-    const staticHandler = this.staticHandler
     const isAbsolute = options.path.startsWith('/') || /^[A-Za-z]:[\\/]/.test(options.path)
     const resolvedPath = isAbsolute ? options.path : `${Deno.cwd()}/${options.path}`
     const resolvedOptions: Types.ServeOptions = options.path === resolvedPath
@@ -122,7 +119,7 @@ export class Handler {
     const routePattern = urlPath === '/' ? '/**' : `${urlPath}/**`
     const routeEntry: Types.RouteEntry = {
       kind: 'static',
-      execute: (ctx: Core.Context) => staticHandler.serve(ctx, resolvedOptions, urlPath),
+      execute: (ctx: Core.Context) => this.staticHandler.serve(ctx, resolvedOptions, urlPath),
       pattern: routePattern,
       urlPath
     }
@@ -130,89 +127,103 @@ export class Handler {
   }
 
   /** Build Deno.serve request handler */
-  createHandler(): (req: Request) => Promise<Response> {
-    const maxUrlLength = this.maxUrlLength
-    const maxParamLength = this.maxParamLength
-    const boundHandleResponse = this.handleResponse.bind(this)
+  createHandler(): (req: Request, info?: Deno.ServeHandlerInfo) => Promise<Response> {
     const eventReporter: Types.EventEmit = (event) => this.events.emit(event)
-    const router = this.routerInstance
-    const methods = Core.Constant.httpMethods
+    const boundHandleResponse = this.handleResponse.bind(this)
     const workerPool = this.workerPool
-    const viewEngine = this.viewEngine
     const workerHandle: Types.WorkerRunHandle | undefined = workerPool
       ? { run: <T>(payload: unknown) => workerPool.run<T>(payload) }
       : undefined
     const handleRequest = async (
       req: Request,
-      holder: Types.RequestHolder
+      holder: Types.RequestHolder,
+      clientIp?: string,
+      directIp?: string
     ): Promise<Response> => {
-      if (maxUrlLength !== undefined && maxUrlLength > 0 && req.url.length > maxUrlLength) {
+      if (
+        this.maxUrlLength !== undefined &&
+        this.maxUrlLength > 0 &&
+        req.url.length > this.maxUrlLength
+      ) {
         holder.frameworkError = new Deno.errors.InvalidData(
           'Request URL exceeds maximum allowed length'
         )
-        return Handler.buildUriError(req)
+        return Routing.Respond.negotiatedError(req, 414, 'URI Too Long')
       }
-      const requestUrl = new URL(req.url)
-      const ctx = new Core.Context(req, requestUrl, {}, boundHandleResponse)
-      holder.ctx = ctx
+      holder.parsedUrl = new Core.API.URL(req.url)
+      holder.ctx = new Core.Context(
+        req,
+        holder.parsedUrl,
+        undefined,
+        boundHandleResponse,
+        clientIp,
+        directIp
+      )
       if (workerHandle) {
-        ctx.setState(Core.Handler.StateKeys.worker, workerHandle)
+        holder.ctx[Core.InternalContext].setInternalState(
+          Core.Handler.stateKeys.worker,
+          workerHandle
+        )
       }
-      if (viewEngine !== undefined) {
-        ctx.setState(Core.Handler.StateKeys.view, viewEngine)
+      if (this.viewEngine !== undefined) {
+        holder.ctx[Core.InternalContext].setInternalState(
+          Core.Handler.stateKeys.view,
+          this.viewEngine
+        )
       }
       try {
-        const middlewareResult = await this.executeMiddlewares(ctx, requestUrl.pathname)
-        if (middlewareResult !== undefined) {
-          return middlewareResult
+        if (this.entryMiddleware.length > 0) {
+          const middlewareResult = await this.executeMiddlewares(
+            holder.ctx,
+            holder.parsedUrl.pathname
+          )
+          if (middlewareResult !== undefined) {
+            return middlewareResult
+          }
         }
-        let routeResult = router.find(req.method, requestUrl.pathname)
+        let routeResult = this.routerInstance.find(req.method, holder.parsedUrl.pathname)
         if (!routeResult && req.method === 'HEAD') {
-          routeResult = router.find('GET', requestUrl.pathname)
+          routeResult = this.routerInstance.find('GET', holder.parsedUrl.pathname)
         }
         if (routeResult) {
           const routeEntry = 'data' in routeResult ? routeResult.data : null
           if (!routeEntry) {
-            return await ctx.handleError(
+            return await holder.ctx.handleError(
               404,
               new Deno.errors.NotFound('No route data found for matched pattern')
             )
           }
+          holder.routePattern = routeEntry.pattern
           if ('params' in routeResult && routeResult.params) {
-            if (maxParamLength !== undefined && maxParamLength > 0) {
+            if (this.maxParamLength !== undefined && this.maxParamLength > 0) {
               for (const paramValue of Object.values(routeResult.params)) {
-                if (paramValue.length > maxParamLength) {
-                  return await ctx.handleError(
+                if (paramValue.length > this.maxParamLength) {
+                  return await holder.ctx.handleError(
                     414,
                     new Deno.errors.InvalidData('Route parameter exceeds maximum allowed length')
                   )
                 }
               }
             }
-            ctx.setParams(routeResult.params)
+            holder.ctx[Core.InternalContext].setParams(routeResult.params)
           }
           if (routeEntry.kind === 'static') {
-            return await routeEntry.execute(ctx)
+            return await routeEntry.execute(holder.ctx)
           }
-          try {
-            const handlerResult = await routeEntry.handler(ctx)
-            if (handlerResult instanceof Response) {
-              return ctx.finalizeRaw(handlerResult)
-            }
-            return await ctx.handleError(
-              500,
-              new TypeError(
-                `Route handler for ${requestUrl.pathname} must return a Response instance`
-              )
+          const handlerResult = await routeEntry.handler(holder.ctx)
+          if (Routing.Respond.isGenuineResponse(handlerResult)) {
+            return holder.ctx[Core.InternalContext].finalizeRaw(handlerResult)
+          }
+          return await holder.ctx.handleError(
+            500,
+            new TypeError(
+              `Route handler for ${holder.parsedUrl.pathname} must return a Response instance`
             )
-          } catch (routeError) {
-            const extracted = Core.Handler.extractError(routeError)
-            return await ctx.handleError(extracted.statusCode, extracted.error)
-          }
+          )
         }
         const supportedMethods = new Set<string>()
-        for (const method of methods) {
-          if (router.find(method, requestUrl.pathname)) {
+        for (const method of Core.Constant.httpMethods) {
+          if (this.routerInstance.find(method, holder.parsedUrl.pathname)) {
             supportedMethods.add(method)
           }
         }
@@ -220,53 +231,55 @@ export class Handler {
           supportedMethods.add('HEAD')
         }
         if (supportedMethods.size > 0) {
-          const allowedMethods = [...supportedMethods].sort()
-          ctx.setHeader('Allow', allowedMethods.join(', '))
-          return await ctx.handleError(
+          holder.ctx.setHeader('Allow', [...supportedMethods].sort().join(', '))
+          return await holder.ctx.handleError(
             405,
             new Deno.errors.NotSupported(
-              `Method ${req.method} not allowed for ${requestUrl.pathname}`
+              `Method ${req.method} not allowed for ${holder.parsedUrl.pathname}`
             )
           )
         }
-        return await ctx.handleError(
+        return await holder.ctx.handleError(
           404,
-          new Deno.errors.NotFound(`No route found for ${req.method} ${requestUrl.pathname}`)
+          new Deno.errors.NotFound(`No route found for ${req.method} ${holder.parsedUrl.pathname}`)
         )
       } catch (handlerError) {
         const extracted = Core.Handler.extractError(handlerError)
-        return await ctx.handleError(extracted.statusCode, extracted.error)
+        return await holder.ctx.handleError(extracted.statusCode, extracted.error)
       }
     }
-    const timeoutMs = this.requestTimeoutMs
-    return async (req: Request) => {
-      const requestStart = performance.now()
+    return async (req: Request, info?: Deno.ServeHandlerInfo) => {
+      const observe = this.events.hasListeners()
+      const requestStart = observe ? performance.now() : 0
       const holder: Types.RequestHolder = {
         ctx: null,
-        frameworkError: null
+        frameworkError: null,
+        clientIp: undefined,
+        routePattern: undefined,
+        parsedUrl: undefined
       }
+      const remoteAddr = info?.remoteAddr
+      const directIp = remoteAddr && remoteAddr.transport === 'tcp'
+        ? remoteAddr.hostname
+        : undefined
       let timedOut = false
       let finalResponse: Response
       try {
-        if (timeoutMs !== undefined && timeoutMs > 0) {
+        const clientIp = Core.IpResolver.resolve(directIp, req.headers, this.trustTester)
+        holder.clientIp = clientIp
+        if (this.requestTimeoutMs !== undefined && this.requestTimeoutMs > 0) {
           const abortController = new AbortController()
-          const timeoutTimer = setTimeout(() => abortController.abort(), timeoutMs)
+          const timeoutTimer = setTimeout(() => abortController.abort(), this.requestTimeoutMs)
           try {
             finalResponse = await Promise.race([
-              handleRequest(req, holder),
+              handleRequest(req, holder, clientIp, directIp),
               new Promise<Response>((resolve) => {
                 abortController.signal.addEventListener('abort', () => {
                   timedOut = true
                   holder.frameworkError = new Deno.errors.TimedOut(
-                    `Request exceeded ${timeoutMs}ms timeout`
+                    `Request exceeded ${this.requestTimeoutMs}ms timeout`
                   )
-                  resolve(
-                    new Response(null, {
-                      status: 503,
-                      statusText: 'Service Unavailable',
-                      headers: Core.Constant.securityHeaderDefaults
-                    })
-                  )
+                  resolve(Routing.Respond.negotiatedError(req, 503, 'Service Unavailable'))
                 })
               })
             ])
@@ -274,17 +287,34 @@ export class Handler {
             clearTimeout(timeoutTimer)
           }
         } else {
-          finalResponse = await handleRequest(req, holder)
+          finalResponse = await handleRequest(req, holder, clientIp, directIp)
         }
       } catch (fatalError) {
         holder.frameworkError = Core.Handler.extractError(fatalError).error
-        finalResponse = Handler.safeServerError(req, 500)
+        finalResponse = Routing.Respond.safeServerError(req, 500)
       }
-      Handler.reportRequest(eventReporter, req, finalResponse, requestStart, holder, timedOut)
-      if (req.method === 'HEAD') {
-        return await Handler.toHeadResponse(finalResponse)
+      if (!Routing.Respond.isGenuineResponse(finalResponse)) {
+        holder.frameworkError = new TypeError('Response is not a genuine Response instance')
+        finalResponse = Routing.Respond.safeServerError(req, 500)
       }
-      return finalResponse
+      try {
+        if (observe) {
+          Routing.Report.reportRequest(
+            eventReporter,
+            req,
+            finalResponse,
+            requestStart,
+            holder,
+            timedOut
+          )
+        }
+        if (req.method === 'HEAD') {
+          return await Routing.Respond.toHeadResponse(finalResponse)
+        }
+        return finalResponse
+      } catch {
+        return Routing.Respond.safeServerError(req, 500)
+      }
     }
   }
 
@@ -298,8 +328,14 @@ export class Handler {
     return Routing.Scanner.createPattern(routePath, Core.Constant.allowedExtensions)
   }
 
+  /** Release framework-owned resources */
+  dispose(): void {
+    this.workerPool?.terminate()
+    this.workerPool = undefined
+  }
+
   /**
-   * Emit a lifecycle or error event on the shared bus.
+   * Emit lifecycle or error event.
    * @description Used by the router to surface server-level events.
    * @param event - Event payload to broadcast
    */
@@ -329,7 +365,7 @@ export class Handler {
   }
 
   /**
-   * Subscribe to all lifecycle and error events.
+   * Subscribe to lifecycle and error events.
    * @description Listener receives every Deserve event; filter via event.type.
    * @param listener - Callback invoked for each event
    * @returns Unsubscribe function
@@ -360,22 +396,16 @@ export class Handler {
         routePattern,
         Core.Constant.httpMethods
       )
-      this.events.emit({
-        type: 'internal',
-        kind: 'route:reloaded',
-        metadata: { routePath, pattern: routePattern },
-        timestamp: Date.now()
-      })
+      this.events.emit(
+        Core.Observability.internalEvent('route:reloaded', { routePath, pattern: routePattern })
+      )
     } catch (reloadError) {
-      this.events.emit({
-        type: 'internal',
-        kind: 'reload:error',
-        metadata: {
+      this.events.emit(
+        Core.Observability.internalEvent('reload:error', {
           routePath,
           error: reloadError instanceof Error ? reloadError : new Error(String(reloadError))
-        },
-        timestamp: Date.now()
-      })
+        })
+      )
     }
   }
 
@@ -390,12 +420,9 @@ export class Handler {
       this.routerInstance.remove(method, routePattern)
     }
     if (routePath !== undefined) {
-      this.events.emit({
-        type: 'internal',
-        kind: 'route:removed',
-        metadata: { routePath, pattern: routePattern },
-        timestamp: Date.now()
-      })
+      this.events.emit(
+        Core.Observability.internalEvent('route:removed', { routePath, pattern: routePattern })
+      )
     }
   }
 
@@ -455,53 +482,21 @@ export class Handler {
   }
 
   /**
-   * Build 414 response with security headers.
-   * @description Returns JSON or HTML by Accept header.
-   * @param req - Incoming request
-   * @returns 414 Response with minimal security headers
+   * Match middleware entry path against pathname.
+   * @description Empty or star matches all, else boundary prefix match.
+   * @param entryPath - Registered middleware path
+   * @param pathname - Request pathname
+   * @returns True when the entry applies to the pathname
    */
-  private static buildUriError(req: Request): Response {
-    const statusCode = 414
-    const errorLabel = 'URI Too Long'
-    const secHeaders = Core.Constant.securityHeaderDefaults
-    const isJsonRequest = req.headers.get('accept')?.includes('application/json')
-    if (isJsonRequest) {
-      return globalThis.Response.json(
-        { error: errorLabel, path: '', statusCode },
-        { status: statusCode, headers: { 'Content-Type': 'application/json', ...secHeaders } }
-      )
+  private static entryMatchesPath(entryPath: string, pathname: string): boolean {
+    if (entryPath === '' || entryPath === '*') {
+      return true
     }
-    return new Response(Core.Handler.defaultErrorHtml(statusCode, errorLabel), {
-      status: statusCode,
-      headers: { 'Content-Type': 'text/html; charset=utf-8', ...secHeaders }
-    })
-  }
-
-  /**
-   * Build a masked error response without a Context.
-   * @description Last-resort builder for faults that escape `handleRequest`
-   * before or instead of producing a Response (e.g. a throw in pre-Context
-   * setup). Mirrors `buildUriError`: content-negotiated, message-masked, and
-   * always security-header protected, so `Deno.serve` never sees a rejected
-   * promise and the client never gets a bare unprotected 500 (CWE-755).
-   * @param req - Incoming request
-   * @param statusCode - Masked status code to emit
-   * @returns Error Response with security headers
-   */
-  private static safeServerError(req: Request, statusCode: number): Response {
-    const errorLabel = Core.Constant.serverErrorMessages[statusCode as Types.HttpStatusCode] ??
-      'Internal Server Error'
-    const secHeaders = Core.Constant.securityHeaderDefaults
-    if (req.headers.get('accept')?.includes('application/json')) {
-      return globalThis.Response.json(
-        { error: errorLabel, statusCode },
-        { status: statusCode, headers: { 'Content-Type': 'application/json', ...secHeaders } }
-      )
+    if (entryPath.endsWith('/**')) {
+      const prefix = entryPath.slice(0, -3)
+      return pathname === prefix || pathname.startsWith(prefix + '/')
     }
-    return new Response(Core.Handler.defaultErrorHtml(statusCode, errorLabel), {
-      status: statusCode,
-      headers: { 'Content-Type': 'text/html; charset=utf-8', ...secHeaders }
-    })
+    return pathname === entryPath || pathname.startsWith(entryPath + '/')
   }
 
   /**
@@ -515,109 +510,40 @@ export class Handler {
     ctx: Core.Context,
     pathname: string
   ): Types.AsyncMiddlewareResult {
-    const entries = this.entryMiddleware
-    const entryCount = entries.length
-    let middlewareIndex = 0
-    const next: Types.NextFn = async () => {
-      while (middlewareIndex < entryCount) {
-        const middlewareEntry = entries[middlewareIndex]!
-        middlewareIndex++
-        const entryPath = middlewareEntry.path
-        if (entryPath !== '' && entryPath !== '*') {
-          if (entryPath.endsWith('/**')) {
-            const prefix = entryPath.slice(0, -3)
-            if (pathname !== prefix && !pathname.startsWith(prefix + '/')) {
-              continue
-            }
-          } else if (pathname !== entryPath && !pathname.startsWith(entryPath + '/')) {
-            continue
-          }
-        }
-        const middlewareResponse = await middlewareEntry.handler(ctx, next)
-        if (middlewareResponse === undefined) {
-          continue
-        }
-        if (middlewareResponse instanceof Response) {
-          return middlewareResponse
-        }
-        throw new TypeError(
-          `Middleware "${middlewareEntry.path || '*'}" must return a Response or undefined`
-        )
+    let lastIndex = -1
+    const dispatch = async (index: number): Types.AsyncMiddlewareResult => {
+      if (index <= lastIndex) {
+        throw new Error('next() called multiple times')
       }
-      return undefined
+      lastIndex = index
+      if (index >= this.entryMiddleware.length) {
+        return undefined
+      }
+      const middlewareEntry = this.entryMiddleware[index]!
+      if (!Handler.entryMatchesPath(middlewareEntry.path, pathname)) {
+        return await dispatch(index + 1)
+      }
+      let nextCalled = false
+      const next: Types.NextFn = () => {
+        nextCalled = true
+        return dispatch(index + 1)
+      }
+      const middlewareResponse = await middlewareEntry.handler(ctx, next)
+      if (middlewareResponse === undefined) {
+        return nextCalled ? undefined : await dispatch(index + 1)
+      }
+      if (Routing.Respond.isGenuineResponse(middlewareResponse)) {
+        return middlewareResponse
+      }
+      throw new TypeError(
+        `Middleware "${middlewareEntry.path || '*'}" must return a Response or undefined`
+      )
     }
-    return await next()
+    return await dispatch(0)
   }
 
   /**
-   * Emit boundary observability for a completed request.
-   * @description Emits request:complete plus request:error when status exceeds.
-   * @param emit - Event reporter
-   * @param req - Incoming request
-   * @param response - Final response sent to the client
-   * @param startTime - performance.now() captured at request entry
-   * @param holder - Per-request holder with ctx and any framework Error
-   * @param timedOut - True when the response is the synthetic 503 timeout
-   */
-  private static reportRequest(
-    emit: Types.EventEmit,
-    req: Request,
-    response: Response,
-    startTime: number,
-    holder: Types.RequestHolder,
-    timedOut: boolean
-  ): void {
-    const frameworkSourced = timedOut || holder.frameworkError !== null ||
-      (holder.ctx?.hasFrameworkError() ?? false) || holder.ctx === null
-    const channel: Types.EventChannel = frameworkSourced ? 'internal' : 'external'
-    const frameworkError = holder.frameworkError ?? holder.ctx?.getFrameworkError() ?? null
-    const durationMs = performance.now() - startTime
-    const baseMetadata = {
-      method: req.method,
-      statusCode: response.status,
-      url: req.url,
-      durationMs,
-      ...(frameworkError !== null && { error: frameworkError })
-    }
-    emit({
-      type: channel,
-      kind: 'request:complete',
-      metadata: baseMetadata,
-      timestamp: Date.now()
-    })
-    if (response.status >= 400) {
-      emit({
-        type: channel,
-        kind: 'request:error',
-        metadata: baseMetadata,
-        timestamp: Date.now()
-      })
-    }
-  }
-
-  /**
-   * Build HEAD response preserving GET headers.
-   * @description Strips body, derives Content-Length when header missing.
-   * @param response - The fully built GET-equivalent response
-   * @returns Bodyless response with preserved representation headers
-   */
-  private static async toHeadResponse(response: Response): Promise<Response> {
-    const headHeaders = new Headers(response.headers)
-    if (response.body && !headHeaders.has('Content-Length')) {
-      const bodyBytes = new Uint8Array(await response.arrayBuffer())
-      headHeaders.set('Content-Length', bodyBytes.byteLength.toString())
-    } else if (response.body) {
-      await response.body.cancel()
-    }
-    return new Response(null, {
-      status: response.status,
-      statusText: response.statusText,
-      headers: headHeaders
-    })
-  }
-
-  /**
-   * Validate an optional positive-number option at construction time.
+   * Validate optional positive-number construction option.
    * @description Returns default when omitted, throws on invalid value.
    * @param inputValue - Developer-provided value or undefined
    * @param defaultValue - Default used when omitted
@@ -630,14 +556,8 @@ export class Handler {
     defaultValue: number,
     optionName: string
   ): number {
-    if (inputValue === undefined) {
-      return defaultValue
-    }
-    if (!Number.isFinite(inputValue) || inputValue <= 0) {
-      throw new Deno.errors.InvalidData(
-        `${optionName} must be a positive finite number, got ${inputValue}`
-      )
-    }
-    return inputValue
+    return inputValue === undefined
+      ? defaultValue
+      : Core.Handler.assertPositiveFinite(inputValue, optionName)
   }
 }
