@@ -10,8 +10,10 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
-- Centralized observability event bus (`core/Observability.ts`) built on an error-isolated signal, exposing a single `router.on(listener)` tap that streams a discriminated `Event` union of twelve lifecycle and error types, each carrying a `timestamp` and, where relevant, the raw `Error` for developer-owned logging and APM/OTEL pipelines
-- Emit sites wired across the framework for route lifecycle (`route:loaded`, `route:skipped`, `route:reloaded`, `route:removed`, `route:error`, `reload:error`), view lifecycle (`view:compiled`, `view:rendered`, `view:refreshed`, `view:error`), `server:listening`, and `request:error`
+- Centralized observability event bus (`core/Observability.ts`) built on an error-isolated signal, exposing a single `router.on(listener)` tap that streams a discriminated `Event` union of thirteen lifecycle and error types, each carrying a `timestamp` and, where relevant, the raw `Error` for developer-owned logging and APM/OTEL pipelines
+- Emit sites wired across the framework for route lifecycle (`route:loaded`, `route:skipped`, `route:reloaded`, `route:removed`, `route:error`, `reload:error`), view lifecycle (`view:compiled`, `view:rendered`, `view:refreshed`, `view:error`), `server:listening`, `request:error`, and `process:error`
+- `core/Guard.ts` process-fault sentinel registered by `Router.serve()`, catching `unhandledrejection` and uncaught `error` events once across all routers and surfacing each as a `process:error` event instead of letting it terminate the process
+- `core/Guard.ts` additionally interposes native termination APIs (`Deno.exit`, `Deno.kill`, and the node `process.exit`/`abort`/`reallyExit`/`kill` shims), blocking a self-kill or exit from application code and reporting it as a `process:error` while kills aimed at other PIDs still pass through
 - `Context.send.file()` and `Context.send.data()` now emit an RFC 6266 / RFC 5987 compliant `Content-Disposition`, adding a `filename*=UTF-8''` parameter so Unicode download names round-trip alongside the ASCII fallback
 - `Handler.extractError()` maps standard `Deno.errors.*` classes to semantically matching HTTP status codes (`NotFound`→404, `PermissionDenied`→403, `AlreadyExists`→409, `InvalidData`→400, `NotSupported`→501, `TimedOut`→504)
 - Missing 405 Method Not Allowed: when a path exists under other HTTP methods, the framework returns 405 with an `Allow` header listing valid methods instead of 404
@@ -20,6 +22,8 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `Context.assertValidHeader()` validates header names and values using the WHATWG `Headers` built-in before assignment
 - `WrapMware` function (previously `Utils.wrapMiddleware`) inlined into `middleware/index.ts` as the public middleware wrapper export
 - Worker pool gains a configurable per-task `taskTimeoutMs` (default 30 seconds), bounding how long a single dispatch may run before the slot is reclaimed and replaced
+- `Context.param()` now percent-decodes route param values once, so `/users/john%20doe` yields `john doe`, matching the decoded contract `Context.query()` already provides
+- `Context.finalizeRaw()` applies middleware-accumulated headers and `Set-Cookie` values to a native `Response` returned directly from a handler, so security headers, CORS, and session cookies survive the raw-return path
 - DVE templates can now read own data properties of string values such as `{{ text.length }}` and character indices, while methods and the prototype chain stay unreachable
 
 ### Changed
@@ -48,6 +52,15 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `Redirect.buildResponse()` applies Location header after extra headers, preventing caller-supplied headers from overriding the redirect target
 - CORS middleware sets `Vary: Origin` on all origin-bearing requests regardless of whether the origin matched, preventing CDN cache poisoning across different origins
 - CORS middleware throws at configuration time when `credentials: true` is combined with wildcard `origin: '*'`
+- CORS single-string `origin` now matches only when it equals the request `Origin`, behaving identically to the single-element array form instead of reflecting the allow-origin to any requester
+- `Redirect.buildResponse()` rejects any status that is not 301, 302, 303, 307, or 308, so a `Location` header can never ride a non-redirect response
+- `BodyLimit` rejects a non-finite or non-positive `limit` at creation, refusing to start with body-size protection silently disabled
+- `BodyLimit` forwards body-forbidden methods (TRACE, CONNECT, TRACK) untouched to routing instead of throwing while rebuilding the request, so they reach a clean 405 rather than a 500
+- `Response.create()` rejects a body-forbidden status (101, 204, 205, 304) paired with a body and an out-of-range or non-integer status before the `Response` constructor can throw, turning both into a clear 400 instead of a 500
+- `Context.parseCookies()` trims only space and tab from cookie names per RFC 6265bis, so a non-breaking-space prefix can no longer normalize into and shadow a legitimate cookie
+- `Worker.createPool()` rejects a non-finite `poolSize` and floors a fractional one, so the pool can never be silently empty
+- Response Content-Type chosen by `ctx.send.json/text/html` now wins over a generic context Content-Type, while an explicit per-call header still overrides
+- `ctx.body()` selects its parser by the canonical media type matched case-insensitively, so `APPLICATION/JSON` parses as JSON and a parameter token can no longer masquerade as the media type
 - WebSocket middleware normalizes trailing slashes on the listener path and uses exact segment matching (`path + '/'` prefix) instead of bare `startsWith`, preventing unintended path overlap
 - Session middleware enforces a minimum 32-character `cookieSecret` length at configuration time
 - Session middleware validates `maxAge` is a positive finite number, `path` is non-empty, and rejects `SameSite=None` without `secure: true`
@@ -109,6 +122,7 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Variable names across middleware and routing files updated to follow 2+ word naming convention (e.g. `err` to `statusError`, `value` to `headerValue`, `raw` to `rawListener`)
 - Method names shortened to 3-word maximum: `setErrorResponseBuilder` to `setErrorBuilder`, `buildUriTooLongResponse` to `buildUriTooLong`, `isIdentifierStartChar` to `isIdentStart`, `ensureBodyNotConsumed` to `guardBodyUse`, `buildClearCookieHeader` to `clearCookieHeader`, `buildSetCookieHeader` to `setCookieHeader`, `renderNodeToChunk` to `renderChunk`, `renderNodesToStream` to `renderStream`
 - Private static properties in `SecHeaders` and `Session` sorted alphabetically
+- `ExtractedError` and `StatusCodeCarrier` derived from a single `StatusCarrier<S>` atom instead of repeating the `statusCode` shape
 - JSDoc briefs trimmed to 6-word maximum and descriptions to 9-word maximum
 
 #### Public API
@@ -117,6 +131,8 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `router.on(listener)` added as the single public tap for the observability event bus
 - `WebSocketOptions` gains an optional `allowedOrigins` field accepting an exact allowlist or `'*'` opt-out
 - `WorkerPoolOptions` gains an optional `taskTimeoutMs` field bounding how long a single worker task may run before its slot is reclaimed
+- `Context.streamRender()` and `ViewEngine.streamRender()` are now async (return a `Promise`), so a missing or uncompilable template surfaces before the response status is committed
+- `process:error` added to the observability `Event` union, carrying the fault `origin` (`unhandledrejection`, `uncaughterror`, or `process:exit`) and the raw `Error`
 
 ### Fixed
 
@@ -146,6 +162,28 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Serving a download whose name carried everyday accented or non-Latin characters used to fail outright. Such names are now encoded the standard way so they arrive intact, while the plain fallback and every existing safeguard around the filename stay in place
 - A single worker task that never finished used to quietly tie up its slot for good, so every later piece of work routed to that slot just piled up behind it and waited forever. Each task is now given a deadline, and when one overruns it the slot is reclaimed and freshly replaced so the next request runs as normal
 - Reading an own property off a string inside a template, like the length of a value or a character at a position, used to come back empty even though the same patterns worked on arrays. String values now expose their own data the same way, while their methods and prototype remain out of reach
+- Starting a pure middleware or API app with no `./routes` directory used to crash the server at boot because the file watcher threw on the missing path. We now skip watching a directory that does not exist, so the server boots cleanly and hot reload still kicks in once the directory is there
+- `ctx.streamRender('does-not-exist')` used to answer a silent 200 with an empty body while the non-streaming `ctx.render()` correctly returned 404 for the same typo. Streaming now resolves and compiles the template before committing the response, so a missing or broken template is a proper 404 or 400 just like `render`
+- Misconfiguring `bodyLimit({ limit })` with `NaN`, `Infinity`, or a non-positive value used to be accepted silently and then enforce nothing, shipping the server with body-size protection turned off. We now reject a non-finite or non-positive limit at creation so the mistake is a loud crash at wiring time
+- A `TRACE`, `CONNECT`, or `TRACK` request hitting a route behind `bodyLimit` used to come back as a 500 because rebuilding the request to wrap its body threw on those methods. We now only wrap a body the method can actually carry, so those verbs reach routing and get a clean 405
+- `ctx.send.json(data, { status: 204 })` and other null-body statuses (101, 205, 304) used to crash into a 500 because the body and the status disagreed. The send helpers now drop the body when the chosen status forbids one, so the intended bodiless response is what goes out
+- `ctx.send.*` with an out-of-range or non-integer status (99, 600, NaN, 3.5) used to surface the constructor's raw error as a masked 500. We now validate the status up front and return a clear 400 instead
+- A cookie name prefixed with a non-breaking space used to be normalized down by `trim()` so an attacker's `\xA0session` could shadow the real `session`. We now trim only the space and tab the spec allows, so such a name stays distinct and can never override a legitimate cookie
+- `ctx.redirect(url, status)` used to attach a `Location` header to any status, so a dynamically computed `200` or `404` produced a malformed redirect. We now reject any status that is not a real 3xx redirect, returning a clear 400 instead
+- The single-string `cors({ origin: 'https://trusted' })` form used to set `Access-Control-Allow-Origin` for every requester, unlike the array form. Both forms now match only when the configured origin equals the request `Origin`, so a non-matching requester gets a 403 and no allow-origin
+- `Worker.createPool({ poolSize: NaN })` used to build an empty pool that rejected every task, and `Infinity` threw a raw `RangeError`. We now reject a non-finite pool size at creation and floor a fractional one, so the pool is never silently dead
+- A `405` response used to omit `HEAD` from its `Allow` header even though the server serves HEAD for every GET route. The advertised methods now always include HEAD wherever GET is supported, so the `Allow` set matches what the server actually serves
+- `ctx.param('id')` used to return the raw, still-encoded path segment while `ctx.query()` returned decoded values. Route params are now percent-decoded once on the way in, so `/users/john%20doe` reads back as `john doe`, with a safe fallback to the raw value on malformed encoding
+- Setting `Content-Type` generically on the context used to silently override the body type chosen by `ctx.send.json/text/html`, so JSON could go out labeled as XML. The helper's own type now wins over a generic context header, while an explicit per-call header still overrides
+- Returning a native `Response` from a handler used to drop every header and cookie the middleware chain accumulated, so security headers vanished and a freshly issued session cookie never reached the client. A raw return now carries the accumulated headers and `Set-Cookie` values, with the handler's own explicit headers kept authoritative
+- `ctx.body()` used to pick its parser with a case-sensitive substring scan of Content-Type, so `APPLICATION/JSON` was mis-parsed as text and `text/html; z=application/json` was wrongly parsed as JSON. We now match the canonical media type case-insensitively, so the parser follows the type the client actually declared
+- A long-running worker pool used to leak memory because each task chained onto the previous one, keeping an ever-growing list of settled promises alive. The per-slot serialization now uses a detached gate that holds no reference to past tasks, so memory stays flat under steady load while order and crash recovery are unchanged
+- A single unhandled promise rejection or uncaught error from any handler used to terminate the whole process, taking down every service sharing it. A process-level sentinel now catches those faults, keeps the server alive, and surfaces each as a `process:error` event so it is logged rather than fatal
+- A handler calling a native termination API (`Deno.exit`, `process.exit`, `process.abort`, `process.reallyExit`, or a self-targeted `Deno.kill`/`process.kill`) used to kill the whole server outright, bypassing every safety net. Those calls from application code are now blocked and reported as a `process:error`, while a kill aimed at another PID still goes through for legitimate subprocess management
+- A malformed WebSocket handshake (e.g. a missing `Sec-WebSocket-Key`) used to come back as a 500 because the upgrade threw an unmapped error. A failed upgrade is always a client problem, so we now return a clean 400 and the real cause still reaches the logged error event
+- A non-GET request (POST, PUT, etc.) carrying an `Upgrade: websocket` header used to be upgraded anyway, shadowing the real same-path HTTP route and bypassing its method and auth checks. Only GET can open a handshake now, so any other method falls through to normal routing
+- Basic Auth matched the `Basic` scheme case-sensitively, so a valid client sending `basic` or `BASIC` was wrongly rejected. The scheme token is now matched case-insensitively per RFC 7235, while the credential check stays constant-time and unchanged
+- A fault during request setup (before the per-request try block) could reject straight to the runtime, producing a bare 500 with no logging. The outer handler is now fully wrapped, so every request emits its completion event and returns a masked, security-header-protected response no matter where it fails
 
 ---
 
