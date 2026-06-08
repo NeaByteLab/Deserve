@@ -121,6 +121,47 @@ Deno.test('Handler HEAD request returns null body', async () => {
   assertEquals(res.status, 200)
 })
 
+Deno.test('Handler a throwing trustProxy predicate is funneled to a masked 500 with security headers', async () => {
+  const handler = new Routing.Handler({
+    trustProxy: (ip) => {
+      if (ip === '10.0.0.9') {
+        throw new Error('trustProxy boom')
+      }
+      return true
+    }
+  })
+  handler.addMiddleware('', () => new Response('ok'))
+  const handle = handler.createHandler()
+  const info = {
+    remoteAddr: { transport: 'tcp', hostname: '10.0.0.9', port: 1 }
+  } as Deno.ServeHandlerInfo
+  const res = await handle(new Request('http://localhost/'), info)
+  assertEquals(res.status, 500)
+  assertEquals(res.headers.get('X-Content-Type-Options'), 'nosniff')
+})
+
+Deno.test('Handler a trustProxy that throws on an attacker XFF hop does not escape', async () => {
+  const handler = new Routing.Handler({
+    trustProxy: (ip) => {
+      if (ip === '1.2.3.4') {
+        throw new Error('hop boom')
+      }
+      return true
+    }
+  })
+  handler.addMiddleware('', () => new Response('ok'))
+  const handle = handler.createHandler()
+  const info = {
+    remoteAddr: { transport: 'tcp', hostname: '127.0.0.1', port: 1 }
+  } as Deno.ServeHandlerInfo
+  const res = await handle(
+    new Request('http://localhost/', { headers: { 'x-forwarded-for': '1.2.3.4, 5.6.7.8' } }),
+    info
+  )
+  assertEquals(res.status, 500)
+  assertEquals(res.headers.get('X-Content-Type-Options'), 'nosniff')
+})
+
 Deno.test('Handler addMiddleware path prefix only applies to matching routes', async () => {
   const handler = new Routing.Handler()
   handler.addMiddleware('/api', async (ctx, next) => {
@@ -129,7 +170,7 @@ Deno.test('Handler addMiddleware path prefix only applies to matching routes', a
   })
   handler.addMiddleware(
     '',
-    async (ctx) => new Response(ctx.responseHeadersMap['X-Matched'] ?? 'no')
+    async (ctx) => new Response(ctx[Core.InternalContext].responseHeadersMap['X-Matched'] ?? 'no')
   )
   const handle = handler.createHandler()
 
@@ -282,6 +323,31 @@ Deno.test('Handler emits external request:error for a developer-built 4xx respon
   assertEquals(complete?.type, 'external')
 })
 
+Deno.test('Handler emits full request metadata when a listener is registered', async () => {
+  const handler = new Routing.Handler()
+  const events: Types.EventBase[] = []
+  const unsub = handler.onEvent((event) => events.push(event))
+  const response = await handler.createHandler()(
+    new Request('http://localhost/unknown', { headers: { 'user-agent': 'probe/1.0' } })
+  )
+  unsub()
+  assertEquals(response.status, 404)
+  const complete = events.find((event) => event.kind === 'request:complete')
+  assertEquals(complete !== undefined, true)
+  const metadata = complete?.metadata as {
+    method: string
+    statusCode: number
+    url: string
+    durationMs: number
+    userAgent?: string
+    serverAddress?: string
+  }
+  assertEquals(metadata.method, 'GET')
+  assertEquals(metadata.statusCode, 404)
+  assertEquals(metadata.userAgent, 'probe/1.0')
+  assertEquals(metadata.serverAddress, 'localhost')
+})
+
 Deno.test('Handler emits internal request:error with Error for an unmatched route', async () => {
   const handler = new Routing.Handler()
   const events: Types.EventBase[] = []
@@ -300,6 +366,12 @@ Deno.test('Handler emits internal request:error with Error for an unmatched rout
   assertEquals(events.some((e) => e.kind === 'request:complete'), true)
 })
 
+Deno.test('Handler emits no observability event when no listener is registered', async () => {
+  const handler = new Routing.Handler()
+  const response = await handler.createHandler()(new Request('http://localhost/unknown'))
+  assertEquals(response.status, 404)
+})
+
 Deno.test('Handler emits request:complete for a successful developer response', async () => {
   const handler = new Routing.Handler()
   const events: Types.EventBase[] = []
@@ -316,6 +388,14 @@ Deno.test('Handler emits request:complete for a successful developer response', 
     'number'
   )
   assertEquals(events.some((e) => e.kind === 'request:error'), false)
+})
+
+Deno.test('Handler fake Response on a HEAD request does not escape the error funnel', async () => {
+  const handler = new Routing.Handler()
+  handler.addMiddleware('', () => Object.create(Response.prototype) as Response)
+  const handle = handler.createHandler()
+  const res = await handle(new Request('http://localhost/', { method: 'HEAD' }))
+  assertEquals(res.status, 500)
 })
 
 Deno.test('Handler handleResponse catches builder exception', async () => {
@@ -490,10 +570,30 @@ Deno.test('Handler middleware * matches all paths', async () => {
     ctx.setHeader('X-Global', 'yes')
     return await next()
   })
-  handler.addMiddleware('', async (ctx) => new Response(ctx.responseHeadersMap['X-Global'] ?? 'no'))
+  handler.addMiddleware(
+    '',
+    async (ctx) => new Response(ctx[Core.InternalContext].responseHeadersMap['X-Global'] ?? 'no')
+  )
   const handle = handler.createHandler()
   const res = await handle(new Request('http://localhost/anything'))
   assertEquals(await res.text(), 'yes')
+})
+
+Deno.test('Handler middleware calling next() twice surfaces a 500 instead of silently swallowing', async () => {
+  const handler = new Routing.Handler()
+  let downstreamRuns = 0
+  handler.addMiddleware('', async (_ctx, next) => {
+    await next()
+    return await next()
+  })
+  handler.addMiddleware('', (_ctx, next) => {
+    downstreamRuns++
+    return next()
+  })
+  const handle = handler.createHandler()
+  const res = await handle(new Request('http://localhost/'))
+  assertEquals(res.status, 500)
+  assertEquals(downstreamRuns, 1)
 })
 
 Deno.test('Handler middleware chain runs in order', async () => {
@@ -514,6 +614,33 @@ Deno.test('Handler middleware chain runs in order', async () => {
   const handle = handler.createHandler()
   await handle(new Request('http://localhost/'))
   assertEquals(order, [1, 2, 3])
+})
+
+Deno.test('Handler middleware returning a prototype-only fake Response yields a masked 500', async () => {
+  const handler = new Routing.Handler()
+  const fake = Object.create(Response.prototype) as Response
+  handler.addMiddleware('', () => fake)
+  const handle = handler.createHandler()
+  const res = await handle(new Request('http://localhost/'))
+  assertEquals(res.status, 500)
+  assertEquals(await res.text() !== '', true)
+})
+
+Deno.test('Handler middleware returning undefined after next() does not double-dispatch downstream', async () => {
+  const handler = new Routing.Handler()
+  let secondRuns = 0
+  handler.addMiddleware('', async (_ctx, next) => {
+    await next()
+    return undefined
+  })
+  handler.addMiddleware('', (_ctx, next) => {
+    secondRuns++
+    return next()
+  })
+  const handle = handler.createHandler()
+  const res = await handle(new Request('http://localhost/'))
+  assertEquals(res.status, 404)
+  assertEquals(secondRuns, 1)
 })
 
 Deno.test('Handler middleware returns response stops chain', async () => {
@@ -538,7 +665,10 @@ Deno.test('Handler middleware wildcard /** matches deep paths', async () => {
     ctx.setHeader('X-API', 'true')
     return await next()
   })
-  handler.addMiddleware('', async (ctx) => new Response(ctx.responseHeadersMap['X-API'] ?? 'no'))
+  handler.addMiddleware(
+    '',
+    async (ctx) => new Response(ctx[Core.InternalContext].responseHeadersMap['X-API'] ?? 'no')
+  )
   const handle = handler.createHandler()
   const res = await handle(new Request('http://localhost/api/v1/users/123'))
   assertEquals(await res.text(), 'true')
@@ -558,6 +688,116 @@ Deno.test('Handler raw Response keeps its own header over a middleware default',
   const res = await handler.createHandler()(new Request('http://localhost/raw2'))
   assertEquals(res.headers.get('Content-Type'), 'text/plain')
   await res.body?.cancel()
+})
+
+Deno.test('Handler request events carry the direct peer IP in metadata', async () => {
+  const handler = new Routing.Handler()
+  const events: Types.EventBase[] = []
+  handler.onEvent((event) => events.push(event))
+  handler.addMiddleware('', () => {
+    throw new Error('boom')
+  })
+  const info = {
+    remoteAddr: { transport: 'tcp', hostname: '198.51.100.7', port: 1 }
+  } as Deno.ServeHandlerInfo
+  const res = await handler.createHandler()(new Request('http://localhost/'), info)
+  await res.body?.cancel()
+  const errorEvent = events.find((e) => e.kind === 'request:error')
+  assertEquals(errorEvent?.kind === 'request:error' && errorEvent.metadata.ip, '198.51.100.7')
+})
+
+Deno.test('Handler request events carry the matched route pattern, server authority, and user agent', async () => {
+  const handler = new Routing.Handler()
+  const routerInstance = (
+    handler as unknown as { routerInstance: { add: (m: string, p: string, d: unknown) => void } }
+  ).routerInstance
+  routerInstance.add('GET', '/users/:id', {
+    kind: 'handler',
+    pattern: '/users/:id',
+    handler: () => new Response('u', { headers: { 'content-length': '1' } })
+  })
+  const events: Types.EventBase[] = []
+  handler.onEvent((event) => events.push(event))
+  const res = await handler.createHandler()(
+    new Request('http://api.example.com:8080/users/42', {
+      headers: { 'user-agent': 'curl/8', 'content-length': '0' }
+    })
+  )
+  await res.body?.cancel()
+  const complete = events.find((e) => e.kind === 'request:complete')
+  if (complete?.kind !== 'request:complete') {
+    throw new Error('missing request:complete event')
+  }
+  assertEquals(complete.metadata.route, '/users/:id')
+  assertEquals(complete.metadata.serverAddress, 'api.example.com')
+  assertEquals(complete.metadata.serverPort, 8080)
+  assertEquals(complete.metadata.userAgent, 'curl/8')
+  assertEquals(complete.metadata.requestSize, 0)
+  assertEquals(complete.metadata.responseSize, 1)
+})
+
+Deno.test('Handler request events carry the trusted-proxy-resolved client IP, not the proxy', async () => {
+  const handler = new Routing.Handler({ trustProxy: ['loopback'] })
+  const events: Types.EventBase[] = []
+  handler.onEvent((event) => events.push(event))
+  handler.addMiddleware('', () => new Response('ok'))
+  const info = {
+    remoteAddr: { transport: 'tcp', hostname: '127.0.0.1', port: 1 }
+  } as Deno.ServeHandlerInfo
+  const res = await handler.createHandler()(
+    new Request('http://localhost/', { headers: { 'x-forwarded-for': '203.0.113.99' } }),
+    info
+  )
+  await res.body?.cancel()
+  const complete = events.find((e) => e.kind === 'request:complete')
+  assertEquals(complete?.kind === 'request:complete' && complete.metadata.ip, '203.0.113.99')
+})
+
+Deno.test('Handler request events omit ip when the peer is unknown', async () => {
+  const handler = new Routing.Handler()
+  const events: Types.EventBase[] = []
+  handler.onEvent((event) => events.push(event))
+  handler.addMiddleware('', () => new Response('ok'))
+  const res = await handler.createHandler()(new Request('http://localhost/'))
+  await res.body?.cancel()
+  const complete = events.find((e) => e.kind === 'request:complete')
+  assertEquals(complete?.kind === 'request:complete' && 'ip' in complete.metadata, false)
+})
+
+Deno.test('Handler request events omit responseSize and userAgent when unknown', async () => {
+  const handler = new Routing.Handler()
+  const events: Types.EventBase[] = []
+  handler.onEvent((event) => events.push(event))
+  handler.addMiddleware(
+    '',
+    () =>
+      new Response(
+        new ReadableStream({
+          start(controller) {
+            controller.enqueue(new Uint8Array([1]))
+            controller.close()
+          }
+        })
+      )
+  )
+  const res = await handler.createHandler()(new Request('http://localhost/stream'))
+  await res.body?.cancel()
+  const complete = events.find((e) => e.kind === 'request:complete')
+  if (complete?.kind !== 'request:complete') {
+    throw new Error('missing request:complete event')
+  }
+  assertEquals('responseSize' in complete.metadata, false)
+  assertEquals('userAgent' in complete.metadata, false)
+})
+
+Deno.test('Handler request events omit the route pattern when no route matches', async () => {
+  const handler = new Routing.Handler()
+  const events: Types.EventBase[] = []
+  handler.onEvent((event) => events.push(event))
+  const res = await handler.createHandler()(new Request('http://localhost/nope'))
+  await res.body?.cancel()
+  const complete = events.find((e) => e.kind === 'request:complete')
+  assertEquals(complete?.kind === 'request:complete' && 'route' in complete.metadata, false)
 })
 
 Deno.test('Handler requestTimeoutMs returns 503 when exceeded', async () => {
@@ -718,7 +958,7 @@ Deno.test('Handler viewsDir sets ctx.state.view and can render', async () => {
   )
   const handler = new Routing.Handler({ viewsDir })
   handler.addMiddleware('', async (ctx) => {
-    const engine = ctx.getState(Handler.StateKeys.view) as {
+    const engine = ctx.getState(Handler.stateKeys.view) as {
       render: (p: string, d?: unknown) => Promise<string>
     }
     const html = await engine.render('hello.dve', { name: 'DX' } as Record<string, unknown>)
@@ -809,7 +1049,7 @@ Deno.test('Handler#createHandler with worker option sets ctx.state.worker', asyn
     worker: { scriptURL: echoWorkerUrl, poolSize: 1 }
   })
   handler.addMiddleware('', async (ctx, next) => {
-    const workerHandle = ctx.getState(Handler.StateKeys.worker)
+    const workerHandle = ctx.getState(Handler.stateKeys.worker)
     if (
       workerHandle &&
       typeof (workerHandle as { run?: unknown }).run === 'function'

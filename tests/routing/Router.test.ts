@@ -3,6 +3,26 @@ import * as Routing from '@routing/index.ts'
 
 const echoWorkerUrl = import.meta.resolve('@tests/fixtures/echo_worker.ts')
 
+Deno.test('Handler#dispose is safe when no worker pool exists', () => {
+  const handler = new Routing.Handler()
+  ;(handler as unknown as { dispose(): void }).dispose()
+  assertEquals(true, true)
+})
+
+Deno.test('Handler#dispose terminates the worker pool and clears it', () => {
+  const router = new Routing.Router({
+    routesDir: './routes',
+    worker: { scriptURL: echoWorkerUrl, poolSize: 1 }
+  })
+  const handler = (router as unknown as { handler: unknown }).handler as {
+    workerPool?: unknown
+    dispose(): void
+  }
+  assertEquals(handler.workerPool !== undefined, true)
+  handler.dispose()
+  assertEquals(handler.workerPool, undefined)
+})
+
 Deno.test('Router options accepts HandlerOptions fields', () => {
   const router = new Routing.Router({
     routesDir: './routes',
@@ -108,6 +128,54 @@ Deno.test('Router#on unsubscribe stops receiving events', async () => {
   assertEquals(count, afterFirst)
 })
 
+Deno.test('Router#serve drains an in-flight request and emits server:shutdown', async () => {
+  const router = new Routing.Router({ routesDir: './does-not-exist-routes-dir-xyz' })
+  let drained = false
+  const handlerStarted = Promise.withResolvers<void>()
+  router.use(async (ctx) => {
+    handlerStarted.resolve()
+    await new Promise((resolve) => setTimeout(resolve, 150))
+    drained = true
+    return ctx.send.text('done')
+  })
+  let shutdownEmitted = false
+  const listening = Promise.withResolvers<number>()
+  router.on((event) => {
+    if (event.kind === 'server:listening') {
+      listening.resolve(event.metadata.port)
+    }
+    if (event.kind === 'server:shutdown') {
+      shutdownEmitted = true
+    }
+  })
+  const controller = new AbortController()
+  const serving = router.serve(0, '127.0.0.1', controller.signal)
+  const port = await listening.promise
+  const inFlight = fetch(`http://127.0.0.1:${port}/drain-test`, {
+    signal: AbortSignal.timeout(5000)
+  })
+  await handlerStarted.promise
+  controller.abort()
+  const response = await inFlight
+  assertEquals(response.status, 200)
+  assertEquals(await response.text(), 'done')
+  assertEquals(drained, true)
+  await serving
+  assertEquals(shutdownEmitted, true)
+})
+
+Deno.test('Router#shutdownSignals includes SIGTERM on POSIX and only SIGINT on Windows', () => {
+  const signals = (Routing.Router as unknown as {
+    shutdownSignals(): readonly string[]
+  }).shutdownSignals()
+  assertEquals(signals.includes('SIGINT'), true)
+  if (Deno.build.os === 'windows') {
+    assertEquals(signals.includes('SIGTERM'), false)
+  } else {
+    assertEquals(signals.includes('SIGTERM'), true)
+  }
+})
+
 Deno.test('Router#static does not throw', () => {
   const router = new Routing.Router({ routesDir: './routes' })
   router.static('/assets', { path: './public' })
@@ -179,6 +247,13 @@ Deno.test('Router#use with multiple middleware functions does not throw', () => 
 Deno.test('Router#use with path and middleware does not throw', () => {
   const router = new Routing.Router({ routesDir: './routes' })
   router.use('/api', async (_ctx, next) => await next())
+})
+
+Deno.test('Watcher#watch returns a callable stop handle for a missing directory', () => {
+  const handler = new Routing.Handler()
+  const stop = Routing.Watcher.watch(handler, './does-not-exist-routes-dir-xyz')
+  assertEquals(typeof stop, 'function')
+  stop()
 })
 
 Deno.test('Watcher#watch skips a non-existent routes directory without throwing', () => {
