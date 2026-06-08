@@ -2,6 +2,7 @@ import type * as Types from '@interfaces/index.ts'
 import * as Core from '@core/index.ts'
 import * as Rendering from '@rendering/index.ts'
 import * as Routing from '@routing/index.ts'
+import { Immutable } from '@neabyte/utils-core'
 
 /**
  * Public API for routes and middleware.
@@ -21,6 +22,7 @@ export class Router {
   constructor(options?: Types.RouterOptions) {
     this.handler = new Routing.Handler(options)
     this.routesDir = options?.routesDir ?? './routes'
+    Object.freeze(this)
   }
 
   /**
@@ -33,7 +35,7 @@ export class Router {
   }
 
   /**
-   * Subscribe to all lifecycle and error events.
+   * Subscribe to lifecycle and error events.
    * @description Listener receives every event, filter via event.type.
    * @param listener - Callback invoked for each event
    * @returns Unsubscribe function
@@ -54,26 +56,47 @@ export class Router {
   async serve(port?: number, hostname?: string, signal?: AbortSignal): Promise<void>
   async serve(port?: number, hostname?: string, signal?: AbortSignal): Promise<void> {
     await this.handler.scanRoutes(this.routesDir)
-    this.startWatchers()
+    const watcherStops = this.startWatchers()
     const unregisterGuard = Core.Guard.register((event) => this.handler.emitEvent(event))
-    if (signal) {
-      signal.addEventListener('abort', unregisterGuard, { once: true })
-    }
     const resolvedPort = port ?? (Number(Deno.env.get('PORT')) || 8000)
     const resolvedHost = hostname ?? '0.0.0.0'
     const handler = this.handler.createHandler()
     const onListen = (addr: Types.ListenAddr) => {
-      this.handler.emitEvent({
-        type: 'internal',
-        kind: 'server:listening',
-        metadata: { port: addr.port, hostname: addr.hostname },
-        timestamp: Date.now()
-      })
+      this.handler.emitEvent(
+        Core.Observability.internalEvent('server:listening', {
+          port: addr.port,
+          hostname: addr.hostname
+        })
+      )
     }
+    const server = Deno.serve({ port: resolvedPort, hostname: resolvedHost, onListen, handler })
+    const drain = () => {
+      server.shutdown().catch(() => {})
+    }
+    const onSignal = signal ? null : drain
     if (signal) {
-      await Deno.serve({ port: resolvedPort, hostname: resolvedHost, signal, onListen, handler })
+      signal.addEventListener('abort', drain, { once: true })
     } else {
-      await Deno.serve({ port: resolvedPort, hostname: resolvedHost, onListen, handler })
+      for (const name of Router.shutdownSignals()) {
+        Deno.addSignalListener(name, drain)
+      }
+    }
+    try {
+      await server.finished
+    } finally {
+      if (signal) {
+        signal.removeEventListener('abort', drain)
+      } else if (onSignal) {
+        for (const name of Router.shutdownSignals()) {
+          Deno.removeSignalListener(name, onSignal)
+        }
+      }
+      unregisterGuard()
+      for (const stop of watcherStops) {
+        stop()
+      }
+      this.handler.dispose()
+      this.handler.emitEvent(Core.Observability.internalEvent('server:shutdown', {}))
     }
   }
 
@@ -108,12 +131,24 @@ export class Router {
     }
   }
 
+  /** Signals that trigger graceful shutdown */
+  private static shutdownSignals(): readonly Deno.Signal[] {
+    if (Deno.build.os === 'windows') {
+      return ['SIGINT']
+    }
+    return ['SIGINT', 'SIGTERM']
+  }
+
   /** Start watchers for routes and templates */
-  private startWatchers(): void {
-    Routing.Watcher.watch(this.handler, this.routesDir)
+  private startWatchers(): (() => void)[] {
+    const stops: (() => void)[] = [Routing.Watcher.watch(this.handler, this.routesDir)]
     const viewEngine = this.handler.getViewEngine()
     if (viewEngine instanceof Rendering.Engine) {
-      Rendering.Watcher.watch(viewEngine)
+      stops.push(Rendering.Watcher.watch(viewEngine))
     }
+    return stops
   }
 }
+
+/** Freeze Router prototype methods */
+Immutable.freeze(Router.prototype)
