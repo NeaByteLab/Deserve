@@ -8,13 +8,52 @@ import * as Core from '@core/index.ts'
  */
 export class Handler {
   /** Well-known framework state keys */
-  static readonly StateKeys: Types.StateKeysMap = {
+  static readonly stateKeys: Types.StateKeysMap = {
     view: Handler.stateKey<Types.ViewEngine>('view'),
     worker: Handler.stateKey<Types.WorkerRunHandle>('worker'),
     session: Handler.stateKey<Types.DataRecord | null>('session'),
     setSession: Handler.stateKey<(data: Types.DataRecord) => Promise<void>>('setSession'),
     clearSession: Handler.stateKey<() => void>('clearSession')
   } as const
+  /** Reserved framework state key names, not writable by public setState */
+  static readonly reservedStateKeys: ReadonlySet<string> = new Set([
+    'view',
+    'worker',
+    'session',
+    'setSession',
+    'clearSession'
+  ])
+
+  /**
+   * Append Set-Cookie values to headers.
+   * @description Appends each cookie value as a Set-Cookie header.
+   * @param headers - Target Headers instance
+   * @param cookieValues - Cookie values to append
+   */
+  static appendCookies(headers: Headers, cookieValues: readonly string[]): void {
+    for (const cookieValue of cookieValues) {
+      headers.append('Set-Cookie', cookieValue)
+    }
+  }
+
+  /**
+   * Assert a value is a positive finite number.
+   * @description Single validator for positive-number construction options.
+   * @param value - Value to validate
+   * @param label - Option name surfaced in the error message
+   * @param unit - Optional unit suffix, e.g. "milliseconds"
+   * @returns The validated positive finite number
+   * @throws {Deno.errors.InvalidData} When the value is non-finite or <= 0
+   */
+  static assertPositiveFinite(value: number, label: string, unit?: string): number {
+    if (!Number.isFinite(value) || value <= 0) {
+      const suffix = unit === undefined ? '' : ` of ${unit}`
+      throw new Deno.errors.InvalidData(
+        `${label} must be a positive finite number${suffix}, got ${value}`
+      )
+    }
+    return value
+  }
 
   /**
    * Build error response with format.
@@ -39,7 +78,7 @@ export class Handler {
         statusCode,
         error
       })
-      if (customResponse instanceof globalThis.Response) {
+      if (customResponse instanceof Core.API.Response) {
         return customResponse
       }
     }
@@ -93,7 +132,7 @@ export class Handler {
    */
   static errorResponse(ctx: Context, statusCode: number): globalThis.Response {
     const errorMessage = Handler.safeMessage(statusCode)
-    const wantsJson = ctx.request.headers.get('accept')?.includes('application/json')
+    const wantsJson = Handler.wantsJson(ctx.request.headers)
     try {
       if (wantsJson) {
         return ctx.send.json(
@@ -105,7 +144,7 @@ export class Handler {
         status: statusCode
       })
     } catch {
-      return Handler.safeFallbackResponse(ctx, statusCode, errorMessage, wantsJson === true)
+      return Handler.safeFallbackResponse(ctx, statusCode, errorMessage, wantsJson)
     }
   }
 
@@ -126,13 +165,10 @@ export class Handler {
    * @returns Object with statusCode and Error instance
    */
   static extractError(error: unknown): Types.ExtractedError {
+    if (Handler.isErrorWithStatus(error)) {
+      return { statusCode: error.statusCode, error }
+    }
     if (error instanceof Error) {
-      const statusValue = 'statusCode' in error
-        ? (error as Types.StatusCodeCarrier).statusCode
-        : undefined
-      if (typeof statusValue === 'number' && statusValue >= 400 && statusValue < 600) {
-        return { statusCode: statusValue, error }
-      }
       return { statusCode: Handler.denoErrorStatus(error), error }
     }
     return { statusCode: 500, error: new Error(String(error)) }
@@ -150,6 +186,50 @@ export class Handler {
     } catch {
       return false
     }
+  }
+
+  /**
+   * Narrow a value to a status-bearing Error.
+   * @description True for Errors whose statusCode is 400-599.
+   * @param value - Unknown value from a catch block
+   * @returns True when value is an Error with an in-range statusCode
+   */
+  static isErrorWithStatus(value: unknown): value is Types.StatusError {
+    if (!(value instanceof Error) || !('statusCode' in value)) {
+      return false
+    }
+    const statusValue = (value as Types.StatusCodeCarrier).statusCode
+    return typeof statusValue === 'number' && statusValue >= 400 && statusValue < 600
+  }
+
+  /**
+   * Build a content-negotiated error response.
+   * @description Single site for JSON or HTML error bodies.
+   * @param statusCode - HTTP status code to emit
+   * @param message - Safe masked message
+   * @param wantsJson - Whether the client prefers JSON
+   * @param pathname - Optional request pathname included in JSON bodies
+   * @returns Error response with security headers and the negotiated body
+   */
+  static negotiatedResponse(
+    statusCode: number,
+    message: string,
+    wantsJson: boolean,
+    pathname?: string
+  ): globalThis.Response {
+    const headers = new Core.API.Headers(Core.Constant.securityHeaderDefaults)
+    if (wantsJson) {
+      headers.set('Content-Type', 'application/json')
+      const body = pathname === undefined
+        ? { error: message, statusCode }
+        : { error: message, path: pathname, statusCode }
+      return new Core.API.Response(Core.API.jsonStringify(body), { status: statusCode, headers })
+    }
+    headers.set('Content-Type', 'text/html; charset=utf-8')
+    return new Core.API.Response(Handler.defaultErrorHtml(statusCode, message), {
+      status: statusCode,
+      headers
+    })
   }
 
   /**
@@ -186,13 +266,23 @@ export class Handler {
     if (!init) {
       return {}
     }
-    if (init instanceof Headers) {
+    if (init instanceof Core.API.Headers) {
       return Object.fromEntries(init)
     }
     if (Array.isArray(init)) {
       return Object.fromEntries(init as Types.StringPair[])
     }
     return { ...init }
+  }
+
+  /**
+   * Check client prefers JSON response.
+   * @description Returns true when Accept header includes application/json.
+   * @param headers - Request headers
+   * @returns True when JSON is preferred
+   */
+  static wantsJson(headers: Headers): boolean {
+    return headers.get('accept')?.includes('application/json') === true
   }
 
   /**
@@ -238,11 +328,6 @@ export class Handler {
     message: string,
     wantsJson: boolean
   ): globalThis.Response {
-    const fallbackHeaders = new globalThis.Headers(Core.Constant.securityHeaderDefaults)
-    const responseBody = wantsJson
-      ? JSON.stringify({ error: message, path: ctx.pathname, statusCode })
-      : Handler.defaultErrorHtml(statusCode, message)
-    fallbackHeaders.set('Content-Type', wantsJson ? 'application/json' : 'text/html; charset=utf-8')
-    return new globalThis.Response(responseBody, { status: statusCode, headers: fallbackHeaders })
+    return Handler.negotiatedResponse(statusCode, message, wantsJson, ctx.pathname)
   }
 }
