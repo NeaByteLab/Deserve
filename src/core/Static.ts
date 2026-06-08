@@ -20,6 +20,8 @@ export class Static {
     urlPath: string
   ): Promise<Response> {
     try {
+      const notFound = (message: string): Promise<Response> =>
+        ctx.handleError(404, new Deno.errors.NotFound(message))
       let filePath = ctx.pathname
       if (urlPath !== '/') {
         filePath = ctx.pathname.slice(urlPath.length)
@@ -33,19 +35,13 @@ export class Static {
       const fileSegments = filePath.split('/')
       for (const segment of fileSegments) {
         if (segment.startsWith('.')) {
-          return await ctx.handleError(
-            404,
-            new Deno.errors.NotFound(`Static file "${filePath}" was not found`)
-          )
+          return await notFound(`Static file "${filePath}" was not found`)
         }
       }
       const fullPath = `${baseNormalized}/${filePath}`.replace(/\\/g, '/')
       const fileInfo = await Deno.stat(fullPath).catch(() => null)
       if (!fileInfo || !fileInfo.isFile) {
-        return await ctx.handleError(
-          404,
-          new Deno.errors.NotFound(`Static file "${filePath}" was not found`)
-        )
+        return await notFound(`Static file "${filePath}" was not found`)
       }
       let baseResolved: string
       let fileResolved: string
@@ -53,10 +49,7 @@ export class Static {
         baseResolved = (await Deno.realPath(baseNormalized)).replace(/[\\/]+$/, '') + '/'
         fileResolved = await Deno.realPath(fullPath)
       } catch {
-        return await ctx.handleError(
-          404,
-          new Deno.errors.NotFound(`Static file path "${filePath}" cannot be resolved`)
-        )
+        return await notFound(`Static file path "${filePath}" cannot be resolved`)
       }
       const normalizedBase = baseResolved.replace(/\\/g, '/')
       const normalizedFile = fileResolved.replace(/\\/g, '/')
@@ -64,16 +57,13 @@ export class Static {
         normalizedFile !== normalizedBase.slice(0, -1) &&
         !normalizedFile.startsWith(normalizedBase)
       ) {
-        return await ctx.handleError(
-          404,
-          new Deno.errors.NotFound(`Static file "${filePath}" is outside the base directory`)
-        )
+        return await notFound(`Static file "${filePath}" is outside the base directory`)
       }
       const fileExtension = filePath.split('.').pop()?.toLowerCase() ?? ''
       const contentType = Core.Constant.contentTypes[fileExtension] ?? 'application/octet-stream'
       let etag: string | null = null
       if (options.etag) {
-        const hashDigest = await crypto.subtle.digest(
+        const hashDigest = await Core.API.subtle.digest(
           'SHA-256',
           Core.Constant.encoder.encode(`${fileInfo.size}-${fileInfo.mtime?.getTime() ?? 0}`)
         )
@@ -85,25 +75,37 @@ export class Static {
         etag = `"${hashHex}"`
       }
       if (etag && Static.etagMatch(ctx.request.headers.get('If-None-Match'), etag)) {
-        ctx.setHeader('ETag', etag)
-        if (options.cacheControl !== undefined && options.cacheControl >= 0) {
-          ctx.setHeader('Cache-Control', `public, max-age=${options.cacheControl}`)
-        }
+        Static.applyCacheHeaders(ctx, etag, options.cacheControl)
         return ctx.send.custom(null, { status: 304 })
       }
       const fsFile = await Deno.open(fileResolved, { read: true })
       ctx.setHeader('Content-Type', contentType)
       ctx.setHeader('Content-Length', fileInfo.size.toString())
-      if (etag) {
-        ctx.setHeader('ETag', etag)
-      }
-      if (options.cacheControl !== undefined && options.cacheControl >= 0) {
-        ctx.setHeader('Cache-Control', `public, max-age=${options.cacheControl}`)
-      }
+      Static.applyCacheHeaders(ctx, etag, options.cacheControl)
       return ctx.send.custom(fsFile.readable)
     } catch (staticFileError) {
       const extractedError = Core.Handler.extractError(staticFileError)
       return await ctx.handleError(extractedError.statusCode, extractedError.error)
+    }
+  }
+
+  /**
+   * Apply ETag and Cache-Control headers.
+   * @description Sets ETag when present and a public max-age when configured.
+   * @param ctx - Request context receiving the headers
+   * @param etag - Strong ETag value or null when disabled
+   * @param cacheControl - Max-age in seconds, or undefined to skip
+   */
+  private static applyCacheHeaders(
+    ctx: Core.Context,
+    etag: string | null,
+    cacheControl: number | undefined
+  ): void {
+    if (etag) {
+      ctx.setHeader('ETag', etag)
+    }
+    if (cacheControl !== undefined && cacheControl >= 0) {
+      ctx.setHeader('Cache-Control', `public, max-age=${cacheControl}`)
     }
   }
 

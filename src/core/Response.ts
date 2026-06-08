@@ -39,16 +39,12 @@ export class Response {
       }
       return options ? { ...options, headers } : { headers }
     }
-    const bodyForStatus = (body: BodyInit | null, options?: ResponseInit): BodyInit | null =>
-      options?.status !== undefined && Core.Constant.nullBodyStatuses.has(options.status)
-        ? null
-        : body
     const isNullBodyStatus = (options?: ResponseInit): boolean =>
       options?.status !== undefined && Core.Constant.nullBodyStatuses.has(options.status)
+    const bodyForStatus = (body: BodyInit | null, options?: ResponseInit): BodyInit | null =>
+      isNullBodyStatus(options) ? null : body
     const applyCookies = (response: globalThis.Response): globalThis.Response => {
-      for (const cookieValue of setCookieValues) {
-        response.headers.append('Set-Cookie', cookieValue)
-      }
+      Core.Handler.appendCookies(response.headers, setCookieValues)
       return response
     }
     return {
@@ -58,7 +54,7 @@ export class Response {
           ? { ...responseHeaders, ...extraRecord }
           : { ...responseHeaders }
         return applyCookies(
-          new globalThis.Response(bodyForStatus(body, options), toInit(headers, options))
+          new Core.API.Response(bodyForStatus(body, options), toInit(headers, options))
         )
       },
       data(
@@ -70,11 +66,11 @@ export class Response {
         const encodedBody = typeof data === 'string' ? Core.Constant.encoder.encode(data) : data
         if (isNullBodyStatus(options)) {
           return applyCookies(
-            new globalThis.Response(null, toInit(mergedHeaders(contentType, options), options))
+            new Core.API.Response(null, toInit(mergedHeaders(contentType, options), options))
           )
         }
         return applyCookies(
-          new globalThis.Response(
+          new Core.API.Response(
             encodedBody as BodyInit,
             toInit(
               {
@@ -100,7 +96,7 @@ export class Response {
           if (isNullBodyStatus(options)) {
             fsFile.close()
             return applyCookies(
-              new globalThis.Response(
+              new Core.API.Response(
                 null,
                 toInit(
                   {
@@ -113,7 +109,7 @@ export class Response {
             )
           }
           return applyCookies(
-            new globalThis.Response(
+            new Core.API.Response(
               fsFile.readable,
               toInit(
                 {
@@ -127,7 +123,7 @@ export class Response {
           )
         } catch (error) {
           fsFile?.close()
-          const errorMessage = error instanceof globalThis.Error ? error.message : 'Unknown error'
+          const errorMessage = error instanceof Core.API.Error ? error.message : 'Unknown error'
           throw new Deno.errors.NotFound(
             `Failed to read file "${filePath}" because ${errorMessage}`
           )
@@ -135,17 +131,16 @@ export class Response {
       },
       html: (html: string, options?: ResponseInit) =>
         applyCookies(
-          new globalThis.Response(
+          new Core.API.Response(
             bodyForStatus(html, options),
             toInit(mergedHeaders('text/html; charset=utf-8', options), options)
           )
         ),
       json: (data: unknown, options?: ResponseInit) => {
         const init = toInit(mergedHeaders('application/json', options), options)
-        if (options?.status !== undefined && Core.Constant.nullBodyStatuses.has(options.status)) {
-          return applyCookies(new globalThis.Response(null, init))
-        }
-        return applyCookies(globalThis.Response.json(data, init))
+        return isNullBodyStatus(options)
+          ? applyCookies(new Core.API.Response(null, init))
+          : applyCookies(Core.API.Response.json(data, init))
       },
       redirect(
         url: string,
@@ -160,14 +155,14 @@ export class Response {
         contentType = 'application/octet-stream'
       ) =>
         applyCookies(
-          new globalThis.Response(
+          new Core.API.Response(
             bodyForStatus(stream, options),
             toInit(mergedHeaders(contentType, options), options)
           )
         ),
       text: (text: string, options?: ResponseInit) =>
         applyCookies(
-          new globalThis.Response(
+          new Core.API.Response(
             bodyForStatus(text, options),
             toInit(mergedHeaders('text/plain; charset=utf-8', options), options)
           )

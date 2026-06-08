@@ -1,4 +1,5 @@
 import type * as Types from '@interfaces/index.ts'
+import * as Core from '@core/index.ts'
 
 /**
  * Process-level fault sentinel for multi-service uptime.
@@ -36,12 +37,7 @@ export class Guard {
   ): void {
     for (const emit of Guard.emitters) {
       try {
-        emit({
-          type: 'internal',
-          kind: 'process:error',
-          metadata: { origin, error },
-          timestamp: Date.now()
-        })
+        emit(Core.Observability.internalEvent('process:error', { origin, error }))
       } catch {
         void 0
       }

@@ -1,4 +1,5 @@
 import type * as Types from '@interfaces/index.ts'
+import * as Core from '@core/index.ts'
 
 /**
  * Shared constants and framework singletons.
@@ -6,9 +7,9 @@ import type * as Types from '@interfaces/index.ts'
  */
 export class Constant {
   /** Shared UTF-8 text decoder */
-  static readonly decoder: TextDecoder = new TextDecoder()
+  static readonly decoder: TextDecoder = new Core.API.TextDecoder()
   /** Shared UTF-8 text encoder */
-  static readonly encoder: TextEncoder = new TextEncoder()
+  static readonly encoder: TextEncoder = new Core.API.TextEncoder()
   /** HTML entity map for escaping */
   static readonly htmlEscapeMap: Readonly<Types.StringRecord> = {
     '&': '&amp;',

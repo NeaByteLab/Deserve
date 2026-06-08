@@ -39,11 +39,9 @@ export class Redirect {
     } else {
       mergedHeaders = { ...responseHeaders, Location: absoluteUrl }
     }
-    const headers = new Headers(mergedHeaders)
-    for (const cookieValue of setCookieValues) {
-      headers.append('Set-Cookie', cookieValue)
-    }
-    return new Response(null, { status, headers })
+    const headers = new Core.API.Headers(mergedHeaders)
+    Core.Handler.appendCookies(headers, setCookieValues)
+    return new Core.API.Response(null, { status, headers })
   }
 
   /**
@@ -59,8 +57,8 @@ export class Redirect {
     let resolvedUrl: URL
     let baseUrl: URL
     try {
-      baseUrl = new URL(requestUrl)
-      resolvedUrl = new URL(url, baseUrl)
+      baseUrl = new Core.API.URL(requestUrl)
+      resolvedUrl = new Core.API.URL(url, baseUrl)
     } catch {
       throw new Deno.errors.InvalidData(
         `Redirect URL could not be resolved, got "${url.slice(0, 64)}"`

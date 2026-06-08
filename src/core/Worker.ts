@@ -7,7 +7,7 @@ import * as Core from '@core/index.ts'
  */
 export class Worker {
   /** Marks worker-isolate crash for respawn */
-  private static WorkerCrash = class extends Error {
+  private static workerCrash = class extends Error {
     override readonly cause: Error
     constructor(cause: Error) {
       super('worker crash')
@@ -15,7 +15,7 @@ export class Worker {
     }
   }
   /** Module URL for spawning workers */
-  private readonly scriptURL: string | URL
+  private readonly scriptUrl: string | URL
   /** Per-task dispatch timeout in ms */
   private readonly taskTimeoutMs: number
   /** Round-robin index for next worker */
@@ -29,16 +29,16 @@ export class Worker {
    * Construct pool with given workers.
    * @description Initializes pool with pre-created worker list.
    * @param workers - Pre-created Deno worker instances
-   * @param scriptURL - Module URL for respawning crashed workers
+   * @param scriptUrl - Module URL for respawning crashed workers
    * @param taskTimeoutMs - Per-task timeout in milliseconds
    */
   private constructor(
     workers: globalThis.Worker[],
-    scriptURL: string | URL,
+    scriptUrl: string | URL,
     taskTimeoutMs: number
   ) {
     this.workers = workers
-    this.scriptURL = scriptURL
+    this.scriptUrl = scriptUrl
     this.taskTimeoutMs = taskTimeoutMs
     this.workerTails = workers.map(() => Promise.resolve())
   }
@@ -56,15 +56,14 @@ export class Worker {
       throw new Deno.errors.InvalidData('Worker poolSize must be a finite number')
     }
     const workerCount = Math.max(1, Math.floor(requestedPoolSize))
-    const taskTimeoutMs = options.taskTimeoutMs ?? Core.Constant.defaultWorkerTaskTimeoutMs
-    if (!Number.isFinite(taskTimeoutMs) || taskTimeoutMs <= 0) {
-      throw new Deno.errors.InvalidData(
-        'Worker taskTimeoutMs must be a positive finite number of milliseconds'
-      )
-    }
+    const taskTimeoutMs = Core.Handler.assertPositiveFinite(
+      options.taskTimeoutMs ?? Core.Constant.defaultWorkerTaskTimeoutMs,
+      'Worker taskTimeoutMs',
+      'milliseconds'
+    )
     const workerList = Array.from(
       { length: workerCount },
-      () => new globalThis.Worker(options.scriptURL, { type: 'module' })
+      () => new Core.API.Worker(options.scriptURL, { type: 'module' })
     )
     return new Worker(workerList, options.scriptURL, taskTimeoutMs)
   }
@@ -98,7 +97,7 @@ export class Worker {
         const currentWorker = this.workers[workerIndex]!
         return Worker.dispatch<T>(currentWorker, payload, this.taskTimeoutMs).catch(
           (dispatchError) => {
-            if (dispatchError instanceof Worker.WorkerCrash) {
+            if (dispatchError instanceof Worker.workerCrash) {
               this.respawnWorker(workerIndex, currentWorker)
               throw dispatchError.cause
             }
@@ -161,7 +160,7 @@ export class Worker {
         event.preventDefault()
         cleanup()
         reject(
-          new Worker.WorkerCrash(
+          new Worker.workerCrash(
             new Deno.errors.BadResource('Worker task failed before responding')
           )
         )
@@ -169,7 +168,7 @@ export class Worker {
       const timeoutTimer = setTimeout(() => {
         cleanup()
         reject(
-          new Worker.WorkerCrash(
+          new Worker.workerCrash(
             new Deno.errors.TimedOut(`Worker task exceeded ${taskTimeoutMs}ms timeout`)
           )
         )
@@ -206,6 +205,6 @@ export class Worker {
     } catch {
       void 0
     }
-    this.workers[workerIndex] = new globalThis.Worker(this.scriptURL, { type: 'module' })
+    this.workers[workerIndex] = new Core.API.Worker(this.scriptUrl, { type: 'module' })
   }
 }
