@@ -17,6 +17,26 @@ Deno.test('Worker#createPool defaults poolSize when omitted', async () => {
   }
 })
 
+Deno.test('Worker#createPool floors a fractional poolSize and still runs', async () => {
+  const pool = Core.Worker.createPool({ scriptURL: echoWorkerUrl, poolSize: 2.9 })
+  try {
+    const result = await pool.run('works')
+    assertEquals(result, 'works')
+  } finally {
+    pool.terminate()
+  }
+})
+
+Deno.test('Worker#createPool rejects a non-finite poolSize so the pool is never empty', () => {
+  for (const bad of [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
+    assertThrows(
+      () => Core.Worker.createPool({ scriptURL: echoWorkerUrl, poolSize: bad }),
+      Deno.errors.InvalidData,
+      'finite'
+    )
+  }
+})
+
 Deno.test('Worker#createPool rejects a non-positive taskTimeoutMs', () => {
   assertThrows(
     () => Core.Worker.createPool({ scriptURL: echoWorkerUrl, taskTimeoutMs: 0 }),
@@ -101,11 +121,46 @@ Deno.test('Worker#run echoes payload when worker posts back', async () => {
   }
 })
 
+Deno.test('Worker#run keeps the serialization tail bounded across many sequential tasks', async () => {
+  const pool = Core.Worker.createPool({ scriptURL: echoWorkerUrl, poolSize: 1 })
+  try {
+    for (let i = 0; i < 200; i++) {
+      assertEquals(await pool.run(i), i)
+    }
+    const tails = (pool as unknown as { workerTails: Promise<void>[] }).workerTails
+    assertEquals(tails.length, 1)
+    let settledValue: unknown = 'pending'
+    await Promise.race([
+      tails[0]!.then(() => {
+        settledValue = 'settled'
+      }),
+      Promise.resolve().then(() => undefined)
+    ])
+    await tails[0]
+    assertEquals(settledValue, 'settled')
+  } finally {
+    pool.terminate()
+  }
+})
+
 Deno.test('Worker#run pool self-heals after a worker crash', async () => {
   const pool = Core.Worker.createPool({ scriptURL: throwWorkerUrl, poolSize: 1 })
   try {
     await assertRejects(() => pool.run('first'))
     await assertRejects(() => pool.run('second'))
+  } finally {
+    pool.terminate()
+  }
+})
+
+Deno.test('Worker#run preserves order over a long sequential run after the tail refactor', async () => {
+  const pool = Core.Worker.createPool({ scriptURL: delayWorkerUrl, poolSize: 1 })
+  try {
+    const ids = Array.from({ length: 12 }, (_, index) => index)
+    const results = (await Promise.all(
+      ids.map((id) => pool.run({ id, delay: id % 2 === 0 ? 10 : 0 }))
+    )) as { id: number }[]
+    assertEquals(results.map((result) => result.id), ids)
   } finally {
     pool.terminate()
   }
