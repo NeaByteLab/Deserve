@@ -1,5 +1,6 @@
 import type * as Types from '@interfaces/index.ts'
-import type * as Core from '@core/index.ts'
+import type * as CoreTypes from '@core/index.ts'
+import * as Middleware from '@middleware/index.ts'
 
 /**
  * Basic Auth middleware for users.
@@ -18,10 +19,7 @@ export class BasicAuth {
       throw new Deno.errors.InvalidData('BasicAuth requires at least one user in the users array')
     }
     const users = options.users
-    return async (
-      ctx: Core.Context,
-      next: Types.NextFn
-    ): Types.AsyncMiddlewareResult => {
+    return Middleware.WrapMware('BasicAuth error', async (ctx: CoreTypes.Context, next) => {
       const authHeader = ctx.header('authorization')
       const spaceIndex = authHeader ? authHeader.indexOf(' ') : -1
       const scheme = spaceIndex > 0 ? authHeader!.slice(0, spaceIndex) : ''
@@ -65,7 +63,7 @@ export class BasicAuth {
           )
         )
       }
-    }
+    })
   }
 
   /**

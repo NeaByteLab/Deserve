@@ -1,5 +1,6 @@
 import type * as Types from '@interfaces/index.ts'
-import type * as Core from '@core/index.ts'
+import type * as CoreTypes from '@core/index.ts'
+import * as Core from '@core/index.ts'
 import * as Middleware from '@middleware/index.ts'
 
 /**
@@ -19,7 +20,7 @@ export class WebSocket {
     const allowedOrigins = options.allowedOrigins
     return Middleware.WrapMware(
       'WebSocket upgrade failed',
-      async (ctx: Core.Context, next) => {
+      async (ctx: CoreTypes.Context, next) => {
         if (!listener) {
           return await next()
         }
@@ -83,7 +84,7 @@ export class WebSocket {
    * @returns True when the handshake may proceed
    */
   private static isOriginAllowed(
-    ctx: Core.Context,
+    ctx: CoreTypes.Context,
     allowedOrigins: readonly string[] | '*' | undefined
   ): boolean {
     const requestOrigin = ctx.header('origin')
@@ -97,7 +98,7 @@ export class WebSocket {
       return allowedOrigins.includes(requestOrigin)
     }
     try {
-      return new URL(ctx.request.url).origin === requestOrigin
+      return new Core.API.URL(ctx.request.url).origin === requestOrigin
     } catch {
       return false
     }

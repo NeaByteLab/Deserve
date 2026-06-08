@@ -1,5 +1,6 @@
 import type * as Types from '@interfaces/index.ts'
 import * as Core from '@core/index.ts'
+import * as Middleware from '@middleware/index.ts'
 
 /**
  * Cookie-based session middleware.
@@ -19,12 +20,11 @@ export class Session {
         'Session cookieSecret must be at least 32 characters for HMAC-SHA256 security'
       )
     }
-    const maxAge = options.maxAge ?? Core.Constant.defaultSessionOptions.maxAge
-    if (maxAge <= 0 || !Number.isFinite(maxAge)) {
-      throw new Deno.errors.InvalidData(
-        'Session maxAge must be a positive finite number of seconds'
-      )
-    }
+    const maxAge = Core.Handler.assertPositiveFinite(
+      options.maxAge ?? Core.Constant.defaultSessionOptions.maxAge,
+      'Session maxAge',
+      'seconds'
+    )
     const path = options.path ?? Core.Constant.defaultSessionOptions.path
     if (!path) {
       throw new Deno.errors.InvalidData('Session path must be a non-empty string')
@@ -46,7 +46,7 @@ export class Session {
     }
     let hmacKeyPromise: Promise<CryptoKey> | null = null
     const getHmacKey = (): Promise<CryptoKey> => {
-      hmacKeyPromise ??= crypto.subtle.importKey(
+      hmacKeyPromise ??= Core.API.subtle.importKey(
         'raw',
         Core.Constant.encoder.encode(options.cookieSecret),
         { name: 'HMAC', hash: 'SHA-256' },
@@ -55,31 +55,31 @@ export class Session {
       )
       return hmacKeyPromise
     }
-    return async (
-      ctx: Core.Context,
-      next: Types.NextFn
-    ): Types.AsyncMiddlewareResult => {
+    return Middleware.WrapMware('Session error', async (ctx, next) => {
       const key = await getHmacKey()
       const cookieValue = ctx.cookie(sessionOptions.cookieName)
-      ctx.setState(
-        Core.Handler.StateKeys.session,
+      ctx[Core.InternalContext].setInternalState(
+        Core.Handler.stateKeys.session,
         cookieValue ? await Session.decodePayload(cookieValue, key, maxAge) : null
       )
-      ctx.setState(Core.Handler.StateKeys.setSession, async (sessionData: Types.DataRecord) => {
-        const encodedPayload = await Session.encodePayload(sessionData, key)
-        ctx.setHeader(
-          'Set-Cookie',
-          Session.setCookieHeader(sessionOptions.cookieName, encodedPayload, sessionOptions)
-        )
-      })
-      ctx.setState(Core.Handler.StateKeys.clearSession, () => {
+      ctx[Core.InternalContext].setInternalState(
+        Core.Handler.stateKeys.setSession,
+        async (sessionData: Types.DataRecord) => {
+          const encodedPayload = await Session.encodePayload(sessionData, key)
+          ctx.setHeader(
+            'Set-Cookie',
+            Session.setCookieHeader(sessionOptions.cookieName, encodedPayload, sessionOptions)
+          )
+        }
+      )
+      ctx[Core.InternalContext].setInternalState(Core.Handler.stateKeys.clearSession, () => {
         ctx.setHeader(
           'Set-Cookie',
           Session.clearCookieHeader(sessionOptions.cookieName, sessionOptions.path)
         )
       })
       return await next()
-    }
+    })
   }
 
   /**
@@ -89,13 +89,13 @@ export class Session {
    * @returns Decoded byte array
    */
   private static base64UrlDecode(encodedStr: string): Uint8Array {
-    const base64 = encodedStr.replace(/[-_]/g, (ch) => ch === '-' ? '+' : '/')
+    const base64 = encodedStr.replace(/[-_]/g, (sourceChar) => sourceChar === '-' ? '+' : '/')
     const padLength = base64.length % 4
     const padded = padLength ? base64 + '='.repeat(4 - padLength) : base64
     const binary = atob(padded)
     const bytes = new Uint8Array(binary.length)
-    for (let i = 0; i < binary.length; i++) {
-      bytes[i] = binary.charCodeAt(i)
+    for (let charIndex = 0; charIndex < binary.length; charIndex++) {
+      bytes[charIndex] = binary.charCodeAt(charIndex)
     }
     return bytes
   }
@@ -108,10 +108,13 @@ export class Session {
    */
   private static base64UrlEncode(bytes: Uint8Array): string {
     let binary = ''
-    for (let i = 0; i < bytes.length; i++) {
-      binary += String.fromCharCode(bytes[i]!)
+    for (let charIndex = 0; charIndex < bytes.length; charIndex++) {
+      binary += String.fromCharCode(bytes[charIndex]!)
     }
-    return btoa(binary).replace(/[+/=]/g, (ch) => ch === '+' ? '-' : ch === '/' ? '_' : '')
+    return btoa(binary).replace(
+      /[+/=]/g,
+      (sourceChar) => sourceChar === '+' ? '-' : sourceChar === '/' ? '_' : ''
+    )
   }
 
   /**
@@ -147,12 +150,12 @@ export class Session {
         return null
       }
       const payloadB64 = decodedValue.slice(0, dotIndex)
-      const sigB64 = decodedValue.slice(dotIndex + 1)
-      const sigBytes = Session.base64UrlDecode(sigB64)
-      const isValid = await crypto.subtle.verify(
+      const signatureB64 = decodedValue.slice(dotIndex + 1)
+      const signatureBytes = Session.base64UrlDecode(signatureB64)
+      const isValid = await Core.API.subtle.verify(
         'HMAC',
         key,
-        new Uint8Array(sigBytes).buffer as ArrayBuffer,
+        new Uint8Array(signatureBytes).buffer as ArrayBuffer,
         Core.Constant.encoder.encode(payloadB64)
       )
       if (!isValid) {
@@ -160,12 +163,12 @@ export class Session {
       }
       const payloadBytes = Session.base64UrlDecode(payloadB64)
       const payloadStr = Core.Constant.decoder.decode(payloadBytes)
-      const parsedPayload = JSON.parse(payloadStr) as Types.DataRecord
+      const parsedPayload = Core.API.jsonParse(payloadStr) as Types.DataRecord
       const issuedAt = parsedPayload['_iat']
       if (typeof issuedAt !== 'number' || Math.floor(Date.now() / 1000) - issuedAt > maxAge) {
         return null
       }
-      const { _iat: _, ...sessionData } = parsedPayload
+      const { _iat, ...sessionData } = parsedPayload
       return sessionData
     } catch {
       return null
@@ -184,16 +187,16 @@ export class Session {
     key: CryptoKey
   ): Promise<string> {
     const stampedPayload = { ...sessionData, _iat: Math.floor(Date.now() / 1000) }
-    const payloadStr = JSON.stringify(stampedPayload)
+    const payloadStr = Core.API.jsonStringify(stampedPayload)
     const payloadBytes = Core.Constant.encoder.encode(payloadStr)
     const payloadB64 = Session.base64UrlEncode(payloadBytes)
-    const signatureBuffer = await crypto.subtle.sign(
+    const signatureBuffer = await Core.API.subtle.sign(
       'HMAC',
       key,
       Core.Constant.encoder.encode(payloadB64)
     )
-    const sigB64 = Session.base64UrlEncode(new Uint8Array(signatureBuffer))
-    return `${payloadB64}.${sigB64}`
+    const signatureB64 = Session.base64UrlEncode(new Uint8Array(signatureBuffer))
+    return `${payloadB64}.${signatureB64}`
   }
 
   /**
