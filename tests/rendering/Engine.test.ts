@@ -437,7 +437,7 @@ Deno.test({
       ''
     )
     const engine = new Rendering.Engine({ viewsDir })
-    const stream = engine.streamRender('hello.dve', { name: 'Test' })
+    const stream = await engine.streamRender('hello.dve', { name: 'Test' })
     const reader = stream.getReader()
     let result = ''
     const decoder = new TextDecoder()
@@ -453,27 +453,27 @@ Deno.test({
   sanitizeOps: false
 })
 
-Deno.test('Engine#streamRender returns ReadableStream response', () => {
+Deno.test({
+  name: 'Engine#streamRender rejects before streaming when template is missing',
+  fn: async () => {
+    const engine = new Rendering.Engine({ viewsDir: '/nonexistent-' + Date.now() })
+    await assertRejects(
+      () => engine.streamRender('missing.dve', {}),
+      Deno.errors.NotFound
+    )
+  },
+  sanitizeOps: false
+})
+
+Deno.test('Engine#streamRender returns ReadableStream response', async () => {
   const viewsDir = fileURLToPath(import.meta.resolve('@tests/fixtures/views/')).replace(
     /[\\/]$/,
     ''
   )
   const engine = new Rendering.Engine({ viewsDir })
-  const stream = engine.streamRender('hello.dve', { name: 'Stream' })
+  const stream = await engine.streamRender('hello.dve', { name: 'Stream' })
   assertEquals(stream instanceof ReadableStream, true)
-  stream.cancel()
-})
-
-Deno.test({
-  name: 'Engine#streamRender throws for missing template',
-  fn: async () => {
-    const engine = new Rendering.Engine({ viewsDir: '/nonexistent-' + Date.now() })
-    const stream = engine.streamRender('missing.dve', {})
-    const reader = stream.getReader()
-    const { done } = await reader.read()
-    assertEquals(done, true)
-  },
-  sanitizeOps: false
+  await stream.cancel()
 })
 
 Deno.test('Engine#viewsDir returns configured directory', () => {
