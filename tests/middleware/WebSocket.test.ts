@@ -66,6 +66,39 @@ Deno.test('websocket default listener is empty string and calls next', async () 
   }
 })
 
+Deno.test('websocket does not upgrade PUT or DELETE requests with an Upgrade header', async () => {
+  const middleware = Middleware.Mware.websocket({ listener: '/ws', allowedOrigins: '*' })
+  for (const method of ['PUT', 'DELETE', 'PATCH']) {
+    const ctx = createTestContext('http://localhost/ws', {
+      method,
+      headers: new Headers({ Upgrade: 'websocket' })
+    })
+    let nextCalled = false
+    const next = (): Promise<Response> => {
+      nextCalled = true
+      return Promise.resolve(new Response('ok'))
+    }
+    await middleware(ctx, next)
+    assertEquals(nextCalled, true)
+  }
+})
+
+Deno.test('websocket does not upgrade a POST request carrying an Upgrade header', async () => {
+  const middleware = Middleware.Mware.websocket({ listener: '/ws', allowedOrigins: '*' })
+  const ctx = createTestContext('http://localhost/ws', {
+    method: 'POST',
+    headers: new Headers({ Upgrade: 'websocket', Origin: 'https://anything.example' })
+  })
+  let nextCalled = false
+  const next = (): Promise<Response> => {
+    nextCalled = true
+    return Promise.resolve(new Response('route-handled-post'))
+  }
+  const res = await middleware(ctx, next)
+  assertEquals(nextCalled, true)
+  assertEquals(await res?.text(), 'route-handled-post')
+})
+
 Deno.test('websocket listener /ws does not match /ws-admin path', async () => {
   const middleware = Middleware.Mware.websocket({ listener: '/ws' })
   const ctx = createTestContext('http://localhost/ws-admin', {
@@ -92,6 +125,36 @@ Deno.test('websocket listener with trailing slash normalized', async () => {
   }
   await middleware(ctx, next)
   assertEquals(nextCalled, true)
+})
+
+Deno.test('websocket malformed handshake does not reach the route chain', async () => {
+  const middleware = Middleware.Mware.websocket({ listener: '/ws', allowedOrigins: '*' })
+  const ctx = createTestContext('http://localhost/ws', {
+    headers: new Headers({ Upgrade: 'websocket', Origin: 'https://anything.example' })
+  })
+  let nextCalled = false
+  const next = (): Promise<Response> => {
+    nextCalled = true
+    return Promise.resolve(new Response('ok'))
+  }
+  const res = await middleware(ctx, next)
+  assertEquals(nextCalled, false)
+  assertEquals(res?.status, 400)
+})
+
+Deno.test('websocket maps a malformed handshake to 400, not 500', async () => {
+  const middleware = Middleware.Mware.websocket({ listener: '/ws' })
+  const ctx = createTestContext('http://localhost/ws', {
+    headers: new Headers({ Upgrade: 'websocket', Origin: 'http://localhost' })
+  })
+  let nextCalled = false
+  const next = (): Promise<Response> => {
+    nextCalled = true
+    return Promise.resolve(new Response('ok'))
+  }
+  const res = await middleware(ctx, next)
+  assertEquals(nextCalled, false)
+  assertEquals(res?.status, 400)
 })
 
 Deno.test('websocket rejects cross-origin handshake by default', async () => {

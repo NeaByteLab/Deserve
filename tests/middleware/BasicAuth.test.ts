@@ -7,6 +7,35 @@ function createTestContext(url = 'http://localhost/', requestInit?: RequestInit)
   return new Core.Context(request, new URL(url), {})
 }
 
+Deno.test('basicAuth accepts a lowercase "basic" scheme per RFC 7235', async () => {
+  const middleware = Middleware.Mware.basicAuth({
+    users: [{ username: 'admin', password: 's3cret' }]
+  })
+  const ctx = createTestContext('http://localhost/', {
+    headers: new Headers({ Authorization: 'basic ' + btoa('admin:s3cret') })
+  })
+  const next = async (): Promise<Response> => new Response('ok')
+  const res = await middleware(ctx, next)
+  assertEquals(res !== undefined, true)
+  if (res) {
+    assertEquals(await res.text(), 'ok')
+  }
+})
+
+Deno.test('basicAuth accepts uppercase and mixed-case schemes per RFC 7235', async () => {
+  const middleware = Middleware.Mware.basicAuth({
+    users: [{ username: 'admin', password: 's3cret' }]
+  })
+  for (const scheme of ['BASIC', 'BaSiC', 'Basic']) {
+    const ctx = createTestContext('http://localhost/', {
+      headers: new Headers({ Authorization: `${scheme} ` + btoa('admin:s3cret') })
+    })
+    const next = async (): Promise<Response> => new Response('ok')
+    const res = await middleware(ctx, next)
+    assertEquals(await res?.text(), 'ok')
+  }
+})
+
 Deno.test('basicAuth always sets WWW-Authenticate header', async () => {
   const middleware = Middleware.Mware.basicAuth({
     users: [{ username: 'u', password: 'p' }]
@@ -116,6 +145,18 @@ Deno.test('basicAuth returns 401 when no Authorization header', async () => {
   if (res) {
     assertEquals(res.status, 401)
   }
+})
+
+Deno.test('basicAuth still rejects a case-variant scheme with wrong credentials', async () => {
+  const middleware = Middleware.Mware.basicAuth({
+    users: [{ username: 'admin', password: 's3cret' }]
+  })
+  const ctx = createTestContext('http://localhost/', {
+    headers: new Headers({ Authorization: 'basic ' + btoa('admin:wrong') })
+  })
+  const next = async (): Promise<Response> => new Response('ok')
+  const res = await middleware(ctx, next)
+  assertEquals(res?.status, 401)
 })
 
 Deno.test('basicAuth throws Deno.errors.InvalidData when users array empty', () => {

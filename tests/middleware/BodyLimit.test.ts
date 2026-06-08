@@ -1,4 +1,4 @@
-import { assertEquals } from '@std/assert'
+import { assertEquals, assertThrows } from '@std/assert'
 import * as Core from '@core/index.ts'
 import * as Middleware from '@middleware/index.ts'
 
@@ -166,18 +166,24 @@ Deno.test('bodyLimit PUT method is checked', async () => {
   }
 })
 
-Deno.test('bodyLimit default limit is 1MB when not specified', async () => {
-  const middleware = Middleware.Mware.bodyLimit({ limit: undefined } as unknown as {
-    limit: number
+Deno.test('bodyLimit forwards a body-bearing forbidden method without throwing', async () => {
+  const middleware = Middleware.Mware.bodyLimit({ limit: 10 })
+  const baseRequest = new Request('http://localhost/', { method: 'POST', body: 'x' })
+  const forbiddenRequest = new Proxy(baseRequest, {
+    get(target, prop, receiver) {
+      if (prop === 'method') {
+        return 'TRACE'
+      }
+      const value = Reflect.get(target, prop, receiver)
+      return typeof value === 'function' ? value.bind(target) : value
+    }
   })
-  const ctx = createTestContext('http://localhost/', {
-    method: 'POST',
-    headers: new Headers({ 'Content-Length': String(1024 * 1024) })
-  })
+  const ctx = new Core.Context(forbiddenRequest, new URL('http://localhost/'), {})
   const next = async (): Promise<Response> => new Response('ok')
   const res = await middleware(ctx, next)
   assertEquals(res !== undefined, true)
   if (res) {
+    assertEquals(res.status, 200)
     assertEquals(await res.text(), 'ok')
   }
 })
@@ -194,6 +200,27 @@ Deno.test('bodyLimit negative Content-Length returns 413', async () => {
   if (res) {
     assertEquals(res.status, 413)
   }
+})
+
+Deno.test('bodyLimit rejects a non-finite or non-positive limit at creation', () => {
+  for (const bad of [NaN, Infinity, -Infinity, -1, 0]) {
+    assertThrows(
+      () => Middleware.Mware.bodyLimit({ limit: bad }),
+      Deno.errors.InvalidData,
+      'positive finite'
+    )
+  }
+})
+
+Deno.test('bodyLimit rejects an undefined limit at creation', () => {
+  assertThrows(
+    () =>
+      Middleware.Mware.bodyLimit({ limit: undefined } as unknown as {
+        limit: number
+      }),
+    Deno.errors.InvalidData,
+    'positive finite'
+  )
 })
 
 Deno.test('bodyLimit streaming body exactly at limit passes', async () => {
@@ -288,16 +315,10 @@ Deno.test('bodyLimit with Transfer-Encoding skips Content-Length check', async (
   }
 })
 
-Deno.test('bodyLimit with limit 0 rejects any body', async () => {
-  const middleware = Middleware.Mware.bodyLimit({ limit: 0 })
-  const ctx = createTestContext('http://localhost/', {
-    method: 'POST',
-    headers: new Headers({ 'Content-Length': '1' })
-  })
-  const next = async (): Promise<Response> => new Response()
-  const res = await middleware(ctx, next)
-  assertEquals(res !== undefined, true)
-  if (res) {
-    assertEquals(res.status, 413)
-  }
+Deno.test('bodyLimit with limit 0 is rejected at creation', () => {
+  assertThrows(
+    () => Middleware.Mware.bodyLimit({ limit: 0 }),
+    Deno.errors.InvalidData,
+    'positive finite'
+  )
 })

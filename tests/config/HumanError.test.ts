@@ -3,50 +3,22 @@ import * as Core from '@core/index.ts'
 import * as Middleware from '@middleware/index.ts'
 import * as Routing from '@routing/index.ts'
 
-function createTestContext(url = 'http://localhost/', requestInit?: RequestInit): Core.Context {
-  const request = new Request(url, requestInit)
-  return new Core.Context(request, new URL(url), {})
-}
-
 const echoWorkerUrl = import.meta.resolve('@tests/fixtures/echo_worker.ts')
 
-Deno.test('BodyLimit with limit 0 rejects Content-Length 1', async () => {
-  const middleware = Middleware.Mware.bodyLimit({ limit: 0 })
-  const ctx = createTestContext('http://localhost/', {
-    method: 'POST',
-    headers: new Headers({
-      Accept: 'application/json',
-      'Content-Length': '1'
-    }),
-    body: 'x'
-  })
-  const next = async (): Promise<Response> => new Response('should not reach')
-  const res = await middleware(ctx, next)
-  assertEquals(res !== undefined, true)
-  if (res) {
-    assertEquals(res.status, 413)
-  }
+Deno.test('BodyLimit with limit 0 is rejected at creation', () => {
+  assertThrows(
+    () => Middleware.Mware.bodyLimit({ limit: 0 }),
+    Deno.errors.InvalidData,
+    'positive finite'
+  )
 })
 
-Deno.test('BodyLimit with negative limit returns 413', async () => {
-  const middleware = Middleware.Mware.bodyLimit({ limit: -1 })
-  const ctx = createTestContext('http://localhost/', {
-    method: 'POST',
-    headers: new Headers({
-      Accept: 'application/json',
-      'Content-Length': '1'
-    }),
-    body: 'x'
-  })
-  const next = async (): Promise<Response> => new Response('should not')
-  const res = await middleware(ctx, next)
-  assertEquals(res !== undefined, true)
-  if (res) {
-    assertEquals(res.status, 413)
-    const body = (await res.json()) as { error: string; statusCode: number }
-    assertEquals(body.error, 'Payload Too Large')
-    assertEquals(body.statusCode, 413)
-  }
+Deno.test('BodyLimit with negative limit is rejected at creation', () => {
+  assertThrows(
+    () => Middleware.Mware.bodyLimit({ limit: -1 }),
+    Deno.errors.InvalidData,
+    'positive finite'
+  )
 })
 
 Deno.test('Router constructor accepts poolSize 0 as 1', async () => {

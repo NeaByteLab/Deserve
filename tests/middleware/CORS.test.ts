@@ -273,7 +273,7 @@ Deno.test('cors non-matching single origin does not set allow origin', async () 
   if (res) {
     assertEquals(await res.text(), 'ok')
   }
-  assertEquals(ctx.responseHeadersMap['Access-Control-Allow-Origin'], 'https://only-this.com')
+  assertEquals(ctx.responseHeadersMap['Access-Control-Allow-Origin'], undefined)
 })
 
 Deno.test('cors origin array mismatch does not set allow origin', async () => {
@@ -309,6 +309,41 @@ Deno.test('cors sets Vary Origin on non-matching origin request', async () => {
   const next = (): Promise<Response> => Promise.resolve(new Response('ok'))
   await middleware(ctx, next)
   assertEquals(ctx.responseHeadersMap['Vary'], 'Origin')
+})
+
+Deno.test('cors string origin allows the exact matching requester', async () => {
+  const middleware = Middleware.Mware.cors({ origin: 'https://single.com' })
+  const ctx = createTestContext('http://localhost/', {
+    method: 'OPTIONS',
+    headers: new Headers({ Origin: 'https://single.com', 'Access-Control-Request-Method': 'GET' })
+  })
+  const next = async (): Promise<Response> => new Response('ok')
+  const res = await middleware(ctx, next)
+  assertEquals(res?.status, 204)
+  assertEquals(res?.headers.get('Access-Control-Allow-Origin'), 'https://single.com')
+})
+
+Deno.test('cors string origin does not reflect allow-origin to a non-matching requester', async () => {
+  const middleware = Middleware.Mware.cors({ origin: 'https://single.com' })
+  const ctx = createTestContext('http://localhost/', {
+    method: 'GET',
+    headers: new Headers({ Origin: 'https://evil.com' })
+  })
+  const next = async (): Promise<Response> => new Response('ok')
+  await middleware(ctx, next)
+  assertEquals(ctx.responseHeadersMap['Access-Control-Allow-Origin'], undefined)
+})
+
+Deno.test('cors string origin rejects a non-matching preflight with 403', async () => {
+  const middleware = Middleware.Mware.cors({ origin: 'https://single.com' })
+  const ctx = createTestContext('http://localhost/', {
+    method: 'OPTIONS',
+    headers: new Headers({ Origin: 'https://evil.com', 'Access-Control-Request-Method': 'GET' })
+  })
+  const next = async (): Promise<Response> => new Response('ok')
+  const res = await middleware(ctx, next)
+  assertEquals(res?.status, 403)
+  assertEquals(res?.headers.get('Access-Control-Allow-Origin'), null)
 })
 
 Deno.test('cors when no Origin header calls next', async () => {
