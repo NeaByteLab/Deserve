@@ -38,6 +38,21 @@
     ],
     "description": "Insert DVE each block with @index/@length"
   },
+  "DVE: Ternary": {
+    "prefix": "dvetern",
+    "body": ["{{ ${1:condition} ? ${2:yes} : ${3:no} }}"],
+    "description": "Insert DVE ternary: {{ cond ? yes : no }}"
+  },
+  "DVE: Default (Nullish)": {
+    "prefix": "dvedef",
+    "body": ["{{ ${1:value} ?? ${2:'fallback'} }}"],
+    "description": "Insert DVE nullish default: {{ value ?? 'fallback' }}"
+  },
+  "DVE: Optional Chain": {
+    "prefix": "dveopt",
+    "body": ["{{ ${1:user}?.${2:name} ?? ${3:'Guest'} }}"],
+    "description": "Insert DVE optional chain: {{ user?.name ?? 'Guest' }}"
+  },
   "DVE: Comment (HTML)": {
     "prefix": "dvecmt",
     "body": ["<!-- ${1:comment} -->"],
