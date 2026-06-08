@@ -15,13 +15,14 @@ export class Watcher {
    * @description Uses Superwatcher with sequential reloading.
    * @param handler - Handler instance to reload routes on
    * @param routesDir - Routes directory to watch
+   * @returns Stop handle releasing the watcher
    */
-  static watch(handler: Routing.Handler, routesDir: string): void {
+  static watch(handler: Routing.Handler, routesDir: string): () => void {
     const extensions = Core.Constant.allowedExtensions
     const extensionSet: Set<string> = new Set(extensions)
     const resolvedDir = nodePath.resolve(routesDir)
     if (!Core.Handler.isDirectory(resolvedDir)) {
-      return
+      return () => {}
     }
     const reloader = createSequential(async () => {
       for (const routePath of pendingRemovals) {
@@ -62,5 +63,6 @@ export class Watcher {
       }
     })
     watcher.start()
+    return () => watcher.dispose()
   }
 }

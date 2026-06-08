@@ -13,12 +13,13 @@ export class Watcher {
    * Start watching template directory.
    * @description Uses Superwatcher with cache invalidation.
    * @param engine - Engine instance to invalidate
+   * @returns Stop handle releasing the watcher
    */
-  static watch(engine: Types.WatchableEngine): void {
+  static watch(engine: Types.WatchableEngine): () => void {
     const viewsDir = engine.viewsDir
     const resolvedDir = nodePath.resolve(viewsDir)
     if (!Core.Handler.isDirectory(resolvedDir)) {
-      return
+      return () => {}
     }
     const watcher = new Superwatcher({
       path: resolvedDir,
@@ -39,5 +40,6 @@ export class Watcher {
       }
     })
     watcher.start()
+    return () => watcher.dispose()
   }
 }
