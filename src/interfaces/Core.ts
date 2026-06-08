@@ -1,5 +1,49 @@
 import type * as Core from '@core/index.ts'
 
+/**
+ * Internal framework-only Context surface.
+ * @description Members reachable cross-module via the InternalContext symbol.
+ */
+export interface ContextInternal {
+  /**
+   * Apply headers and cookies to Response.
+   * @description Merges accumulated headers and cookies, existing values win.
+   * @param response - Native Response to finalize
+   * @returns Same Response with headers applied
+   */
+  finalizeRaw(response: globalThis.Response): globalThis.Response
+  /**
+   * Read captured framework error.
+   * @description Returns error set by handleError, null when none.
+   * @returns Framework Error or null
+   */
+  getFrameworkError(): Error | null
+  /**
+   * Replace request and reset body state.
+   * @description Swaps the request and clears parsed body state.
+   * @param req - New request to use
+   */
+  replaceRequest(req: Request): void
+  /**
+   * Merge percent-decoded route params.
+   * @description Spread-merges decoded params into existing route params.
+   * @param params - Params from the router match
+   */
+  setParams(params: StringRecord): void
+  /**
+   * Write reserved framework state key.
+   * @description Internal write path for framework-wired keys.
+   * @template T - Value type encoded in the key
+   * @param key - Branded reserved state key
+   * @param value - Value matching the key type
+   */
+  setInternalState<T>(key: StateKey<T>, value: T): void
+  /** Snapshot of accumulated Set-Cookie values */
+  readonly responseCookies: readonly string[]
+  /** Snapshot copy of accumulated response headers */
+  readonly responseHeadersMap: StringRecord
+}
+
 /** Error details for error middleware. */
 export interface ErrorInfo {
   /** Caught error instance */
@@ -33,6 +77,14 @@ export interface ErrorResponseBuilder {
     error: Error,
     errorMiddleware: ErrorMiddleware | null
   ): Promise<Response>
+}
+
+/** Parsed IP address value with version. */
+export interface ParsedIp {
+  /** Numeric address value */
+  readonly value: bigint
+  /** Address version, 4 or 6 */
+  readonly version: 4 | 6
 }
 
 /**
@@ -97,7 +149,7 @@ export interface WorkerPoolOptions {
   readonly poolSize?: number
   /** URL to worker script module */
   readonly scriptURL: string
-  /** Per-task timeout in milliseconds; expiry rejects and respawns the slot */
+  /** Per-task timeout in milliseconds */
   readonly taskTimeoutMs?: number
 }
 
@@ -169,6 +221,9 @@ export type HttpMethod = 'DELETE' | 'GET' | 'HEAD' | 'OPTIONS' | 'PATCH' | 'POST
 /** HTTP status code branded type. */
 export type HttpStatusCode = ClientErrorCode | ServerErrorCode
 
+/** Matcher predicate for an IP string. */
+export type IpMatcher = (ip: string) => boolean
+
 /**
  * Sync or async value wrapper.
  * @template T - Wrapped value type
@@ -218,7 +273,7 @@ export type ServerErrorCode = 500 | 501 | 502 | 503 | 504
 export type StateKey<T> = string & { readonly __stateValue: T }
 
 /**
- * Carrier of an HTTP status code at a given confidence level.
+ * Carrier of an HTTP status code.
  * @description Single atom for status-bearing values; widen via S.
  * @template S - Confidence of the statusCode value
  */

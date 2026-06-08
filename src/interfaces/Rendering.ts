@@ -1,4 +1,4 @@
-import type { DataRecord, EventEmit, TagCarrier, TaggedVariant } from '@interfaces/index.ts'
+import type * as Types from '@interfaces/index.ts'
 
 /** Compiled DVE template result. */
 export interface CompileResult {
@@ -19,7 +19,7 @@ export interface DveStackFrame {
 /** Rendering engine constructor options. */
 export interface EngineOptions {
   /** Optional lifecycle event emitter */
-  readonly emit?: EventEmit
+  readonly emit?: Types.EventEmit
   /** Maximum loop iterations allowed */
   readonly maxIterations?: number
   /** Directory path for template views */
@@ -77,11 +77,14 @@ export type AstBlockNode = Extract<AstNode, { type: 'each' } | { type: 'if' }>
 
 /** DVE template AST node union. */
 export type AstNode =
-  | (TaggedVariant<'type', 'each', { path: string; itemName: string }> & { nodes: AstNode[] })
-  | (TaggedVariant<'type', 'if', { path: string }> & { thenNodes: AstNode[]; elseNodes: AstNode[] })
-  | TaggedVariant<'type', 'include', { templatePath: string }>
-  | TaggedVariant<'type', 'text', { value: string }>
-  | TaggedVariant<'type', 'var', { path: string; raw: boolean }>
+  | (Types.TaggedVariant<'type', 'each', { path: string; itemName: string }> & { nodes: AstNode[] })
+  | (Types.TaggedVariant<'type', 'if', { path: string }> & {
+    thenNodes: AstNode[]
+    elseNodes: AstNode[]
+  })
+  | Types.TaggedVariant<'type', 'include', { templatePath: string }>
+  | Types.TaggedVariant<'type', 'text', { value: string }>
+  | Types.TaggedVariant<'type', 'var', { path: string; raw: boolean }>
 
 /** AST node type discriminant values. */
 export type AstNodeType = AstNode['type']
@@ -106,37 +109,41 @@ export type BinaryOp =
 
 /** DVE expression AST node union. */
 export type ExprNode =
-  | TaggedVariant<'type', 'binary', { op: BinaryOp; left: ExprNode; right: ExprNode }>
-  | TaggedVariant<'type', 'ident', { name: string }>
-  | TaggedVariant<'type', 'literal', { value: string | number }>
-  | TaggedVariant<'type', 'member', { object: ExprNode; property: string }>
-  | TaggedVariant<'type', 'ternary', { test: ExprNode; consequent: ExprNode; alternate: ExprNode }>
-  | TaggedVariant<'type', 'unary', { op: UnaryOp; arg: ExprNode }>
+  | Types.TaggedVariant<'type', 'binary', { op: BinaryOp; left: ExprNode; right: ExprNode }>
+  | Types.TaggedVariant<'type', 'ident', { name: string }>
+  | Types.TaggedVariant<'type', 'literal', { value: string | number }>
+  | Types.TaggedVariant<'type', 'member', { object: ExprNode; property: string }>
+  | Types.TaggedVariant<
+    'type',
+    'ternary',
+    { test: ExprNode; consequent: ExprNode; alternate: ExprNode }
+  >
+  | Types.TaggedVariant<'type', 'unary', { op: UnaryOp; arg: ExprNode }>
 
 /** Expression node type discriminant values. */
 export type ExprNodeType = ExprNode['type']
 
 /** Node shape exposing op discriminant. */
-export type ExprOpCarrier = TagCarrier<'op'>
+export type ExprOpCarrier = Types.TagCarrier<'op'>
 
 /** DVE expression evaluator token. */
 export type ExprToken =
-  | TaggedVariant<'kind', 'ident', { value: string }>
-  | TaggedVariant<'kind', 'number', { value: number }>
-  | TaggedVariant<'kind', 'op', { value: TokenOp }>
-  | TaggedVariant<'kind', 'string', { value: string }>
+  | Types.TaggedVariant<'kind', 'ident', { value: string }>
+  | Types.TaggedVariant<'kind', 'number', { value: number }>
+  | Types.TaggedVariant<'kind', 'op', { value: TokenOp }>
+  | Types.TaggedVariant<'kind', 'string', { value: string }>
 
 /** Expression token kind discriminant values. */
 export type ExprTokenKind = ExprToken['kind']
 
 /** Node shape exposing type discriminant. */
-export type ExprTypeCarrier = TagCarrier<'type'>
+export type ExprTypeCarrier = Types.TagCarrier<'type'>
 
 /** Structural operators in expression tokens. */
 export type StructuralOp = '(' | ')' | '.' | ':' | '?' | '?.'
 
 /** Template method parameter tuple. */
-export type TemplateArgs = [templatePath: string, data?: DataRecord]
+export type TemplateArgs = [templatePath: string, data?: Types.DataRecord]
 
 /** All operator literals in tokens. */
 export type TokenOp = BinaryOp | StructuralOp | UnaryOp

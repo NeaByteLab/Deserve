@@ -1,8 +1,16 @@
-/** Metadata atom carrying a route path. */
-type RouteMeta = { routePath: string }
+import type * as Types from '@interfaces/index.ts'
 
 /** Metadata atom carrying an Error. */
-type ErrorMeta = { error: Error }
+type ErrorMeta = {
+  /** Error instance describing the fault */
+  error: Error
+}
+
+/** Metadata atom carrying a route path. */
+type RouteMeta = {
+  /** Registered route path string */
+  routePath: string
+}
 
 /**
  * Discriminated union of lifecycle events.
@@ -10,6 +18,7 @@ type ErrorMeta = { error: Error }
  */
 export type EventBase =
   | LifecycleEvent<'server:listening', { port: number; hostname: string }>
+  | LifecycleEvent<'server:shutdown', Record<never, never>>
   | LifecycleEvent<
     'route:loaded' | 'route:reloaded' | 'route:removed',
     RouteMeta & { pattern: string }
@@ -25,8 +34,26 @@ export type EventBase =
   | LifecycleEvent<'view:error', { path: string } & ErrorMeta>
   | LifecycleEvent<
     'request:complete' | 'request:error',
-    { method: string; statusCode: number; url: string; durationMs: number; error?: Error }
+    & {
+      method: string
+      statusCode: number
+      url: string
+      durationMs: number
+      ip?: string
+    }
+    & Types.RequestMetrics
+    & Partial<ErrorMeta>
   >
+
+/**
+ * Event member selected by kind.
+ * @description Distributes over the union to keep grouped kinds.
+ * @template Kind - Event kind discriminant literal
+ */
+export type EventByKind<Kind extends EventKind> = EventBase extends infer Member
+  ? Member extends { kind: infer MemberKind } ? Kind extends MemberKind ? Member : never
+  : never
+  : never
 
 /** Origin channel of an event. */
 export type EventChannel = 'internal' | 'external'

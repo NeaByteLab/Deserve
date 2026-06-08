@@ -1,20 +1,13 @@
+import type * as Types from '@interfaces/index.ts'
 import type * as Core from '@core/index.ts'
-import type {
-  DataRecord,
-  EngineOptions,
-  ErrorResponseBuilder,
-  RouteHandler,
-  StateKey,
-  StaticHandler,
-  ViewEngine,
-  WorkerPoolOptions,
-  WorkerRunHandle
-} from '@interfaces/index.ts'
 
 /** Request handler configuration options. */
-export interface HandlerOptions extends Partial<Pick<EngineOptions, 'maxIterations' | 'viewsDir'>> {
+export interface HandlerOptions extends
+  Partial<
+    Pick<Types.EngineOptions, 'maxIterations' | 'viewsDir'>
+  > {
   /** Custom error response builder */
-  readonly errorResponseBuilder?: ErrorResponseBuilder
+  readonly errorResponseBuilder?: Types.ErrorResponseBuilder
   /** Maximum route parameter length */
   readonly maxParamLength?: number
   /** Maximum request URL length */
@@ -22,9 +15,11 @@ export interface HandlerOptions extends Partial<Pick<EngineOptions, 'maxIteratio
   /** Request timeout in milliseconds */
   readonly requestTimeoutMs?: number
   /** Static file handler instance */
-  readonly staticHandler?: StaticHandler
+  readonly staticHandler?: Types.StaticHandler
+  /** Trusted proxy configuration for IP resolution */
+  readonly trustProxy?: TrustProxyConfig
   /** Worker pool configuration options */
-  readonly worker?: WorkerPoolOptions
+  readonly worker?: Types.WorkerPoolOptions
 }
 
 /** Server listen address info. */
@@ -41,6 +36,28 @@ export interface RequestHolder {
   ctx: Core.Context | null
   /** Framework error captured during handling */
   frameworkError: Error | null
+  /** Resolved client IP, undefined when unknown */
+  clientIp: string | undefined
+  /** Matched route pattern, undefined when unmatched */
+  routePattern: string | undefined
+  /** Parsed request URL, reused to avoid re-parsing for metrics */
+  parsedUrl: URL | undefined
+}
+
+/** Optional OTel-aligned request metrics. */
+export interface RequestMetrics {
+  /** Matched route pattern */
+  route?: string
+  /** Resolved server hostname */
+  serverAddress?: string
+  /** Resolved server port number */
+  serverPort?: number
+  /** Request User-Agent header value */
+  userAgent?: string
+  /** Request body size in bytes */
+  requestSize?: number
+  /** Response body size in bytes */
+  responseSize?: number
 }
 
 /** Route change entry for hot-reload. */
@@ -66,22 +83,22 @@ export interface RouterOptions extends HandlerOptions {
 /** Well-known framework state keys shape. */
 export interface StateKeysMap {
   /** Key for the view engine */
-  readonly view: StateKey<ViewEngine>
+  readonly view: Types.StateKey<Types.ViewEngine>
   /** Key for the worker handle */
-  readonly worker: StateKey<WorkerRunHandle>
+  readonly worker: Types.StateKey<Types.WorkerRunHandle>
   /** Key for current session data */
-  readonly session: StateKey<DataRecord | null>
+  readonly session: Types.StateKey<Types.DataRecord | null>
   /** Key for the session setter */
-  readonly setSession: StateKey<(data: DataRecord) => Promise<void>>
+  readonly setSession: Types.StateKey<(data: Types.DataRecord) => Promise<void>>
   /** Key for the session clearer */
-  readonly clearSession: StateKey<() => void>
+  readonly clearSession: Types.StateKey<() => void>
 }
 
 /** Route entry for type-safe dispatch. */
 export type RouteEntry =
   | (RouteEntryBase & {
     readonly kind: 'handler'
-    readonly handler: RouteHandler
+    readonly handler: Types.RouteHandler
   })
   | (RouteEntryBase & {
     readonly kind: 'static'
@@ -94,3 +111,6 @@ export type RouteFileExtension = 'cjs' | 'js' | 'jsx' | 'mjs' | 'ts' | 'tsx'
 
 /** Loaded route module with method exports. */
 export type RouteModule = Record<string, unknown>
+
+/** Trusted proxy configuration for IP resolution. */
+export type TrustProxyConfig = readonly string[] | Types.IpMatcher

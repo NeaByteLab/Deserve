@@ -1,5 +1,5 @@
+import type * as Types from '@interfaces/index.ts'
 import type * as Core from '@core/index.ts'
-import type { ContextFn, HttpMethod } from '@interfaces/index.ts'
 
 /** Basic Auth middleware options. */
 export interface BasicAuthOptions {
@@ -32,9 +32,25 @@ export interface CorsOptions {
   /** Preflight cache duration in seconds */
   readonly maxAge?: number
   /** Allowed HTTP methods for CORS */
-  readonly methods?: readonly HttpMethod[]
+  readonly methods?: readonly Types.HttpMethod[]
   /** Allowed origin or origin list */
   readonly origin?: string | readonly string[]
+}
+
+/** CSRF middleware options. */
+export interface CsrfOptions {
+  /** Allowed origin, list, or predicate */
+  readonly origin?: string | readonly string[] | CsrfRulePredicate
+  /** Allowed sec-fetch-site, list, or predicate */
+  readonly secFetchSite?: string | readonly string[] | CsrfRulePredicate
+}
+
+/** IP restriction middleware options. */
+export interface IpOptions {
+  /** Allowed IP, CIDR, or wildcard rules */
+  readonly whitelist?: readonly string[]
+  /** Denied IP, CIDR, or wildcard rules */
+  readonly blacklist?: readonly string[]
 }
 
 /** Middleware bound to optional path. */
@@ -83,10 +99,19 @@ export interface WebSocketOptions {
 export type AsyncMiddlewareResult = Promise<Awaited<MiddlewareResult>>
 
 /**
+ * CSRF rule predicate over a header value.
+ * @description Returns true when the value is allowed.
+ * @param value - Incoming header value to test
+ * @param ctx - Request context instance
+ * @returns True when the value passes the rule
+ */
+export type CsrfRulePredicate = (value: string, ctx: Core.Context) => boolean
+
+/**
  * Middleware function with context.
  * @description Processes request with context and next chain.
  */
-export type MiddlewareFn = ContextFn<[next: NextFn], Response | undefined>
+export type MiddlewareFn = Types.ContextFn<[next: NextFn], Response | undefined>
 
 /** Middleware return type alias. */
 export type MiddlewareResult = ReturnType<MiddlewareFn>
@@ -95,7 +120,7 @@ export type MiddlewareResult = ReturnType<MiddlewareFn>
 export type NextFn = () => AsyncMiddlewareResult
 
 /** Route handler receiving context. */
-export type RouteHandler = ContextFn<[], Response>
+export type RouteHandler = Types.ContextFn<[], Response>
 
 /** SameSite cookie attribute value. */
 export type SameSitePolicy = 'Strict' | 'Lax' | 'None'
