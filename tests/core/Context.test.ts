@@ -452,10 +452,10 @@ Deno.test('Context#formData then blob throws already consumed', async () => {
 
 Deno.test('Context#getState and setState are mutable and shared', () => {
   const ctx = createTestContext('http://localhost/')
-  const sessionKey = Core.Handler.stateKey<{ user: string }>('session')
-  assertEquals(ctx.getState(sessionKey), undefined)
-  ctx.setState(sessionKey, { user: 'x' })
-  assertEquals(ctx.getState(sessionKey)?.user, 'x')
+  const customKey = Core.Handler.stateKey<{ user: string }>('customUser')
+  assertEquals(ctx.getState(customKey), undefined)
+  ctx.setState(customKey, { user: 'x' })
+  assertEquals(ctx.getState(customKey)?.user, 'x')
 })
 
 Deno.test('Context#handleError when errorHandler throws propagates', async () => {
@@ -768,7 +768,7 @@ Deno.test('Context#replaceRequest resets body so body can be read again', async 
     body: 'baz=qux',
     headers: new Headers({ 'Content-Type': 'application/x-www-form-urlencoded' })
   })
-  ctx.replaceRequest(newReq)
+  ctx[Core.InternalContext].replaceRequest(newReq)
   const second = (await ctx.body()) as FormData
   assertEquals(second.get('baz'), 'qux')
 })
@@ -776,7 +776,7 @@ Deno.test('Context#replaceRequest resets body so body can be read again', async 
 Deno.test('Context#responseHeadersMap mutation does not corrupt emitted response headers', () => {
   const ctx = createTestContext()
   ctx.setHeader('X-Real', 'real')
-  const map = ctx.responseHeadersMap as Record<string, string>
+  const map = ctx[Core.InternalContext].responseHeadersMap as Record<string, string>
   map['X-Injected-Via-Map'] = 'evil'
   delete map['X-Real']
   const res = ctx.send.html('<p>ok</p>')
@@ -787,10 +787,10 @@ Deno.test('Context#responseHeadersMap mutation does not corrupt emitted response
 Deno.test('Context#responseHeadersMap returns snapshot, mutation does not leak into response', () => {
   const ctx = createTestContext()
   ctx.setHeader('X-Real', 'real')
-  const map = ctx.responseHeadersMap
+  const map = ctx[Core.InternalContext].responseHeadersMap
   ;(map as Record<string, string>)['X-Injected'] = 'mutated'
   delete (map as Record<string, string>)['X-Real']
-  const fresh = ctx.responseHeadersMap
+  const fresh = ctx[Core.InternalContext].responseHeadersMap
   assertEquals(fresh['X-Real'], 'real')
   assertEquals(fresh['X-Injected'], undefined)
 })
@@ -848,8 +848,8 @@ Deno.test('Context#setHeader Set-Cookie does not appear in responseHeadersMap', 
   const ctx = createTestContext()
   ctx.setHeader('Set-Cookie', 'token=abc')
   ctx.setHeader('X-Custom', 'yes')
-  assertEquals(ctx.responseHeadersMap['X-Custom'], 'yes')
-  assertEquals(ctx.responseHeadersMap['Set-Cookie'], undefined)
+  assertEquals(ctx[Core.InternalContext].responseHeadersMap['X-Custom'], 'yes')
+  assertEquals(ctx[Core.InternalContext].responseHeadersMap['Set-Cookie'], undefined)
 })
 
 Deno.test('Context#setHeader accumulates multiple Set-Cookie values', () => {
@@ -857,17 +857,17 @@ Deno.test('Context#setHeader accumulates multiple Set-Cookie values', () => {
   ctx.setHeader('Set-Cookie', 'a=1; Path=/')
   ctx.setHeader('Set-Cookie', 'b=2; Path=/')
   ctx.setHeader('Set-Cookie', 'c=3; Path=/')
-  assertEquals(ctx.responseCookies.length, 3)
-  assertEquals(ctx.responseCookies[0], 'a=1; Path=/')
-  assertEquals(ctx.responseCookies[2], 'c=3; Path=/')
+  assertEquals(ctx[Core.InternalContext].responseCookies.length, 3)
+  assertEquals(ctx[Core.InternalContext].responseCookies[0], 'a=1; Path=/')
+  assertEquals(ctx[Core.InternalContext].responseCookies[2], 'c=3; Path=/')
 })
 
 Deno.test('Context#setHeader chaining works', () => {
   const ctx = createTestContext('http://localhost/')
   const result = ctx.setHeader('X-A', '1').setHeader('X-B', '2')
   assertEquals(result, ctx)
-  assertEquals(ctx.responseHeadersMap['X-A'], '1')
-  assertEquals(ctx.responseHeadersMap['X-B'], '2')
+  assertEquals(ctx[Core.InternalContext].responseHeadersMap['X-A'], '1')
+  assertEquals(ctx[Core.InternalContext].responseHeadersMap['X-B'], '2')
 })
 
 Deno.test('Context#setHeader merges into response', () => {
@@ -907,7 +907,7 @@ Deno.test('Context#setHeaders applies nothing when a later entry is invalid', ()
   } catch {
     ctx
   }
-  assertEquals(ctx.responseHeadersMap['X-Good'], undefined)
+  assertEquals(ctx[Core.InternalContext].responseHeadersMap['X-Good'], undefined)
 })
 
 Deno.test('Context#setHeaders rejects the whole batch when one entry is invalid', () => {
@@ -930,10 +930,10 @@ Deno.test('Context#setHeaders returns this for chaining', () => {
 Deno.test('Context#setHeaders routes Set-Cookie entries to cookie array', () => {
   const ctx = createTestContext()
   ctx.setHeaders({ 'X-A': '1', 'Set-Cookie': 'sid=abc', 'X-B': '2' })
-  assertEquals(ctx.responseCookies.length, 1)
-  assertEquals(ctx.responseCookies[0], 'sid=abc')
-  assertEquals(ctx.responseHeadersMap['X-A'], '1')
-  assertEquals(ctx.responseHeadersMap['X-B'], '2')
+  assertEquals(ctx[Core.InternalContext].responseCookies.length, 1)
+  assertEquals(ctx[Core.InternalContext].responseCookies[0], 'sid=abc')
+  assertEquals(ctx[Core.InternalContext].responseHeadersMap['X-A'], '1')
+  assertEquals(ctx[Core.InternalContext].responseHeadersMap['X-B'], '2')
 })
 
 Deno.test('Context#setHeaders sets multiple headers', () => {
@@ -946,15 +946,49 @@ Deno.test('Context#setHeaders sets multiple headers', () => {
 
 Deno.test('Context#setParams merges additional params', () => {
   const ctx = createTestContext('http://localhost/', { id: '1' })
-  ctx.setParams({ name: 'test' })
+  ctx[Core.InternalContext].setParams({ name: 'test' })
   assertEquals(ctx.param('id'), '1')
   assertEquals(ctx.param('name'), 'test')
 })
 
 Deno.test('Context#setParams percent-decodes merged params', () => {
   const ctx = createTestContext('http://localhost/', {})
-  ctx.setParams({ name: 'a%20b' })
+  ctx[Core.InternalContext].setParams({ name: 'a%20b' })
   assertEquals(ctx.param('name'), 'a b')
+})
+
+Deno.test('Context#setState rejects reserved framework keys', () => {
+  const ctx = createTestContext()
+  for (const reserved of ['view', 'worker', 'session', 'setSession', 'clearSession']) {
+    let threw = false
+    try {
+      ctx.setState(Core.Handler.stateKey(reserved), 'attacker')
+    } catch (e) {
+      threw = true
+      assertEquals((e as Error).message.includes('reserved'), true)
+    }
+    assertEquals(threw, true)
+  }
+})
+
+Deno.test('Context#state cannot clobber framework internals via delete', () => {
+  const ctx = createTestContext()
+  ctx[Core.InternalContext].setInternalState(
+    Core.Handler.stateKeys.view,
+    { render: async () => '' } as never
+  )
+  delete (ctx.state as Record<string, unknown>)['view']
+  assertEquals(ctx.getState(Core.Handler.stateKeys.view) !== undefined, true)
+})
+
+Deno.test('Context#state does not expose framework-wired internal keys', () => {
+  const ctx = createTestContext()
+  ctx[Core.InternalContext].setInternalState(Core.Handler.stateKeys.setSession, async () => {})
+  ctx[Core.InternalContext].setInternalState(Core.Handler.stateKeys.session, { userId: '1' })
+  assertEquals(typeof ctx.getState(Core.Handler.stateKeys.setSession), 'function')
+  assertEquals(ctx.getState(Core.Handler.stateKeys.session)?.['userId'], '1')
+  assertEquals(Object.hasOwn(ctx.state, 'setSession'), false)
+  assertEquals(Object.hasOwn(ctx.state, 'session'), false)
 })
 
 Deno.test('Context#state exposes a live mutable record (documented API)', () => {
@@ -962,14 +996,6 @@ Deno.test('Context#state exposes a live mutable record (documented API)', () => 
   assertEquals(typeof ctx.state, 'object')
   ctx.state['foo'] = 'bar'
   assertEquals(ctx.state['foo'], 'bar')
-})
-
-Deno.test('Context#state reflects values set via setState (session/worker keys)', () => {
-  const ctx = createTestContext()
-  ctx.setState(Core.Handler.StateKeys.setSession, async () => {})
-  ctx.setState(Core.Handler.StateKeys.session, { userId: '1' })
-  assertEquals(typeof ctx.state['setSession'], 'function')
-  assertEquals((ctx.state['session'] as { userId: string }).userId, '1')
 })
 
 Deno.test('Context#streamRender throws Deno.errors.NotSupported', async () => {

@@ -19,7 +19,7 @@ Deno.test('securityHeaders calls next and returns response', async () => {
     assertEquals(res.status, 200)
     assertEquals(await res.text(), 'protected')
   }
-  assertEquals(ctx.responseHeadersMap['X-Frame-Options'], 'DENY')
+  assertEquals(ctx[Core.InternalContext].responseHeadersMap['X-Frame-Options'], 'DENY')
 })
 
 Deno.test('securityHeaders can set multiple headers', async () => {
@@ -30,8 +30,11 @@ Deno.test('securityHeaders can set multiple headers', async () => {
   const ctx = createTestContext()
   const next = async (): Promise<Response> => new Response()
   await middleware(ctx, next)
-  assertEquals(ctx.responseHeadersMap['Referrer-Policy'], 'strict-origin-when-cross-origin')
-  assertEquals(ctx.responseHeadersMap['X-Frame-Options'], 'DENY')
+  assertEquals(
+    ctx[Core.InternalContext].responseHeadersMap['Referrer-Policy'],
+    'strict-origin-when-cross-origin'
+  )
+  assertEquals(ctx[Core.InternalContext].responseHeadersMap['X-Frame-Options'], 'DENY')
 })
 
 Deno.test('securityHeaders only specified headers are set others use defaults', async () => {
@@ -41,19 +44,31 @@ Deno.test('securityHeaders only specified headers are set others use defaults', 
   const ctx = createTestContext()
   const next = async (): Promise<Response> => new Response()
   await middleware(ctx, next)
-  assertEquals(ctx.responseHeadersMap['X-Content-Type-Options'], 'nosniff')
-  assertEquals(ctx.responseHeadersMap['Content-Security-Policy'], undefined)
-  assertEquals(ctx.responseHeadersMap['Cross-Origin-Embedder-Policy'], undefined)
-  assertEquals(ctx.responseHeadersMap['Cross-Origin-Opener-Policy'], 'same-origin')
-  assertEquals(ctx.responseHeadersMap['Cross-Origin-Resource-Policy'], 'same-origin')
-  assertEquals(ctx.responseHeadersMap['Origin-Agent-Cluster'], '?1')
-  assertEquals(ctx.responseHeadersMap['Referrer-Policy'], 'no-referrer')
-  assertEquals(ctx.responseHeadersMap['Strict-Transport-Security'], undefined)
-  assertEquals(ctx.responseHeadersMap['X-DNS-Prefetch-Control'], 'off')
-  assertEquals(ctx.responseHeadersMap['X-Download-Options'], 'noopen')
-  assertEquals(ctx.responseHeadersMap['X-Frame-Options'], 'SAMEORIGIN')
-  assertEquals(ctx.responseHeadersMap['X-Permitted-Cross-Domain-Policies'], 'none')
-  assertEquals(ctx.responseHeadersMap['X-Powered-By'], undefined)
+  assertEquals(ctx[Core.InternalContext].responseHeadersMap['X-Content-Type-Options'], 'nosniff')
+  assertEquals(ctx[Core.InternalContext].responseHeadersMap['Content-Security-Policy'], undefined)
+  assertEquals(
+    ctx[Core.InternalContext].responseHeadersMap['Cross-Origin-Embedder-Policy'],
+    undefined
+  )
+  assertEquals(
+    ctx[Core.InternalContext].responseHeadersMap['Cross-Origin-Opener-Policy'],
+    'same-origin'
+  )
+  assertEquals(
+    ctx[Core.InternalContext].responseHeadersMap['Cross-Origin-Resource-Policy'],
+    'same-origin'
+  )
+  assertEquals(ctx[Core.InternalContext].responseHeadersMap['Origin-Agent-Cluster'], '?1')
+  assertEquals(ctx[Core.InternalContext].responseHeadersMap['Referrer-Policy'], 'no-referrer')
+  assertEquals(ctx[Core.InternalContext].responseHeadersMap['Strict-Transport-Security'], undefined)
+  assertEquals(ctx[Core.InternalContext].responseHeadersMap['X-DNS-Prefetch-Control'], 'off')
+  assertEquals(ctx[Core.InternalContext].responseHeadersMap['X-Download-Options'], 'noopen')
+  assertEquals(ctx[Core.InternalContext].responseHeadersMap['X-Frame-Options'], 'SAMEORIGIN')
+  assertEquals(
+    ctx[Core.InternalContext].responseHeadersMap['X-Permitted-Cross-Domain-Policies'],
+    'none'
+  )
+  assertEquals(ctx[Core.InternalContext].responseHeadersMap['X-Powered-By'], undefined)
 })
 
 Deno.test('securityHeaders sets Content-Security-Policy', async () => {
@@ -63,7 +78,10 @@ Deno.test('securityHeaders sets Content-Security-Policy', async () => {
   const ctx = createTestContext()
   const next = async (): Promise<Response> => new Response()
   await middleware(ctx, next)
-  assertEquals(ctx.responseHeadersMap['Content-Security-Policy'], "default-src 'self'")
+  assertEquals(
+    ctx[Core.InternalContext].responseHeadersMap['Content-Security-Policy'],
+    "default-src 'self'"
+  )
 })
 
 Deno.test('securityHeaders sets Strict-Transport-Security', async () => {
@@ -74,7 +92,7 @@ Deno.test('securityHeaders sets Strict-Transport-Security', async () => {
   const next = async (): Promise<Response> => new Response()
   await middleware(ctx, next)
   assertEquals(
-    ctx.responseHeadersMap['Strict-Transport-Security'],
+    ctx[Core.InternalContext].responseHeadersMap['Strict-Transport-Security'],
     'max-age=31536000; includeSubDomains'
   )
 })
@@ -98,19 +116,37 @@ Deno.test('securityHeaders sets all 13 headers when provided', async () => {
   const ctx = createTestContext()
   const next = async (): Promise<Response> => new Response()
   await middleware(ctx, next)
-  assertEquals(ctx.responseHeadersMap['Content-Security-Policy'], "default-src 'self'")
-  assertEquals(ctx.responseHeadersMap['Cross-Origin-Embedder-Policy'], 'require-corp')
-  assertEquals(ctx.responseHeadersMap['Cross-Origin-Opener-Policy'], 'same-origin')
-  assertEquals(ctx.responseHeadersMap['Cross-Origin-Resource-Policy'], 'same-origin')
-  assertEquals(ctx.responseHeadersMap['Origin-Agent-Cluster'], '?1')
-  assertEquals(ctx.responseHeadersMap['Referrer-Policy'], 'no-referrer')
-  assertEquals(ctx.responseHeadersMap['Strict-Transport-Security'], 'max-age=31536000')
-  assertEquals(ctx.responseHeadersMap['X-Content-Type-Options'], 'nosniff')
-  assertEquals(ctx.responseHeadersMap['X-DNS-Prefetch-Control'], 'off')
-  assertEquals(ctx.responseHeadersMap['X-Download-Options'], 'noopen')
-  assertEquals(ctx.responseHeadersMap['X-Frame-Options'], 'SAMEORIGIN')
-  assertEquals(ctx.responseHeadersMap['X-Permitted-Cross-Domain-Policies'], 'none')
-  assertEquals(ctx.responseHeadersMap['X-Powered-By'], 'Deserve')
+  assertEquals(
+    ctx[Core.InternalContext].responseHeadersMap['Content-Security-Policy'],
+    "default-src 'self'"
+  )
+  assertEquals(
+    ctx[Core.InternalContext].responseHeadersMap['Cross-Origin-Embedder-Policy'],
+    'require-corp'
+  )
+  assertEquals(
+    ctx[Core.InternalContext].responseHeadersMap['Cross-Origin-Opener-Policy'],
+    'same-origin'
+  )
+  assertEquals(
+    ctx[Core.InternalContext].responseHeadersMap['Cross-Origin-Resource-Policy'],
+    'same-origin'
+  )
+  assertEquals(ctx[Core.InternalContext].responseHeadersMap['Origin-Agent-Cluster'], '?1')
+  assertEquals(ctx[Core.InternalContext].responseHeadersMap['Referrer-Policy'], 'no-referrer')
+  assertEquals(
+    ctx[Core.InternalContext].responseHeadersMap['Strict-Transport-Security'],
+    'max-age=31536000'
+  )
+  assertEquals(ctx[Core.InternalContext].responseHeadersMap['X-Content-Type-Options'], 'nosniff')
+  assertEquals(ctx[Core.InternalContext].responseHeadersMap['X-DNS-Prefetch-Control'], 'off')
+  assertEquals(ctx[Core.InternalContext].responseHeadersMap['X-Download-Options'], 'noopen')
+  assertEquals(ctx[Core.InternalContext].responseHeadersMap['X-Frame-Options'], 'SAMEORIGIN')
+  assertEquals(
+    ctx[Core.InternalContext].responseHeadersMap['X-Permitted-Cross-Domain-Policies'],
+    'none'
+  )
+  assertEquals(ctx[Core.InternalContext].responseHeadersMap['X-Powered-By'], 'Deserve')
 })
 
 Deno.test('securityHeaders sets configured header and calls next', async () => {
@@ -123,7 +159,7 @@ Deno.test('securityHeaders sets configured header and calls next', async () => {
     assertEquals(res.status, 200)
     assertEquals(await res.text(), 'ok')
   }
-  assertEquals(ctx.responseHeadersMap['X-Content-Type-Options'], 'nosniff')
+  assertEquals(ctx[Core.InternalContext].responseHeadersMap['X-Content-Type-Options'], 'nosniff')
 })
 
 Deno.test('securityHeaders with default options sets secure defaults', async () => {
@@ -131,19 +167,31 @@ Deno.test('securityHeaders with default options sets secure defaults', async () 
   const ctx = createTestContext()
   const next = async (): Promise<Response> => new Response()
   await middleware(ctx, next)
-  assertEquals(ctx.responseHeadersMap['Content-Security-Policy'], undefined)
-  assertEquals(ctx.responseHeadersMap['Cross-Origin-Embedder-Policy'], undefined)
-  assertEquals(ctx.responseHeadersMap['Cross-Origin-Opener-Policy'], 'same-origin')
-  assertEquals(ctx.responseHeadersMap['Cross-Origin-Resource-Policy'], 'same-origin')
-  assertEquals(ctx.responseHeadersMap['Origin-Agent-Cluster'], '?1')
-  assertEquals(ctx.responseHeadersMap['Referrer-Policy'], 'no-referrer')
-  assertEquals(ctx.responseHeadersMap['Strict-Transport-Security'], undefined)
-  assertEquals(ctx.responseHeadersMap['X-Content-Type-Options'], 'nosniff')
-  assertEquals(ctx.responseHeadersMap['X-DNS-Prefetch-Control'], 'off')
-  assertEquals(ctx.responseHeadersMap['X-Download-Options'], 'noopen')
-  assertEquals(ctx.responseHeadersMap['X-Frame-Options'], 'SAMEORIGIN')
-  assertEquals(ctx.responseHeadersMap['X-Permitted-Cross-Domain-Policies'], 'none')
-  assertEquals(ctx.responseHeadersMap['X-Powered-By'], undefined)
+  assertEquals(ctx[Core.InternalContext].responseHeadersMap['Content-Security-Policy'], undefined)
+  assertEquals(
+    ctx[Core.InternalContext].responseHeadersMap['Cross-Origin-Embedder-Policy'],
+    undefined
+  )
+  assertEquals(
+    ctx[Core.InternalContext].responseHeadersMap['Cross-Origin-Opener-Policy'],
+    'same-origin'
+  )
+  assertEquals(
+    ctx[Core.InternalContext].responseHeadersMap['Cross-Origin-Resource-Policy'],
+    'same-origin'
+  )
+  assertEquals(ctx[Core.InternalContext].responseHeadersMap['Origin-Agent-Cluster'], '?1')
+  assertEquals(ctx[Core.InternalContext].responseHeadersMap['Referrer-Policy'], 'no-referrer')
+  assertEquals(ctx[Core.InternalContext].responseHeadersMap['Strict-Transport-Security'], undefined)
+  assertEquals(ctx[Core.InternalContext].responseHeadersMap['X-Content-Type-Options'], 'nosniff')
+  assertEquals(ctx[Core.InternalContext].responseHeadersMap['X-DNS-Prefetch-Control'], 'off')
+  assertEquals(ctx[Core.InternalContext].responseHeadersMap['X-Download-Options'], 'noopen')
+  assertEquals(ctx[Core.InternalContext].responseHeadersMap['X-Frame-Options'], 'SAMEORIGIN')
+  assertEquals(
+    ctx[Core.InternalContext].responseHeadersMap['X-Permitted-Cross-Domain-Policies'],
+    'none'
+  )
+  assertEquals(ctx[Core.InternalContext].responseHeadersMap['X-Powered-By'], undefined)
 })
 
 Deno.test('securityHeaders with mixed true and false values', async () => {
@@ -155,9 +203,9 @@ Deno.test('securityHeaders with mixed true and false values', async () => {
   const ctx = createTestContext()
   const next = async (): Promise<Response> => new Response()
   await middleware(ctx, next)
-  assertEquals(ctx.responseHeadersMap['X-Content-Type-Options'], 'nosniff')
-  assertEquals(ctx.responseHeadersMap['X-Frame-Options'], undefined)
-  assertEquals(ctx.responseHeadersMap['Referrer-Policy'], 'no-referrer')
+  assertEquals(ctx[Core.InternalContext].responseHeadersMap['X-Content-Type-Options'], 'nosniff')
+  assertEquals(ctx[Core.InternalContext].responseHeadersMap['X-Frame-Options'], undefined)
+  assertEquals(ctx[Core.InternalContext].responseHeadersMap['Referrer-Policy'], 'no-referrer')
 })
 
 Deno.test('securityHeaders with option false does not set header', async () => {
@@ -165,7 +213,7 @@ Deno.test('securityHeaders with option false does not set header', async () => {
   const ctx = createTestContext()
   const next = async (): Promise<Response> => new Response()
   await middleware(ctx, next)
-  assertEquals(ctx.responseHeadersMap['X-Content-Type-Options'], undefined)
+  assertEquals(ctx[Core.InternalContext].responseHeadersMap['X-Content-Type-Options'], undefined)
 })
 
 Deno.test('securityHeaders xPoweredBy overrides default server identity', async () => {
@@ -175,5 +223,5 @@ Deno.test('securityHeaders xPoweredBy overrides default server identity', async 
   const ctx = createTestContext()
   const next = async (): Promise<Response> => new Response()
   await middleware(ctx, next)
-  assertEquals(ctx.responseHeadersMap['X-Powered-By'], 'CustomServer')
+  assertEquals(ctx[Core.InternalContext].responseHeadersMap['X-Powered-By'], 'CustomServer')
 })

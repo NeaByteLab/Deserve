@@ -19,7 +19,10 @@ Deno.test('cors GET when origin allowed sets header and calls next', async () =>
   if (res) {
     assertEquals(await res.text(), 'ok')
   }
-  assertEquals(ctx.responseHeadersMap['Access-Control-Allow-Origin'], 'https://single.com')
+  assertEquals(
+    ctx[Core.InternalContext].responseHeadersMap['Access-Control-Allow-Origin'],
+    'https://single.com'
+  )
 })
 
 Deno.test('cors OPTIONS preflight with wildcard origin returns 204', async () => {
@@ -133,7 +136,10 @@ Deno.test('cors POST request with origin sets headers', async () => {
   const next = async (): Promise<Response> => new Response('created', { status: 201 })
   const res = await middleware(ctx, next)
   assertEquals(res !== undefined, true)
-  assertEquals(ctx.responseHeadersMap['Access-Control-Allow-Origin'], 'https://post.com')
+  assertEquals(
+    ctx[Core.InternalContext].responseHeadersMap['Access-Control-Allow-Origin'],
+    'https://post.com'
+  )
   if (res) {
     assertEquals(res.status, 201)
     assertEquals(await res.text(), 'created')
@@ -152,8 +158,14 @@ Deno.test('cors credentials with array origin matching sets Allow-Credentials', 
   const next = async (): Promise<Response> => new Response('ok')
   const res = await middleware(ctx, next)
   assertEquals(res !== undefined, true)
-  assertEquals(ctx.responseHeadersMap['Access-Control-Allow-Origin'], 'https://two.com')
-  assertEquals(ctx.responseHeadersMap['Access-Control-Allow-Credentials'], 'true')
+  assertEquals(
+    ctx[Core.InternalContext].responseHeadersMap['Access-Control-Allow-Origin'],
+    'https://two.com'
+  )
+  assertEquals(
+    ctx[Core.InternalContext].responseHeadersMap['Access-Control-Allow-Credentials'],
+    'true'
+  )
   if (res) {
     assertEquals(await res.text(), 'ok')
   }
@@ -193,8 +205,14 @@ Deno.test('cors credentials=true with specific origin sets Allow-Credentials', a
   const next = async (): Promise<Response> => new Response('ok')
   const res = await middleware(ctx, next)
   assertEquals(res !== undefined, true)
-  assertEquals(ctx.responseHeadersMap['Access-Control-Allow-Origin'], 'https://specific.com')
-  assertEquals(ctx.responseHeadersMap['Access-Control-Allow-Credentials'], 'true')
+  assertEquals(
+    ctx[Core.InternalContext].responseHeadersMap['Access-Control-Allow-Origin'],
+    'https://specific.com'
+  )
+  assertEquals(
+    ctx[Core.InternalContext].responseHeadersMap['Access-Control-Allow-Credentials'],
+    'true'
+  )
   if (res) {
     assertEquals(await res.text(), 'ok')
   }
@@ -207,7 +225,7 @@ Deno.test('cors does not set Vary when origin is wildcard', async () => {
   })
   const next = (): Promise<Response> => Promise.resolve(new Response('ok'))
   await middleware(ctx, next)
-  assertEquals(ctx.responseHeadersMap['Vary'], undefined)
+  assertEquals(ctx[Core.InternalContext].responseHeadersMap['Vary'], undefined)
 })
 
 Deno.test('cors exposedHeaders on OPTIONS preflight sets Expose-Headers', async () => {
@@ -240,7 +258,10 @@ Deno.test('cors exposedHeaders sets Access-Control-Expose-Headers', async () => 
   const next = async (): Promise<Response> => new Response('ok')
   const res = await middleware(ctx, next)
   assertEquals(res !== undefined, true)
-  assertEquals(ctx.responseHeadersMap['Access-Control-Expose-Headers'], 'X-RateLimit, X-Request-Id')
+  assertEquals(
+    ctx[Core.InternalContext].responseHeadersMap['Access-Control-Expose-Headers'],
+    'X-RateLimit, X-Request-Id'
+  )
   if (res) {
     assertEquals(await res.text(), 'ok')
   }
@@ -255,7 +276,10 @@ Deno.test('cors non-matching array origin on non-OPTIONS does not set allow orig
   const next = async (): Promise<Response> => new Response('ok')
   const res = await middleware(ctx, next)
   assertEquals(res !== undefined, true)
-  assertEquals(ctx.responseHeadersMap['Access-Control-Allow-Origin'], undefined)
+  assertEquals(
+    ctx[Core.InternalContext].responseHeadersMap['Access-Control-Allow-Origin'],
+    undefined
+  )
   if (res) {
     assertEquals(await res.text(), 'ok')
   }
@@ -273,7 +297,10 @@ Deno.test('cors non-matching single origin does not set allow origin', async () 
   if (res) {
     assertEquals(await res.text(), 'ok')
   }
-  assertEquals(ctx.responseHeadersMap['Access-Control-Allow-Origin'], undefined)
+  assertEquals(
+    ctx[Core.InternalContext].responseHeadersMap['Access-Control-Allow-Origin'],
+    undefined
+  )
 })
 
 Deno.test('cors origin array mismatch does not set allow origin', async () => {
@@ -285,7 +312,10 @@ Deno.test('cors origin array mismatch does not set allow origin', async () => {
   const next = async (): Promise<Response> => new Response('ok')
   const res = await middleware(ctx, next)
   assertEquals(res !== undefined, true)
-  assertEquals(ctx.responseHeadersMap['Access-Control-Allow-Origin'], undefined)
+  assertEquals(
+    ctx[Core.InternalContext].responseHeadersMap['Access-Control-Allow-Origin'],
+    undefined
+  )
   if (res) {
     assertEquals(await res.text(), 'ok')
   }
@@ -298,7 +328,7 @@ Deno.test('cors sets Vary Origin on matching origin request', async () => {
   })
   const next = (): Promise<Response> => Promise.resolve(new Response('ok'))
   await middleware(ctx, next)
-  assertEquals(ctx.responseHeadersMap['Vary'], 'Origin')
+  assertEquals(ctx[Core.InternalContext].responseHeadersMap['Vary'], 'Origin')
 })
 
 Deno.test('cors sets Vary Origin on non-matching origin request', async () => {
@@ -308,7 +338,7 @@ Deno.test('cors sets Vary Origin on non-matching origin request', async () => {
   })
   const next = (): Promise<Response> => Promise.resolve(new Response('ok'))
   await middleware(ctx, next)
-  assertEquals(ctx.responseHeadersMap['Vary'], 'Origin')
+  assertEquals(ctx[Core.InternalContext].responseHeadersMap['Vary'], 'Origin')
 })
 
 Deno.test('cors string origin allows the exact matching requester', async () => {
@@ -331,7 +361,10 @@ Deno.test('cors string origin does not reflect allow-origin to a non-matching re
   })
   const next = async (): Promise<Response> => new Response('ok')
   await middleware(ctx, next)
-  assertEquals(ctx.responseHeadersMap['Access-Control-Allow-Origin'], undefined)
+  assertEquals(
+    ctx[Core.InternalContext].responseHeadersMap['Access-Control-Allow-Origin'],
+    undefined
+  )
 })
 
 Deno.test('cors string origin rejects a non-matching preflight with 403', async () => {
@@ -366,7 +399,7 @@ Deno.test('cors with default options allows any origin', async () => {
   const next = async (): Promise<Response> => new Response('ok')
   const res = await middleware(ctx, next)
   assertEquals(res !== undefined, true)
-  assertEquals(ctx.responseHeadersMap['Access-Control-Allow-Origin'], '*')
+  assertEquals(ctx[Core.InternalContext].responseHeadersMap['Access-Control-Allow-Origin'], '*')
   if (res) {
     assertEquals(await res.text(), 'ok')
   }

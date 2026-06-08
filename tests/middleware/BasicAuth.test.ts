@@ -44,7 +44,10 @@ Deno.test('basicAuth always sets WWW-Authenticate header', async () => {
   const next = async (): Promise<Response> => new Response('ok')
   const res = await middleware(ctx, next)
   assertEquals(res !== undefined, true)
-  assertEquals(ctx.responseHeadersMap['WWW-Authenticate'], 'Basic realm="Secure Area"')
+  assertEquals(
+    ctx[Core.InternalContext].responseHeadersMap['WWW-Authenticate'],
+    'Basic realm="Secure Area"'
+  )
 })
 
 Deno.test('basicAuth constant time comparison returns false for different length strings', async () => {
@@ -85,7 +88,7 @@ Deno.test('basicAuth does not leak WWW-Authenticate header on a successful reque
     headers: new Headers({ Authorization: 'Basic ' + btoa('u:p') })
   })
   const res = await middleware(ctx, async () => new Response('ok'))
-  assertEquals(ctx.responseHeadersMap['WWW-Authenticate'], undefined)
+  assertEquals(ctx[Core.InternalContext].responseHeadersMap['WWW-Authenticate'], undefined)
   assertEquals(res?.headers.get('WWW-Authenticate'), null)
 })
 
