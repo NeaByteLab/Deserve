@@ -1,6 +1,7 @@
 import type * as Types from '@interfaces/index.ts'
 import * as Core from '@core/index.ts'
 import * as Loader from '@middleware/Loaders.ts'
+import { Immutable } from '@neabyte/utils-core'
 
 /**
  * Prebuilt middleware factories.
@@ -15,6 +16,10 @@ export const Mware = {
     Loader.BodyLimit.create(options),
   /** CORS middleware factory */
   cors: (options?: Types.CorsOptions): Types.MiddlewareFn => Loader.Cors.create(options),
+  /** CSRF middleware factory */
+  csrf: (options?: Types.CsrfOptions): Types.MiddlewareFn => Loader.CSRF.create(options),
+  /** IP restriction middleware factory */
+  ip: (options: Types.IpOptions): Types.MiddlewareFn => Loader.IP.create(options),
   /** Security headers middleware factory */
   securityHeaders: (options?: Types.SecurityHeadersOptions): Types.MiddlewareFn =>
     Loader.SecHeaders.create(options),
@@ -43,6 +48,9 @@ export function WrapMware(label: string, middleware: Types.MiddlewareFn): Types.
     }
   }
 }
+
+/** Freeze Mware factory registry */
+Immutable.harden(Mware)
 
 /** Re-exports middleware public API. */
 export * from '@middleware/Loaders.ts'
