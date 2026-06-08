@@ -10,7 +10,7 @@ Editor support for Deserve, including syntax highlighting for Deserve View Engin
   - [1) Add Templates](#1-add-templates)
   - [2) Configure Router](#2-configure-router)
   - [3) Render in a Route](#3-render-in-a-route)
-- [Syntax Highlighting (Cursor / VS Code)](#syntax-highlighting-cursor--vs-code)
+- [Syntax Highlighting (Cursor / VS Code / Trae)](#syntax-highlighting-cursor--vs-code--trae)
 
 ## DVE (Deserve View Engine)
 
@@ -48,7 +48,7 @@ Create `views/partials/header.dve`:
 
 ### 2) Configure Router
 
-Enable DVE by setting `viewsDir` when you create the router.
+Enable DVE by setting `viewsDir` when the router is created.
 
 ```ts
 import { Router } from '@neabyte/deserve'
@@ -73,13 +73,13 @@ export async function GET(ctx: Context) {
 }
 ```
 
-Now run your server and open `http://localhost:8000`.
+Run the server and open `http://localhost:8000` to see the rendered page.
 
 ## Syntax Highlighting (Cursor / VS Code / Trae)
 
 Deserve ships a local DVE extension package at `editor/dve/dve-language-0.1.0.vsix`.
 
-Install it with your editor CLI:
+Install it with an editor CLI:
 
 ```bash
 # Trae
@@ -92,6 +92,6 @@ code --install-extension ./dve/dve-language-0.1.0.vsix --force
 cursor --install-extension ./dve/dve-language-0.1.0.vsix --force
 ```
 
-After installing, reload the editor window and open any `.dve` file. DVE templates use HTML as the base syntax with embedded DVE tags.
+After installing, reload the editor window and open any `.dve` file, where HTML stays the base syntax with the embedded DVE tags highlighted on top.
 
 - **DVE syntax reference**: See [`editor/dve/README.md`](dve/README.md)

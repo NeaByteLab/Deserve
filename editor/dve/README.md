@@ -1,14 +1,13 @@
 # DVE Grammar
 
-Quick reference for Deserve `.dve` template syntax.
+A short, friendly tour of the Deserve `.dve` template syntax that reads from top to bottom, so the first open of a `.dve` file feels easy instead of intimidating.
 
 - **Editor tooling overview**: See [`editor/README.md`](../README.md)
 
 ## Table of Contents
 
 - [Install Local VSIX](#install-local-vsix)
-- [DVE Scope Mapping](#dve-scope-mapping)
-- [Syntax Overview](#syntax-overview)
+- [Start Here](#start-here)
 - [Variables](#variables)
 - [Raw Output (Unescaped)](#raw-output-unescaped)
 - [Include](#include)
@@ -16,18 +15,21 @@ Quick reference for Deserve `.dve` template syntax.
 - [Each](#each)
 - [Each Metadata](#each-metadata)
 - [Expressions](#expressions)
+- [Operator Reference](#operator-reference)
+- [Snippets](#snippets)
 - [Advanced Examples](#advanced-examples)
-- [Escaping Rules](#escaping-rules)
+- [What DVE Does Not Do](#what-dve-does-not-do)
+- [Editor Scope Mapping](#editor-scope-mapping)
 
 ## Install Local VSIX
 
-This folder includes a prebuilt VSIX package:
+This folder ships a prebuilt VSIX package, so nothing needs to be built first:
 
 ```txt
 dve-language-0.1.0.vsix
 ```
 
-Install it from this directory with your editor CLI:
+Install it from this directory with an editor CLI:
 
 ```bash
 # VS Code
@@ -40,27 +42,13 @@ cursor --install-extension ./dve-language-0.1.0.vsix --force
 trae --install-extension ./dve-language-0.1.0.vsix --force
 ```
 
-After installing, reload the editor; DVE uses HTML syntax with embedded template tags.
+Reload the editor after installing, and since DVE builds on HTML syntax the `.dve` files keep full HTML highlighting with the template tags layered on top.
 
-## DVE Scope Mapping
+## Start Here
 
-| Syntax                             | Scope                                                   |
-| ---------------------------------- | ------------------------------------------------------- |
-| `{{` `}}` `{{{` `}}}`              | `meta.tag.dve` / `meta.tag.raw.dve`                     |
-| `#if` `#each` `else` `/if` `/each` | `keyword.control.dve`                                   |
-| `>` (include)                      | `keyword.control.include.dve`                           |
-| `as` (in #each)                    | `keyword.operator.as.dve`                               |
-| Include path                       | `string.unquoted.path.dve`                              |
-| `true` `false` `null` `undefined`  | `constant.language.dve`                                 |
-| Numbers                            | `constant.numeric.dve`                                  |
-| `"..."` `'...'`                    | `string.quoted.double.dve` / `string.quoted.single.dve` |
-| Operators `?.` `===` `??` etc.     | `keyword.operator.dve`                                  |
-| Identifiers / variables            | `variable.other.dve`                                    |
-| Item name in #each                 | `variable.parameter.dve`                                |
+The whole language comes down to two tags, and once those land the rest is just small variations.
 
-## Syntax Overview
-
-DVE uses `{{ ... }}` for expressions and `{{#...}} ... {{/...}}` for blocks.
+A `{{ ... }}` tag **shows a value** while a `{{#... }} ... {{/... }}` tag wraps a **block** like an if or a loop, and everything further down builds on those two shapes.
 
 ```txt
 Hello {{ user?.name ?? 'Guest' }}.
@@ -69,7 +57,7 @@ Hello {{ user?.name ?? 'Guest' }}.
 
 ## Variables
 
-Use `{{ value }}` to print a value. Output is escaped by default.
+A value wrapped in double braces is printed onto the page, and DVE escapes HTML by default so user input can never sneak in markup or open an injection hole.
 
 ```txt
 Hello {{ name }}.
@@ -77,15 +65,15 @@ Hello {{ name }}.
 
 ## Raw Output (Unescaped)
 
-Use triple braces to skip escaping.
+Triple braces print the value as-is with no escaping, which is meant only for HTML that is already known to be safe.
 
 ```txt
-{{{ html }}}
+{{{ trustedHtml }}}
 ```
 
 ## Include
 
-Include another template using `{{> path }}`. The path is relative to `viewsDir`.
+A repeated piece of markup can live in its own file and get pulled in with an include, where the path is resolved relative to the configured `viewsDir`.
 
 ```txt
 {{> partials/header.dve}}
@@ -93,7 +81,7 @@ Include another template using `{{> path }}`. The path is relative to `viewsDir`
 
 ## If / Else
 
-Inline if/else:
+An `#if` block renders its body only when the condition is truthy and an optional `else` covers the other case, and every `#if` must be closed with a matching `/if` or DVE reports the block as unclosed.
 
 ```txt
 {{#if ok}}YES{{else}}NO{{/if}}
@@ -101,7 +89,7 @@ Inline if/else:
 
 ## Each
 
-Loop an array with `#each`.
+An `#each` block walks an array and `as` names the current item, and leaving the name out falls back to `item`.
 
 ```txt
 {{#each items as item}}{{ item }},{{/each}}
@@ -109,12 +97,12 @@ Loop an array with `#each`.
 
 ## Each Metadata
 
-Inside `#each`, you can use:
+Inside an `#each` block four helpers are available for free, so the loop position never has to be tracked by hand:
 
-- `@index`
-- `@first`
-- `@last`
-- `@length`
+- `@index` — current position, starting at 0
+- `@first` — true on the first item
+- `@last` — true on the last item
+- `@length` — total number of items
 
 ```txt
 {{#each items as item}}({{ @index }}/{{ @length }} {{#if @first}}F{{else}}-{{/if}}{{#if @last}}L{{else}}-{{/if}}={{ item }});{{/each}}
@@ -122,17 +110,57 @@ Inside `#each`, you can use:
 
 ## Expressions
 
-DVE supports JS-like expressions for lookups and basic operators.
-
-Notes:
-
-- `.` and `?.` both return `undefined` for nullish objects
-- Block tags must be balanced (`#if`/`/if`, `#each`/`/each`)
+Any `{{ ... }}` tag accepts a small JavaScript-like expression, so a value can be read, given a fallback, compared, or run through a little math all in one place.
 
 ```txt
 Hello {{ user?.name ?? 'Guest' }}.
-Sum={{ 1 + 2 * 3 }}
+Total {{ price * quantity }}
+{{#if age >= 18}}Adult{{else}}Minor{{/if}}
 ```
+
+A few behaviours worth knowing:
+
+- A dotted path like `user.profile.name` reads nested values, and missing data along the way resolves to `undefined`
+- Both `.` and `?.` return `undefined` when the object is missing, so a deep lookup never throws
+- Strings use `"double"` or `'single'` quotes and understand the `\n`, `\t`, `\r` escapes
+- Numbers can be decimals or exponents like `2.5` or `1e3`
+
+## Operator Reference
+
+Everything DVE understands, lowest precedence at the top down to highest at the bottom, and anything not on this list is rejected by the parser on purpose.
+
+| Group          | Operators                                           | Example                    |
+| -------------- | --------------------------------------------------- | -------------------------- |
+| Ternary        | `? :`                                               | `{{ ok ? 'yes' : 'no' }}`  |
+| Nullish        | `??`                                                | `{{ name ?? 'Guest' }}`    |
+| Logical OR     | `\|\|`                                              | `{{ a \|\| b }}`           |
+| Logical AND    | `&&`                                                | `{{ a && b }}`             |
+| Equality       | `===` `!==` `==` `!=`                               | `{{ role === 'admin' }}`   |
+| Relational     | `>` `<` `>=` `<=`                                   | `{{ age >= 18 }}`          |
+| Additive       | `+` `-`                                             | `{{ a + b }}`              |
+| Multiplicative | `*` `/` `%`                                         | `{{ total % 2 }}`          |
+| Unary          | `!` `+` `-`                                         | `{{ !done }}`              |
+| Member         | `.` `?.`                                            | `{{ user?.profile.name }}` |
+| Grouping       | `( )`                                               | `{{ (a + b) * c }}`        |
+| Literals       | numbers, strings, `true` `false` `null` `undefined` | `{{ 1 + 2 * 3 }}`          |
+
+## Snippets
+
+Type a prefix and press Tab to drop in the syntax that is easiest to forget.
+
+| Prefix     | Inserts                               |
+| ---------- | ------------------------------------- |
+| `dve`      | `{{ value }}`                         |
+| `dveraw`   | `{{{ html }}}`                        |
+| `dveinc`   | `{{> partials/header.dve }}`          |
+| `dveif`    | `{{#if}} ... {{else}} ... {{/if}}`    |
+| `dveifn`   | multi-line `{{#if}}` block            |
+| `dveeach`  | `{{#each items as item}}` block       |
+| `dveeachm` | `#each` block with `@index`/`@length` |
+| `dvetern`  | `{{ cond ? yes : no }}`               |
+| `dvedef`   | `{{ value ?? 'fallback' }}`           |
+| `dveopt`   | `{{ user?.name ?? 'Guest' }}`         |
+| `dvecmt`   | `<!-- comment -->`                    |
 
 ## Advanced Examples
 
@@ -192,14 +220,31 @@ Sum={{ 1 + 2 * 3 }}
 </table>
 ```
 
-### Safe Vs Raw Output
+## What DVE Does Not Do
 
-```txt
-Escaped: {{ userInput }}
-Raw: {{{ trustedHtml }}}
-```
+DVE stays small on purpose so a template can never run arbitrary code, and these limits are the safety boundary rather than missing features:
 
-## Escaping Rules
+- No function or method calls
+- No array indexing like `items[0]`
+- No assignment or variable declarations
+- No regular expressions or arbitrary JavaScript
 
-- `{{ value }}` escapes HTML by default
-- `{{{ value }}}` outputs raw HTML (no escaping)
+Two guardrails also stop runaway templates, where include nesting is capped at 64 levels deep and a single `#each` is capped at 100,000 iterations, and crossing either one raises a clear error instead of hanging.
+
+Anything that needs real logic belongs in the route handler, where the finished value gets computed and then passed into the template.
+
+## Editor Scope Mapping
+
+| Syntax                             | Scope                                                   |
+| ---------------------------------- | ------------------------------------------------------- |
+| `{{` `}}` `{{{` `}}}`              | `meta.tag.output.dve` / `meta.tag.raw.dve`              |
+| `#if` `#each` `else` `/if` `/each` | `keyword.control.dve`                                   |
+| `>` (include)                      | `keyword.control.include.dve`                           |
+| `as` (in #each)                    | `keyword.operator.as.dve`                               |
+| Include path                       | `string.unquoted.path.dve`                              |
+| `true` `false` `null` `undefined`  | `constant.language.dve`                                 |
+| Numbers (incl. `1e3`)              | `constant.numeric.dve`                                  |
+| `"..."` `'...'`                    | `string.quoted.double.dve` / `string.quoted.single.dve` |
+| Operators `?.` `===` `??` etc.     | `keyword.operator.dve`                                  |
+| Identifiers / variables            | `variable.other.dve`                                    |
+| Item name in #each                 | `variable.parameter.dve`                                |
