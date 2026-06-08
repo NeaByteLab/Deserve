@@ -1,6 +1,5 @@
 import type * as Types from '@interfaces/index.ts'
 import * as Core from '@core/index.ts'
-import { Handler } from '@core/Handler.ts'
 
 /**
  * Factory for ctx.send response helpers.
@@ -21,13 +20,31 @@ export class Response {
     buildRedirect: Types.RedirectBuilder
   ): Types.SendHelpers {
     const mergedHeaders = (contentType: string, options?: ResponseInit) => {
-      const extra = options?.headers ? Handler.toRecord(options.headers) : undefined
+      const extra = options?.headers ? Core.Handler.toRecord(options.headers) : undefined
       return extra
-        ? { 'Content-Type': contentType, ...responseHeaders, ...extra }
-        : { 'Content-Type': contentType, ...responseHeaders }
+        ? { ...responseHeaders, 'Content-Type': contentType, ...extra }
+        : { ...responseHeaders, 'Content-Type': contentType }
     }
-    const toInit = (headers: Types.StringRecord, options?: ResponseInit): ResponseInit =>
-      options ? { ...options, headers } : { headers }
+    const toInit = (headers: Types.StringRecord, options?: ResponseInit): ResponseInit => {
+      if (options?.status !== undefined) {
+        const status = options.status
+        if (
+          !Number.isInteger(status) ||
+          ((status < 200 || status > 599) && !Core.Constant.nullBodyStatuses.has(status))
+        ) {
+          throw new Deno.errors.InvalidData(
+            `Response status must be an integer in the 200-599 range, got "${String(status)}"`
+          )
+        }
+      }
+      return options ? { ...options, headers } : { headers }
+    }
+    const bodyForStatus = (body: BodyInit | null, options?: ResponseInit): BodyInit | null =>
+      options?.status !== undefined && Core.Constant.nullBodyStatuses.has(options.status)
+        ? null
+        : body
+    const isNullBodyStatus = (options?: ResponseInit): boolean =>
+      options?.status !== undefined && Core.Constant.nullBodyStatuses.has(options.status)
     const applyCookies = (response: globalThis.Response): globalThis.Response => {
       for (const cookieValue of setCookieValues) {
         response.headers.append('Set-Cookie', cookieValue)
@@ -36,11 +53,13 @@ export class Response {
     }
     return {
       custom(body: BodyInit | null, options?: ResponseInit): globalThis.Response {
-        const extraRecord = options?.headers ? Handler.toRecord(options.headers) : undefined
+        const extraRecord = options?.headers ? Core.Handler.toRecord(options.headers) : undefined
         const headers = extraRecord
           ? { ...responseHeaders, ...extraRecord }
           : { ...responseHeaders }
-        return applyCookies(new globalThis.Response(body, toInit(headers, options)))
+        return applyCookies(
+          new globalThis.Response(bodyForStatus(body, options), toInit(headers, options))
+        )
       },
       data(
         data: Uint8Array | string,
@@ -49,6 +68,11 @@ export class Response {
         contentType = 'application/octet-stream'
       ): globalThis.Response {
         const encodedBody = typeof data === 'string' ? Core.Constant.encoder.encode(data) : data
+        if (isNullBodyStatus(options)) {
+          return applyCookies(
+            new globalThis.Response(null, toInit(mergedHeaders(contentType, options), options))
+          )
+        }
         return applyCookies(
           new globalThis.Response(
             encodedBody as BodyInit,
@@ -73,6 +97,21 @@ export class Response {
           fsFile = await Deno.open(filePath, { read: true })
           const fileInfo = await fsFile.stat()
           const downloadName = filename || filePath.split(/[\\/]/).pop() || 'download'
+          if (isNullBodyStatus(options)) {
+            fsFile.close()
+            return applyCookies(
+              new globalThis.Response(
+                null,
+                toInit(
+                  {
+                    ...mergedHeaders('application/octet-stream', options),
+                    'Content-Disposition': Response.contentDisposition(downloadName)
+                  },
+                  options
+                )
+              )
+            )
+          }
           return applyCookies(
             new globalThis.Response(
               fsFile.readable,
@@ -97,17 +136,17 @@ export class Response {
       html: (html: string, options?: ResponseInit) =>
         applyCookies(
           new globalThis.Response(
-            html,
+            bodyForStatus(html, options),
             toInit(mergedHeaders('text/html; charset=utf-8', options), options)
           )
         ),
-      json: (data: unknown, options?: ResponseInit) =>
-        applyCookies(
-          globalThis.Response.json(
-            data,
-            toInit(mergedHeaders('application/json', options), options)
-          )
-        ),
+      json: (data: unknown, options?: ResponseInit) => {
+        const init = toInit(mergedHeaders('application/json', options), options)
+        if (options?.status !== undefined && Core.Constant.nullBodyStatuses.has(options.status)) {
+          return applyCookies(new globalThis.Response(null, init))
+        }
+        return applyCookies(globalThis.Response.json(data, init))
+      },
       redirect(
         url: string,
         status: Types.RedirectStatus = 302,
@@ -121,12 +160,15 @@ export class Response {
         contentType = 'application/octet-stream'
       ) =>
         applyCookies(
-          new globalThis.Response(stream, toInit(mergedHeaders(contentType, options), options))
+          new globalThis.Response(
+            bodyForStatus(stream, options),
+            toInit(mergedHeaders(contentType, options), options)
+          )
         ),
       text: (text: string, options?: ResponseInit) =>
         applyCookies(
           new globalThis.Response(
-            text,
+            bodyForStatus(text, options),
             toInit(mergedHeaders('text/plain; charset=utf-8', options), options)
           )
         )

@@ -1,5 +1,5 @@
 import type * as Types from '@interfaces/index.ts'
-import { Handler } from '@core/Handler.ts'
+import * as Core from '@core/index.ts'
 
 /**
  * Builds redirect Response with Location.
@@ -25,8 +25,13 @@ export class Redirect {
     status: Types.RedirectStatus,
     extraHeaders?: HeadersInit
   ): Response {
+    if (!Core.Constant.redirectStatuses.has(status)) {
+      throw new Deno.errors.InvalidData(
+        `Redirect status must be one of 301, 302, 303, 307, 308, got "${String(status)}"`
+      )
+    }
     const absoluteUrl = Redirect.resolveLocation(requestUrl, url)
-    const extraRecord = extraHeaders ? Handler.toRecord(extraHeaders) : undefined
+    const extraRecord = extraHeaders ? Core.Handler.toRecord(extraHeaders) : undefined
     let mergedHeaders: Types.StringRecord
     if (extraRecord) {
       const { Location: _, ...rest } = extraRecord
