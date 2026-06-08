@@ -59,7 +59,7 @@
   "nodeModulesDir": "auto",
   "tasks": {
     "check": "deno fmt . && deno lint src/ && deno check src/",
-    "test": "deno test tests/ --allow-read"
+    "test": "deno test tests/ --allow-read --allow-net"
   },
   "imports": {
     "@neabyte/fast-router": "jsr:@neabyte/fast-router@^0.1.0",
