@@ -2,6 +2,14 @@ import type * as Types from '@interfaces/index.ts'
 import { assertEquals } from '@std/assert'
 import * as Core from '@core/index.ts'
 
+function fileUrlToPath(fileUrl: string): string {
+  const decoded = decodeURIComponent(new URL(fileUrl).pathname)
+  if (/^\/[A-Za-z]:/.test(decoded)) {
+    return decoded.slice(1)
+  }
+  return decoded
+}
+
 Deno.test('Handler#appendCookies appends every value as a distinct Set-Cookie header', () => {
   const headers = new Headers()
   Core.Handler.appendCookies(headers, ['a=1', 'b=2'])
@@ -41,12 +49,12 @@ Deno.test('Handler#isDirectory returns false for a non-existent path', () => {
 })
 
 Deno.test('Handler#isDirectory returns false when the path is a file', () => {
-  const filePath = new URL(import.meta.url).pathname
+  const filePath = fileUrlToPath(import.meta.url)
   assertEquals(Core.Handler.isDirectory(filePath), false)
 })
 
 Deno.test('Handler#isDirectory returns true for an existing directory', () => {
-  const dirPath = new URL('.', import.meta.url).pathname
+  const dirPath = fileUrlToPath(new URL('.', import.meta.url).href)
   assertEquals(Core.Handler.isDirectory(dirPath), true)
 })
 
