@@ -197,7 +197,7 @@ export class Handler {
           try {
             const handlerResult = await routeEntry.handler(ctx)
             if (handlerResult instanceof Response) {
-              return handlerResult
+              return ctx.finalizeRaw(handlerResult)
             }
             return await ctx.handleError(
               500,
@@ -210,16 +210,17 @@ export class Handler {
             return await ctx.handleError(extracted.statusCode, extracted.error)
           }
         }
-        const allowedMethods: string[] = []
+        const supportedMethods = new Set<string>()
         for (const method of methods) {
-          if (method !== req.method && router.find(method, requestUrl.pathname)) {
-            allowedMethods.push(method)
+          if (router.find(method, requestUrl.pathname)) {
+            supportedMethods.add(method)
           }
         }
-        if (allowedMethods.length > 0) {
-          if (req.method === 'HEAD') {
-            allowedMethods.push('HEAD')
-          }
+        if (supportedMethods.has('GET')) {
+          supportedMethods.add('HEAD')
+        }
+        if (supportedMethods.size > 0) {
+          const allowedMethods = [...supportedMethods].sort()
           ctx.setHeader('Allow', allowedMethods.join(', '))
           return await ctx.handleError(
             405,
@@ -246,45 +247,42 @@ export class Handler {
       }
       let timedOut = false
       let finalResponse: Response
-      if (timeoutMs !== undefined && timeoutMs > 0) {
-        const abortController = new AbortController()
-        const timeoutTimer = setTimeout(() => abortController.abort(), timeoutMs)
-        try {
-          finalResponse = await Promise.race([
-            handleRequest(req, holder),
-            new Promise<Response>((resolve) => {
-              abortController.signal.addEventListener('abort', () => {
-                timedOut = true
-                holder.frameworkError = new Deno.errors.TimedOut(
-                  `Request exceeded ${timeoutMs}ms timeout`
-                )
-                resolve(
-                  new Response(null, {
-                    status: 503,
-                    statusText: 'Service Unavailable',
-                    headers: Core.Constant.securityHeaderDefaults
-                  })
-                )
+      try {
+        if (timeoutMs !== undefined && timeoutMs > 0) {
+          const abortController = new AbortController()
+          const timeoutTimer = setTimeout(() => abortController.abort(), timeoutMs)
+          try {
+            finalResponse = await Promise.race([
+              handleRequest(req, holder),
+              new Promise<Response>((resolve) => {
+                abortController.signal.addEventListener('abort', () => {
+                  timedOut = true
+                  holder.frameworkError = new Deno.errors.TimedOut(
+                    `Request exceeded ${timeoutMs}ms timeout`
+                  )
+                  resolve(
+                    new Response(null, {
+                      status: 503,
+                      statusText: 'Service Unavailable',
+                      headers: Core.Constant.securityHeaderDefaults
+                    })
+                  )
+                })
               })
-            })
-          ])
-        } finally {
-          clearTimeout(timeoutTimer)
+            ])
+          } finally {
+            clearTimeout(timeoutTimer)
+          }
+        } else {
+          finalResponse = await handleRequest(req, holder)
         }
-      } else {
-        finalResponse = await handleRequest(req, holder)
+      } catch (fatalError) {
+        holder.frameworkError = Core.Handler.extractError(fatalError).error
+        finalResponse = Handler.safeServerError(req, 500)
       }
       Handler.reportRequest(eventReporter, req, finalResponse, requestStart, holder, timedOut)
       if (req.method === 'HEAD') {
-        const headHeaders = new Headers(finalResponse.headers)
-        if (finalResponse.body) {
-          await finalResponse.body.cancel()
-        }
-        return new Response(null, {
-          status: finalResponse.status,
-          statusText: finalResponse.statusText,
-          headers: headHeaders
-        })
+        return await Handler.toHeadResponse(finalResponse)
       }
       return finalResponse
     }
@@ -480,6 +478,33 @@ export class Handler {
   }
 
   /**
+   * Build a masked error response without a Context.
+   * @description Last-resort builder for faults that escape `handleRequest`
+   * before or instead of producing a Response (e.g. a throw in pre-Context
+   * setup). Mirrors `buildUriError`: content-negotiated, message-masked, and
+   * always security-header protected, so `Deno.serve` never sees a rejected
+   * promise and the client never gets a bare unprotected 500 (CWE-755).
+   * @param req - Incoming request
+   * @param statusCode - Masked status code to emit
+   * @returns Error Response with security headers
+   */
+  private static safeServerError(req: Request, statusCode: number): Response {
+    const errorLabel = Core.Constant.serverErrorMessages[statusCode as Types.HttpStatusCode] ??
+      'Internal Server Error'
+    const secHeaders = Core.Constant.securityHeaderDefaults
+    if (req.headers.get('accept')?.includes('application/json')) {
+      return globalThis.Response.json(
+        { error: errorLabel, statusCode },
+        { status: statusCode, headers: { 'Content-Type': 'application/json', ...secHeaders } }
+      )
+    }
+    return new Response(Core.Handler.defaultErrorHtml(statusCode, errorLabel), {
+      status: statusCode,
+      headers: { 'Content-Type': 'text/html; charset=utf-8', ...secHeaders }
+    })
+  }
+
+  /**
    * Run middleware chain for pathname.
    * @description Filters by path then runs next chain.
    * @param ctx - Request context
@@ -568,6 +593,27 @@ export class Handler {
         timestamp: Date.now()
       })
     }
+  }
+
+  /**
+   * Build HEAD response preserving GET headers.
+   * @description Strips body, derives Content-Length when header missing.
+   * @param response - The fully built GET-equivalent response
+   * @returns Bodyless response with preserved representation headers
+   */
+  private static async toHeadResponse(response: Response): Promise<Response> {
+    const headHeaders = new Headers(response.headers)
+    if (response.body && !headHeaders.has('Content-Length')) {
+      const bodyBytes = new Uint8Array(await response.arrayBuffer())
+      headHeaders.set('Content-Length', bodyBytes.byteLength.toString())
+    } else if (response.body) {
+      await response.body.cancel()
+    }
+    return new Response(null, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: headHeaders
+    })
   }
 
   /**
