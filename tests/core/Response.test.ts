@@ -1,4 +1,4 @@
-import { assertEquals } from '@std/assert'
+import { assertEquals, assertThrows } from '@std/assert'
 import { fileURLToPath } from 'node:url'
 import * as Core from '@core/index.ts'
 
@@ -6,6 +6,21 @@ const baseHeaders = { 'X-App': 'test' }
 const buildRedirect = (url: string, status: number): globalThis.Response =>
   new globalThis.Response(null, { status, headers: new Headers({ Location: url }) })
 const send = Core.Response.create(baseHeaders, [], buildRedirect)
+
+Deno.test('Response#create accepts valid 2xx-5xx and null-body statuses across send helpers', () => {
+  assertEquals(send.json({ ok: true }, { status: 200 }).status, 200)
+  assertEquals(send.text('x', { status: 599 }).status, 599)
+  assertEquals(send.html('<b>x</b>', { status: 404 }).status, 404)
+  assertEquals(send.custom('x', { status: 201 }).status, 201)
+  assertEquals(send.json({ ok: true }, { status: 204 }).status, 204)
+})
+
+Deno.test('Response#create custom drops the body for a no-content status', async () => {
+  const res = send.custom('ignored', { status: 204 })
+  assertEquals(res.status, 204)
+  assertEquals(res.body, null)
+  assertEquals(await res.text(), '')
+})
 
 Deno.test('Response#create custom includes Set-Cookie values', () => {
   const cookieSend = Core.Response.create({}, ['a=1; Path=/', 'b=2; Path=/'], buildRedirect)
@@ -49,6 +64,14 @@ Deno.test('Response#create custom with no body returns empty response', async ()
 Deno.test('Response#create custom with null body and no options', async () => {
   const res = send.custom(null)
   assertEquals(res.status, 200)
+  assertEquals(await res.text(), '')
+})
+
+Deno.test('Response#create data drops the body and length for a no-content status', async () => {
+  const res = send.data('bytes', 'file.txt', { status: 204 }, 'text/plain')
+  assertEquals(res.status, 204)
+  assertEquals(res.body, null)
+  assertEquals(res.headers.get('Content-Length'), null)
   assertEquals(await res.text(), '')
 })
 
@@ -175,6 +198,24 @@ Deno.test('Response#create file with no custom filename uses path basename', asy
   assertEquals(await res.text(), 'fixture content\n')
 })
 
+Deno.test('Response#create helper Content-Type wins over a generic context Content-Type', async () => {
+  const ctxHeaders = { 'Content-Type': 'application/xml', 'X-Req': '1' }
+  const sendCtx = Core.Response.create(ctxHeaders, [], buildRedirect)
+  const jsonRes = sendCtx.json({ ok: true })
+  assertEquals(jsonRes.headers.get('Content-Type'), 'application/json')
+  assertEquals(jsonRes.headers.get('X-Req'), '1')
+  assertEquals(await jsonRes.json(), { ok: true })
+  assertEquals(sendCtx.text('hi').headers.get('Content-Type'), 'text/plain; charset=utf-8')
+  assertEquals(sendCtx.html('<b>x</b>').headers.get('Content-Type'), 'text/html; charset=utf-8')
+})
+
+Deno.test('Response#create html drops the body for a reset-content status', async () => {
+  const res = send.html('<b>ignored</b>', { status: 205 })
+  assertEquals(res.status, 205)
+  assertEquals(res.body, null)
+  assertEquals(await res.text(), '')
+})
+
 Deno.test('Response#create html includes Set-Cookie values', () => {
   const cookieSend = Core.Response.create({}, ['sid=xyz'], buildRedirect)
   const res = cookieSend.html('<p>ok</p>')
@@ -199,6 +240,13 @@ Deno.test('Response#create html with large content', async () => {
   const res = send.html(largeHtml)
   assertEquals(res.headers.get('Content-Type'), 'text/html; charset=utf-8')
   assertEquals(await res.text(), largeHtml)
+})
+
+Deno.test('Response#create json drops the body for a no-content status', async () => {
+  const res = send.json({ ignored: true }, { status: 204 })
+  assertEquals(res.status, 204)
+  assertEquals(res.body, null)
+  assertEquals(await res.text(), '')
 })
 
 Deno.test('Response#create json includes Set-Cookie values', () => {
@@ -241,6 +289,17 @@ Deno.test('Response#create json with number value', async () => {
   assertEquals(await res.json(), 42)
 })
 
+Deno.test('Response#create keeps the body for an ordinary status', async () => {
+  const res = send.json({ ok: true }, { status: 200 })
+  assertEquals(res.status, 200)
+  assertEquals(await res.json(), { ok: true })
+})
+
+Deno.test('Response#create per-call Content-Type override still wins over the helper default', () => {
+  const res = send.json({ a: 1 }, { headers: { 'Content-Type': 'text/plain' } })
+  assertEquals(res.headers.get('Content-Type'), 'text/plain')
+})
+
 Deno.test('Response#create redirect defaults to 302', () => {
   const res = send.redirect('https://example.com/')
   assertEquals(res.status, 302)
@@ -257,6 +316,24 @@ Deno.test('Response#create redirect with 308', () => {
   const res = send.redirect('https://example.com/', 308)
   assertEquals(res.status, 308)
   assertEquals(res.headers.get('Location'), 'https://example.com/')
+})
+
+Deno.test('Response#create rejects an out-of-range or non-integer status before the constructor throws', () => {
+  for (
+    const status of [99, 100, 199, 600, 1000, 0, -1, Number.NaN, 3.5, Number.POSITIVE_INFINITY]
+  ) {
+    assertThrows(
+      () => send.json({ ok: true }, { status }),
+      Deno.errors.InvalidData,
+      '200-599'
+    )
+  }
+})
+
+Deno.test('Response#create stream drops the body for a no-content status', () => {
+  const res = send.stream(new ReadableStream(), { status: 204 })
+  assertEquals(res.status, 204)
+  assertEquals(res.body, null)
 })
 
 Deno.test('Response#create stream sets Content-Type', () => {
@@ -293,6 +370,13 @@ Deno.test('Response#create stream with default contentType uses octet-stream', (
   })
   const res = send.stream(stream)
   assertEquals(res.headers.get('Content-Type'), 'application/octet-stream')
+})
+
+Deno.test('Response#create text drops the body for a not-modified status', async () => {
+  const res = send.text('ignored', { status: 304 })
+  assertEquals(res.status, 304)
+  assertEquals(res.body, null)
+  assertEquals(await res.text(), '')
 })
 
 Deno.test('Response#create text includes Set-Cookie values', () => {

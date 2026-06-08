@@ -1,5 +1,19 @@
-import { assertEquals } from '@std/assert'
+import { assertEquals, assertThrows } from '@std/assert'
 import * as Core from '@core/index.ts'
+
+Deno.test('Redirect#buildResponse accepts every declared 3xx redirect status', () => {
+  for (const status of [301, 302, 303, 307, 308]) {
+    const res = Core.Redirect.buildResponse(
+      'http://localhost/',
+      {},
+      [],
+      '/safe',
+      status as never
+    )
+    assertEquals(res.status, status)
+    assertEquals(res.headers.get('Location'), 'http://localhost/safe')
+  }
+})
 
 Deno.test('Redirect#buildResponse appends Set-Cookie values from array', () => {
   const res = Core.Redirect.buildResponse(
@@ -68,6 +82,39 @@ Deno.test('Redirect#buildResponse rejects // with various suffixes', () => {
       thrown = true
     }
     assertEquals(thrown, true)
+  }
+})
+
+Deno.test('Redirect#buildResponse rejects a non-3xx status so Location never rides a non-redirect response', () => {
+  for (const status of [200, 201, 204, 404, 500, 599]) {
+    assertThrows(
+      () =>
+        Core.Redirect.buildResponse(
+          'http://localhost/',
+          {},
+          [],
+          '/safe',
+          status as never
+        ),
+      Deno.errors.InvalidData,
+      'Redirect status must be one of'
+    )
+  }
+})
+
+Deno.test('Redirect#buildResponse rejects a non-finite status', () => {
+  for (const status of [NaN, Infinity, 0, 3.5]) {
+    assertThrows(
+      () =>
+        Core.Redirect.buildResponse(
+          'http://localhost/',
+          {},
+          [],
+          '/safe',
+          status as never
+        ),
+      Deno.errors.InvalidData
+    )
   }
 })
 
