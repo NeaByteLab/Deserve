@@ -161,7 +161,7 @@ export type ErrorHandler = ContextFn<[statusCode: number, error: Error], Respons
 export type ErrorMiddleware = ContextFn<[error: ErrorInfo], Response | null>
 
 /** Extracted status code and error. */
-export type ExtractedError = { readonly statusCode: number; readonly error: Error }
+export type ExtractedError = Pick<ErrorInfo, 'statusCode' | 'error'>
 
 /** HTTP method literal union. */
 export type HttpMethod = 'DELETE' | 'GET' | 'HEAD' | 'OPTIONS' | 'PATCH' | 'POST' | 'PUT'
@@ -217,8 +217,15 @@ export type ServerErrorCode = 500 | 501 | 502 | 503 | 504
  */
 export type StateKey<T> = string & { readonly __stateValue: T }
 
+/**
+ * Carrier of an HTTP status code at a given confidence level.
+ * @description Single atom for status-bearing values; widen via S.
+ * @template S - Confidence of the statusCode value
+ */
+export type StatusCarrier<S = number> = { readonly statusCode: S }
+
 /** Error-like object with unknown statusCode property. */
-export type StatusCodeCarrier = { readonly statusCode: unknown }
+export type StatusCodeCarrier = StatusCarrier<unknown>
 
 /** Error with attached HTTP status code. */
 export type StatusError = Error & { statusCode: number }
