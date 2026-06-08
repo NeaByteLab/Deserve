@@ -1,5 +1,9 @@
 import type * as Types from '@interfaces/index.ts'
 import * as Core from '@core/index.ts'
+import { Immutable } from '@neabyte/utils-core'
+
+/** Symbol channel for internal Context surface */
+export const InternalContext: unique symbol = Symbol('deserve.internal.context')
 
 /**
  * Request wrapper with parsed body.
@@ -14,14 +18,14 @@ export class Context {
   private cookieMap: Types.StringRecord | undefined = undefined
   /** Custom error handler when set */
   private errorHandler: Types.ErrorHandler | undefined = undefined
-  /** True once handleError ran a framework error path for this request */
-  private frameworkErrorEmitted = false
   /** Framework error captured by handleError */
   private frameworkError: Error | null = null
   /** Incoming fetch Request */
   private req: Request
   /** Arbitrary state for middleware/handlers */
   private requestState: Types.DataRecord = {}
+  /** Private framework-wired state, not exposed via ctx.state */
+  private frameworkState: Types.DataRecord = Object.create(null)
   /** Response headers to send */
   private responseHeaders: Types.StringRecord = {}
   /** Cached send helpers, lazy */
@@ -32,6 +36,10 @@ export class Context {
   private routeParams: Types.StringRecord
   /** Parsed request URL */
   private parsedUrl: URL
+  /** Connection peer IP address */
+  private clientIpValue: string | undefined
+  /** Direct TCP peer IP address */
+  private directIpValue: string | undefined
 
   /**
    * Create context for one request.
@@ -40,22 +48,57 @@ export class Context {
    * @param url - Parsed request URL
    * @param params - Route path params
    * @param errorHandler - Optional custom error handler
+   * @param clientIp - Resolved client IP address
+   * @param directIp - Direct TCP peer IP address
    */
   constructor(
     req: Request,
     url: URL,
-    params: Types.StringRecord,
-    errorHandler?: Types.ErrorHandler
+    params?: Types.StringRecord,
+    errorHandler?: Types.ErrorHandler,
+    clientIp?: string,
+    directIp?: string
   ) {
     this.req = req
     this.parsedUrl = url
-    this.routeParams = Context.decodeParams(params)
+    this.routeParams = params === undefined ? Object.create(null) : Context.decodeParams(params)
     this.errorHandler = errorHandler
+    this.clientIpValue = clientIp
+    this.directIpValue = directIp ?? clientIp
+  }
+
+  /** Internal framework-only Context surface */
+  get [InternalContext](): Types.ContextInternal {
+    const readCookies = (): readonly string[] => this.responseCookies
+    const readHeadersMap = (): Types.StringRecord => this.responseHeadersMap
+    return {
+      finalizeRaw: (response) => this.finalizeRaw(response),
+      getFrameworkError: () => this.getFrameworkError(),
+      replaceRequest: (req) => this.replaceRequest(req),
+      setParams: (params) => this.setParams(params),
+      setInternalState: (key, value) => this.setInternalState(key, value),
+      get responseCookies() {
+        return readCookies()
+      },
+      get responseHeadersMap() {
+        return readHeadersMap()
+      }
+    }
+  }
+
+  /** Direct TCP peer IP address */
+  get directIp(): string | undefined {
+    return this.directIpValue
   }
 
   /** Raw request Headers */
   get headers(): Headers {
     return this.req.headers
+  }
+
+  /** Resolved client IP address */
+  get ip(): string | undefined {
+    return this.clientIpValue
   }
 
   /** Request pathname from URL */
@@ -66,16 +109,6 @@ export class Context {
   /** Raw Request object */
   get request(): Request {
     return this.req
-  }
-
-  /** All Set-Cookie header values */
-  get responseCookies(): readonly string[] {
-    return this.setCookieValues
-  }
-
-  /** Snapshot copy of response headers accumulated so far */
-  get responseHeadersMap(): Types.StringRecord {
-    return { ...this.responseHeaders }
   }
 
   /** Send helpers for response building */
@@ -98,11 +131,7 @@ export class Context {
     return this.sendHelpers
   }
 
-  /**
-   * Shared mutable request state object.
-   * @description Returns live record so writes persist per request.
-   * @returns The request state record
-   */
+  /** Shared mutable userland request state */
   get state(): Types.DataRecord {
     return this.requestState
   }
@@ -112,49 +141,17 @@ export class Context {
     return this.req.url
   }
 
-  /**
-   * Read body as ArrayBuffer.
-   * @description Parses once, returns cached if already read.
-   * @returns Body as ArrayBuffer
-   */
+  /** Read body as ArrayBuffer */
   async arrayBuffer(): Promise<ArrayBuffer> {
-    if (this.bodyParsedAs === 'arraybuffer') {
-      return this.bodyData as ArrayBuffer
-    }
-    this.guardBodyUse()
-    try {
-      this.bodyData = await this.req.arrayBuffer()
-    } catch (parseError) {
-      throw Context.toBodyError(parseError)
-    }
-    this.bodyParsedAs = 'arraybuffer'
-    return this.bodyData as ArrayBuffer
+    return await this.readBody('arraybuffer', (req) => req.arrayBuffer())
   }
 
-  /**
-   * Read body as Blob.
-   * @description Parses once, returns cached if already read.
-   * @returns Body as Blob
-   */
+  /** Read body as Blob */
   async blob(): Promise<Blob> {
-    if (this.bodyParsedAs === 'blob') {
-      return this.bodyData as Blob
-    }
-    this.guardBodyUse()
-    try {
-      this.bodyData = await this.req.blob()
-    } catch (parseError) {
-      throw Context.toBodyError(parseError)
-    }
-    this.bodyParsedAs = 'blob'
-    return this.bodyData as Blob
+    return await this.readBody('blob', (req) => req.blob())
   }
 
-  /**
-   * Read body by content type.
-   * @description Chooses parser from Content-Type, parses once.
-   * @returns Parsed body (object, FormData, or string)
-   */
+  /** Read body by content type */
   async body(): Promise<unknown> {
     if (this.bodyParsedAs !== null) {
       return this.bodyData
@@ -205,52 +202,9 @@ export class Context {
     return key ? this.cookieMap?.[key] : this.cookieMap
   }
 
-  /**
-   * Apply accumulated headers to raw Response.
-   * @description Merges middleware headers and cookies, existing values win.
-   * @param response - The native Response returned by the handler
-   * @returns The same Response with accumulated headers and cookies applied
-   */
-  finalizeRaw(response: Response): Response {
-    for (const headerKey of Object.keys(this.responseHeaders)) {
-      if (!response.headers.has(headerKey)) {
-        response.headers.set(headerKey, this.responseHeaders[headerKey]!)
-      }
-    }
-    if (this.setCookieValues.length > 0 && response.headers.get('Set-Cookie') === null) {
-      for (const cookieValue of this.setCookieValues) {
-        response.headers.append('Set-Cookie', cookieValue)
-      }
-    }
-    return response
-  }
-
-  /**
-   * Read body as FormData.
-   * @description Parses once, returns cached if already read.
-   * @returns Body as FormData
-   */
+  /** Read body as FormData */
   async formData(): Promise<FormData> {
-    if (this.bodyParsedAs === 'form') {
-      return this.bodyData as FormData
-    }
-    this.guardBodyUse()
-    try {
-      this.bodyData = await this.req.formData()
-    } catch (parseError) {
-      throw Context.toBodyError(parseError)
-    }
-    this.bodyParsedAs = 'form'
-    return this.bodyData as FormData
-  }
-
-  /**
-   * Get captured framework error.
-   * @description Returns error from handleError or null if none.
-   * @returns The captured Error or null
-   */
-  getFrameworkError(): Error | null {
-    return this.frameworkError
+    return await this.readBody('form', (req) => req.formData())
   }
 
   /**
@@ -261,6 +215,9 @@ export class Context {
    * @returns Typed value or undefined
    */
   getState<T>(key: Types.StateKey<T>): T | undefined {
+    if (Core.Handler.reservedStateKeys.has(key)) {
+      return this.frameworkState[key] as T | undefined
+    }
     return this.requestState[key] as T | undefined
   }
 
@@ -272,21 +229,11 @@ export class Context {
    * @returns Error response
    */
   async handleError(statusCode: number, error: Error): Promise<Response> {
-    this.frameworkErrorEmitted = true
     this.frameworkError = error
     if (this.errorHandler) {
       return await this.errorHandler(this, statusCode, error)
     }
     return Core.Handler.errorResponse(this, statusCode)
-  }
-
-  /**
-   * Check if framework error occurred.
-   * @description Returns true when handleError ran for this request.
-   * @returns True if handleError ran
-   */
-  hasFrameworkError(): boolean {
-    return this.frameworkErrorEmitted
   }
 
   /**
@@ -301,30 +248,12 @@ export class Context {
     if (key) {
       return this.req.headers.get(key) ?? undefined
     }
-    const headerResult: Types.StringRecord = Object.create(null)
-    for (const [headerKey, headerValue] of this.req.headers) {
-      headerResult[headerKey] = headerValue
-    }
-    return headerResult
+    return Context.collectRecord(this.req.headers)
   }
 
-  /**
-   * Read body as JSON.
-   * @description Parses once, returns cached if already read.
-   * @returns Parsed JSON value
-   */
+  /** Read body as JSON */
   async json(): Promise<unknown> {
-    if (this.bodyParsedAs === 'json') {
-      return this.bodyData
-    }
-    this.guardBodyUse()
-    try {
-      this.bodyData = await this.req.json()
-    } catch (parseError) {
-      throw Context.toBodyError(parseError)
-    }
-    this.bodyParsedAs = 'json'
-    return this.bodyData
+    return await this.readBody('json', (req) => req.json())
   }
 
   /**
@@ -337,11 +266,7 @@ export class Context {
     return this.routeParams[key]
   }
 
-  /**
-   * Get all route path params.
-   * @description Returns copy of params from route match.
-   * @returns Copy of params object
-   */
+  /** Get all route path params */
   params(): Types.StringRecord {
     return { ...this.routeParams }
   }
@@ -368,13 +293,7 @@ export class Context {
     if (key) {
       return this.parsedUrl.searchParams.get(key) ?? undefined
     }
-    const queryResult: Types.StringRecord = Object.create(null)
-    for (const [paramKey, paramValue] of this.parsedUrl.searchParams.entries()) {
-      if (!Object.hasOwn(queryResult, paramKey)) {
-        queryResult[paramKey] = paramValue
-      }
-    }
-    return queryResult
+    return Context.collectRecord(this.parsedUrl.searchParams)
   }
 
   /**
@@ -401,25 +320,8 @@ export class Context {
    * @returns Response with rendered HTML
    */
   async render(templatePath: string, data: Types.DataRecord = {}): Promise<Response> {
-    const viewEngine = this.getState(Core.Handler.StateKeys.view)
-    if (viewEngine === undefined) {
-      throw new Deno.errors.NotSupported(
-        'View engine not configured, set viewsDir in RouterOptions'
-      )
-    }
-    const renderedHtml = await viewEngine.render(templatePath, data)
+    const renderedHtml = await this.requireViewEngine().render(templatePath, data)
     return this.send.html(renderedHtml)
-  }
-
-  /**
-   * Replace request and reset body state.
-   * @description Used by body-limiting middleware to replace request.
-   * @param req - New request to use
-   */
-  replaceRequest(req: Request): void {
-    this.req = req
-    this.bodyData = undefined
-    this.bodyParsedAs = null
   }
 
   /**
@@ -431,11 +333,7 @@ export class Context {
    */
   setHeader(key: string, value: string): this {
     Context.assertValidHeader(key, value)
-    if (key === 'Set-Cookie') {
-      this.setCookieValues.push(value)
-    } else {
-      this.responseHeaders[key] = value
-    }
+    this.applyHeader(key, value)
     return this
   }
 
@@ -451,22 +349,9 @@ export class Context {
       Context.assertValidHeader(key, value)
     }
     for (const [key, value] of entries) {
-      if (key === 'Set-Cookie') {
-        this.setCookieValues.push(value)
-      } else {
-        this.responseHeaders[key] = value
-      }
+      this.applyHeader(key, value)
     }
     return this
-  }
-
-  /**
-   * Merge route params into context.
-   * @description Percent-decodes incoming params, then merges with existing.
-   * @param params - Params from router match
-   */
-  setParams(params: Types.StringRecord): void {
-    this.routeParams = { ...this.routeParams, ...Context.decodeParams(params) }
   }
 
   /**
@@ -475,8 +360,12 @@ export class Context {
    * @template T - Value type encoded in the key
    * @param key - Branded state key
    * @param value - Value matching the key's type
+   * @throws {Types.StatusError} When the key is a reserved framework key
    */
   setState<T>(key: Types.StateKey<T>, value: T): void {
+    if (Core.Handler.reservedStateKeys.has(key)) {
+      throw Core.Handler.createStatusError(500, `State key "${key}" is reserved`)
+    }
     this.requestState[key] = value
   }
 
@@ -488,33 +377,37 @@ export class Context {
    * @returns Response with streaming HTML
    */
   async streamRender(templatePath: string, data: Types.DataRecord = {}): Promise<Response> {
-    const viewEngine = this.getState(Core.Handler.StateKeys.view)
-    if (viewEngine === undefined) {
-      throw new Deno.errors.NotSupported(
-        'View engine not configured, set viewsDir in RouterOptions'
-      )
-    }
-    const htmlStream = await viewEngine.streamRender(templatePath, data)
+    const htmlStream = await this.requireViewEngine().streamRender(templatePath, data)
     return this.send.stream(htmlStream, undefined, 'text/html; charset=utf-8')
   }
 
-  /**
-   * Read body as plain text.
-   * @description Parses once, returns cached if already read.
-   * @returns Body as string
-   */
+  /** Read body as plain text */
   async text(): Promise<string> {
-    if (this.bodyParsedAs === 'text') {
-      return this.bodyData as string
+    return await this.readBody('text', (req) => req.text())
+  }
+
+  /** All Set-Cookie header values */
+  private get responseCookies(): readonly string[] {
+    return this.setCookieValues
+  }
+
+  /** Snapshot copy of response headers */
+  private get responseHeadersMap(): Types.StringRecord {
+    return { ...this.responseHeaders }
+  }
+
+  /**
+   * Route one header pair to its accumulator.
+   * @description Appends Set-Cookie values, overwrites all other headers.
+   * @param key - Validated header name
+   * @param value - Validated header value
+   */
+  private applyHeader(key: string, value: string): void {
+    if (key === 'Set-Cookie') {
+      this.setCookieValues.push(value)
+    } else {
+      this.responseHeaders[key] = value
     }
-    this.guardBodyUse()
-    try {
-      this.bodyData = await this.req.text()
-    } catch (parseError) {
-      throw Context.toBodyError(parseError)
-    }
-    this.bodyParsedAs = 'text'
-    return this.bodyData as string
   }
 
   /**
@@ -526,10 +419,28 @@ export class Context {
    */
   private static assertValidHeader(key: string, value: string): void {
     try {
-      new Headers().set(key, value)
+      new Core.API.Headers().set(key, value)
     } catch {
       throw Core.Handler.createStatusError(500, `Invalid response header "${key}"`)
     }
+  }
+
+  /**
+   * Collect string entries into a null-proto record.
+   * @description First occurrence wins; prototype-pollution safe via Object.hasOwn.
+   * @param entries - Iterable of key/value string pairs
+   * @returns Null-prototype record of first-seen values
+   */
+  private static collectRecord(
+    entries: Iterable<readonly [string, string]>
+  ): Types.StringRecord {
+    const record: Types.StringRecord = Object.create(null)
+    for (const [key, value] of entries) {
+      if (!Object.hasOwn(record, key)) {
+        record[key] = value
+      }
+    }
+    return record
   }
 
   /**
@@ -553,6 +464,32 @@ export class Context {
       }
     }
     return decoded
+  }
+
+  /**
+   * Apply accumulated headers to raw Response.
+   * @description Merges middleware headers and cookies, existing values win.
+   * @param response - The native Response returned by the handler
+   * @returns The same Response with accumulated headers and cookies applied
+   */
+  private finalizeRaw(response: Response): Response {
+    const headerKeys = Object.keys(this.responseHeaders)
+    if (headerKeys.length > 0) {
+      for (const headerKey of headerKeys) {
+        if (!response.headers.has(headerKey)) {
+          response.headers.set(headerKey, this.responseHeaders[headerKey]!)
+        }
+      }
+    }
+    if (this.setCookieValues.length > 0 && response.headers.get('Set-Cookie') === null) {
+      Core.Handler.appendCookies(response.headers, this.setCookieValues)
+    }
+    return response
+  }
+
+  /** Get captured framework error */
+  private getFrameworkError(): Error | null {
+    return this.frameworkError
   }
 
   /** Throws if body already consumed */
@@ -600,17 +537,87 @@ export class Context {
   }
 
   /**
+   * Read and cache the body in a single format.
+   * @description Returns cached value or guards, reads, then caches.
+   * @template R - Concrete body representation returned by the reader
+   * @param format - Cache discriminant for the parsed representation
+   * @param read - Single-use reader pulling the body off the request
+   * @returns The parsed body value in the requested format
+   * @throws {Types.StatusError} When the body was already consumed or unreadable
+   */
+  private async readBody<R>(
+    format: Types.BodyParsedFormat,
+    read: (req: Request) => Promise<R>
+  ): Promise<R> {
+    if (this.bodyParsedAs === format) {
+      return this.bodyData as R
+    }
+    this.guardBodyUse()
+    try {
+      this.bodyData = await read(this.req)
+    } catch (parseError) {
+      throw Context.toBodyError(parseError)
+    }
+    this.bodyParsedAs = format
+    return this.bodyData as R
+  }
+
+  /**
+   * Replace request and reset body state.
+   * @description Used by body-limiting middleware to replace request.
+   * @param req - New request to use
+   */
+  private replaceRequest(req: Request): void {
+    this.req = req
+    this.bodyData = undefined
+    this.bodyParsedAs = null
+  }
+
+  /**
+   * Resolve the configured view engine or fail.
+   * @description Single guard for render paths requiring a view engine.
+   * @returns The wired ViewEngine instance
+   * @throws {Deno.errors.NotSupported} When no view engine is configured
+   */
+  private requireViewEngine(): Types.ViewEngine {
+    const viewEngine = this.getState(Core.Handler.stateKeys.view)
+    if (viewEngine === undefined) {
+      throw new Deno.errors.NotSupported(
+        'View engine not configured, set viewsDir in RouterOptions'
+      )
+    }
+    return viewEngine
+  }
+
+  /**
    * Re-throw errors carrying valid status.
    * @description Ensures lenient body parsing never swallows status errors.
    * @param parseError - Error thrown while reading or parsing the body
    */
   private static rethrowStatusError(parseError: unknown): void {
-    if (parseError instanceof Error && 'statusCode' in parseError) {
-      const statusValue = (parseError as Types.StatusCodeCarrier).statusCode
-      if (typeof statusValue === 'number' && statusValue >= 400 && statusValue < 600) {
-        throw parseError
-      }
+    if (Core.Handler.isErrorWithStatus(parseError)) {
+      throw parseError
     }
+  }
+
+  /**
+   * Set framework-wired state value.
+   * @description Internal write path for reserved framework keys.
+   * @template T - Value type encoded in the key
+   * @param key - Branded reserved state key
+   * @param value - Value matching the key's type
+   */
+  private setInternalState<T>(key: Types.StateKey<T>, value: T): void {
+    this.frameworkState[key] = value
+  }
+
+  /**
+   * Merge route params into context.
+   * @description Percent-decodes incoming params, then merges with existing.
+   * @param params - Params from router match
+   */
+  private setParams(params: Types.StringRecord): void {
+    this.routeParams = { ...this.routeParams, ...Context.decodeParams(params) }
   }
 
   /**
@@ -620,12 +627,11 @@ export class Context {
    * @returns StatusError carrying the resolved status code
    */
   private static toBodyError(parseError: unknown): Types.StatusError {
-    if (parseError instanceof Error && 'statusCode' in parseError) {
-      const statusValue = (parseError as Types.StatusCodeCarrier).statusCode
-      if (typeof statusValue === 'number' && statusValue >= 400 && statusValue < 600) {
-        return parseError as Types.StatusError
-      }
-    }
-    return Core.Handler.createStatusError(400, 'Malformed or unreadable request body')
+    return Core.Handler.isErrorWithStatus(parseError)
+      ? parseError
+      : Core.Handler.createStatusError(400, 'Malformed or unreadable request body')
   }
 }
+
+/** Freeze Context prototype methods */
+Immutable.freeze(Context.prototype)
