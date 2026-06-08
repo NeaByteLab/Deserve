@@ -34,6 +34,24 @@ Deno.test('Handler 404 for unmatched route returns JSON when Accept json', async
   assertEquals(body.error, 'Not Found')
 })
 
+Deno.test('Handler 405 Allow advertises HEAD for a GET-only route (RFC 7231 §4.3.2)', async () => {
+  const handler = new Routing.Handler()
+  const routerInstance = (
+    handler as unknown as { routerInstance: { add: (m: string, p: string, d: unknown) => void } }
+  ).routerInstance
+  routerInstance.add('GET', '/only-get', {
+    handler: () => new Response('ok'),
+    pattern: '/only-get'
+  })
+  const serve = handler.createHandler()
+  for (const method of ['POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS']) {
+    const res = await serve(new Request('http://localhost/only-get', { method }))
+    assertEquals(res.status, 405)
+    assertEquals(res.headers.get('Allow'), 'GET, HEAD')
+    await res.body?.cancel()
+  }
+})
+
 Deno.test('Handler 405 response lists valid methods in the Allow header', async () => {
   const handler = new Routing.Handler()
   const routerInstance = (
@@ -51,7 +69,7 @@ Deno.test('Handler 405 response lists valid methods in the Allow header', async 
     new Request('http://localhost/items', { method: 'DELETE' })
   )
   assertEquals(res.status, 405)
-  assertEquals(res.headers.get('Allow'), 'GET, POST')
+  assertEquals(res.headers.get('Allow'), 'GET, HEAD, POST')
   await res.body?.cancel()
 })
 
@@ -62,6 +80,45 @@ Deno.test('Handler 414 HTML response includes charset', async () => {
   const res = await serve(new Request(longUrl))
   assertEquals(res.status, 414)
   assertEquals(res.headers.get('Content-Type'), 'text/html; charset=utf-8')
+})
+
+Deno.test('Handler HEAD reports the same Content-Length as GET would send', async () => {
+  const handler = new Routing.Handler()
+  const routeModule = {
+    GET: (ctx: Core.Context) => ctx.send.json({ hello: 'world' })
+  }
+  Routing.Scanner.registerHandlers(
+    (handler as unknown as { routerInstance: { add: (m: string, p: string, d: unknown) => void } })
+      .routerInstance as Parameters<typeof Routing.Scanner.registerHandlers>[0],
+    routeModule,
+    '/cl',
+    ['GET']
+  )
+  const serve = handler.createHandler()
+  const getRes = await serve(new Request('http://localhost/cl', { method: 'GET' }))
+  const getBodyLength = (await getRes.arrayBuffer()).byteLength
+  const headRes = await serve(new Request('http://localhost/cl', { method: 'HEAD' }))
+  assertEquals(headRes.headers.get('Content-Length'), getBodyLength.toString())
+  assertEquals(headRes.body, null)
+  assertEquals(headRes.status, 200)
+})
+
+Deno.test('Handler HEAD request returns null body', async () => {
+  const handler = new Routing.Handler()
+  const routeModule = {
+    GET: (ctx: Core.Context) => ctx.send.text('hello world')
+  }
+  Routing.Scanner.registerHandlers(
+    (handler as unknown as { routerInstance: { add: (m: string, p: string, d: unknown) => void } })
+      .routerInstance as Parameters<typeof Routing.Scanner.registerHandlers>[0],
+    routeModule,
+    '/test',
+    ['GET']
+  )
+  const serve = handler.createHandler()
+  const res = await serve(new Request('http://localhost/test', { method: 'HEAD' }))
+  assertEquals(res.body, null)
+  assertEquals(res.status, 200)
 })
 
 Deno.test('Handler addMiddleware path prefix only applies to matching routes', async () => {
@@ -81,6 +138,26 @@ Deno.test('Handler addMiddleware path prefix only applies to matching routes', a
 
   const resOther = await handle(new Request('http://localhost/assets'))
   assertEquals(await resOther.text(), 'no')
+})
+
+Deno.test('Handler applies middleware-set headers and cookies to a raw Response return', async () => {
+  const handler = new Routing.Handler()
+  handler.addMiddleware('', (ctx: Core.Context, next) => {
+    ctx.setHeader('X-Sec', 'on')
+    ctx.setHeader('Set-Cookie', 'sid=abc; Path=/')
+    return next()
+  })
+  ;(
+    handler as unknown as { routerInstance: { add: (m: string, p: string, d: unknown) => void } }
+  ).routerInstance.add('GET', '/raw', {
+    handler: () => new Response('raw', { headers: { 'Content-Type': 'text/plain' } })
+  })
+  const res = await handler.createHandler()(new Request('http://localhost/raw'))
+  assertEquals(res.status, 200)
+  assertEquals(res.headers.get('X-Sec'), 'on')
+  assertEquals(res.headers.get('Set-Cookie'), 'sid=abc; Path=/')
+  assertEquals(res.headers.get('Content-Type'), 'text/plain')
+  assertEquals(await res.text(), 'raw')
 })
 
 Deno.test('Handler constructor accepts omitted and valid numeric options', () => {
@@ -150,6 +227,43 @@ Deno.test('Handler createPattern with .jsx extension', () => {
 Deno.test('Handler createPattern with .mjs extension', () => {
   const handler = new Routing.Handler()
   assertEquals(handler.createPattern('items/create.mjs'), '/items/create')
+})
+
+Deno.test('Handler does not double-apply cookies to a ctx.send response', async () => {
+  const handler = new Routing.Handler()
+  handler.addMiddleware('', (ctx: Core.Context, next) => {
+    ctx.setHeader('Set-Cookie', 'sid=abc; Path=/')
+    return next()
+  })
+  ;(
+    handler as unknown as { routerInstance: { add: (m: string, p: string, d: unknown) => void } }
+  ).routerInstance.add('GET', '/sendc', {
+    handler: (ctx: Core.Context) => ctx.send.json({ ok: true })
+  })
+  const res = await handler.createHandler()(new Request('http://localhost/sendc'))
+  assertEquals(res.status, 200)
+  assertEquals(res.headers.getSetCookie().length, 1)
+  await res.body?.cancel()
+})
+
+Deno.test('Handler emits a request:complete event for every served request including errors', async () => {
+  const handler = new Routing.Handler()
+  const routerInstance = (
+    handler as unknown as { routerInstance: { add: (m: string, p: string, d: unknown) => void } }
+  ).routerInstance
+  routerInstance.add('GET', '/fail', {
+    handler: () => {
+      throw new Error('internal boom')
+    },
+    pattern: '/fail'
+  })
+  const kinds: string[] = []
+  handler.onEvent((event) => kinds.push(event.kind))
+  const res = await handler.createHandler()(new Request('http://localhost/fail'))
+  assertEquals(res.status, 500)
+  await res.body?.cancel()
+  assertEquals(kinds.includes('request:complete'), true)
+  assertEquals(kinds.includes('request:error'), true)
 })
 
 Deno.test('Handler emits external request:error for a developer-built 4xx response', async () => {
@@ -227,24 +341,6 @@ Deno.test('Handler handleResponse catches builder exception', async () => {
   const serve = handler.createHandler()
   const res = await serve(new Request('http://localhost/fail'))
   assertEquals(res.status, 500)
-})
-
-Deno.test('Handler HEAD request returns null body', async () => {
-  const handler = new Routing.Handler()
-  const routeModule = {
-    GET: (ctx: Core.Context) => ctx.send.text('hello world')
-  }
-  Routing.Scanner.registerHandlers(
-    (handler as unknown as { routerInstance: { add: (m: string, p: string, d: unknown) => void } })
-      .routerInstance as Parameters<typeof Routing.Scanner.registerHandlers>[0],
-    routeModule,
-    '/test',
-    ['GET']
-  )
-  const serve = handler.createHandler()
-  const res = await serve(new Request('http://localhost/test', { method: 'HEAD' }))
-  assertEquals(res.body, null)
-  assertEquals(res.status, 200)
 })
 
 Deno.test('Handler masks a non-Response return as JSON Internal Server Error', async () => {
@@ -446,6 +542,22 @@ Deno.test('Handler middleware wildcard /** matches deep paths', async () => {
   const handle = handler.createHandler()
   const res = await handle(new Request('http://localhost/api/v1/users/123'))
   assertEquals(await res.text(), 'true')
+})
+
+Deno.test('Handler raw Response keeps its own header over a middleware default', async () => {
+  const handler = new Routing.Handler()
+  handler.addMiddleware('', (ctx: Core.Context, next) => {
+    ctx.setHeader('Content-Type', 'application/xml')
+    return next()
+  })
+  ;(
+    handler as unknown as { routerInstance: { add: (m: string, p: string, d: unknown) => void } }
+  ).routerInstance.add('GET', '/raw2', {
+    handler: () => new Response('hi', { headers: { 'Content-Type': 'text/plain' } })
+  })
+  const res = await handler.createHandler()(new Request('http://localhost/raw2'))
+  assertEquals(res.headers.get('Content-Type'), 'text/plain')
+  await res.body?.cancel()
 })
 
 Deno.test('Handler requestTimeoutMs returns 503 when exceeded', async () => {
@@ -654,7 +766,7 @@ Deno.test('Handler#addStaticRoute returns 405 for non-GET methods on a static pa
     new Request('http://localhost/static/index.html', { method: 'POST' })
   )
   assertEquals(post.status, 405)
-  assertEquals(post.headers.get('Allow'), 'GET')
+  assertEquals(post.headers.get('Allow'), 'GET, HEAD')
   await post.body?.cancel()
   const del = await handle(
     new Request('http://localhost/static/index.html', { method: 'DELETE' })
