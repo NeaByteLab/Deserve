@@ -8,6 +8,8 @@ import { createSignal } from '@neabyte/utils-core'
 export class Observability {
   /** Underlying typed signal carrying Deserve events */
   private readonly signal = createSignal<[Types.EventBase]>()
+  /** Active subscriber count */
+  private listeners = 0
 
   /**
    * Emit one event to listeners.
@@ -15,7 +17,30 @@ export class Observability {
    * @param event - Event payload to broadcast
    */
   emit(event: Types.EventBase): void {
+    if (this.listeners === 0) {
+      return
+    }
     this.signal.emit(event)
+  }
+
+  /** Report whether any subscriber is registered */
+  hasListeners(): boolean {
+    return this.listeners > 0
+  }
+
+  /**
+   * Build an internal lifecycle event.
+   * @description Stamps type internal and current timestamp.
+   * @template Kind - Event kind discriminant literal
+   * @param kind - Event kind discriminant
+   * @param metadata - Metadata matching the kind
+   * @returns Fully formed internal event
+   */
+  static internalEvent<Kind extends Types.EventKind>(
+    kind: Kind,
+    metadata: Types.EventByKind<Kind>['metadata']
+  ): Types.EventByKind<Kind> {
+    return { type: 'internal', kind, metadata, timestamp: Date.now() } as Types.EventByKind<Kind>
   }
 
   /**
@@ -25,6 +50,16 @@ export class Observability {
    * @returns Unsubscribe function
    */
   on(listener: Types.EventListener): () => void {
-    return this.signal.subscribe(listener)
+    const unsubscribe = this.signal.subscribe(listener)
+    this.listeners += 1
+    let active = true
+    return () => {
+      if (!active) {
+        return
+      }
+      active = false
+      this.listeners -= 1
+      unsubscribe()
+    }
   }
 }
