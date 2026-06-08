@@ -1,4 +1,5 @@
 import type * as Types from '@interfaces/index.ts'
+import * as Core from '@core/index.ts'
 import * as Rendering from '@rendering/index.ts'
 import * as Routing from '@routing/index.ts'
 
@@ -54,6 +55,10 @@ export class Router {
   async serve(port?: number, hostname?: string, signal?: AbortSignal): Promise<void> {
     await this.handler.scanRoutes(this.routesDir)
     this.startWatchers()
+    const unregisterGuard = Core.Guard.register((event) => this.handler.emitEvent(event))
+    if (signal) {
+      signal.addEventListener('abort', unregisterGuard, { once: true })
+    }
     const resolvedPort = port ?? (Number(Deno.env.get('PORT')) || 8000)
     const resolvedHost = hostname ?? '0.0.0.0'
     const handler = this.handler.createHandler()

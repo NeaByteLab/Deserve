@@ -1,6 +1,7 @@
 /** Re-exports core public API */
 export * from '@core/Constant.ts'
 export * from '@core/Context.ts'
+export * from '@core/Guard.ts'
 export * from '@core/Handler.ts'
 export * from '@core/Observability.ts'
 export * from '@core/Redirect.ts'
