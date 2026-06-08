@@ -14,17 +14,16 @@ export class Worker {
       this.cause = cause
     }
   }
-
+  /** Module URL for spawning workers */
+  private readonly scriptURL: string | URL
+  /** Per-task dispatch timeout in ms */
+  private readonly taskTimeoutMs: number
   /** Round-robin index for next worker */
   private nextIndex = 0
   /** Pooled worker instances */
   private workers: globalThis.Worker[] = []
   /** Per-worker serialization tail promises */
   private workerTails: Promise<void>[] = []
-  /** Module URL used to spawn and respawn workers */
-  private readonly scriptURL: string | URL
-  /** Per-task timeout in milliseconds bounding a single dispatch */
-  private readonly taskTimeoutMs: number
 
   /**
    * Construct pool with given workers.
@@ -52,7 +51,11 @@ export class Worker {
    * @throws {Deno.errors.InvalidData} When taskTimeoutMs is not positive finite
    */
   static createPool(options: Types.WorkerPoolOptions): Worker {
-    const workerCount = Math.max(1, options.poolSize ?? Core.Constant.defaultPoolSize)
+    const requestedPoolSize = options.poolSize ?? Core.Constant.defaultPoolSize
+    if (!Number.isFinite(requestedPoolSize)) {
+      throw new Deno.errors.InvalidData('Worker poolSize must be a finite number')
+    }
+    const workerCount = Math.max(1, Math.floor(requestedPoolSize))
     const taskTimeoutMs = options.taskTimeoutMs ?? Core.Constant.defaultWorkerTaskTimeoutMs
     if (!Number.isFinite(taskTimeoutMs) || taskTimeoutMs <= 0) {
       throw new Deno.errors.InvalidData(
@@ -85,8 +88,12 @@ export class Worker {
       return Promise.reject(new Deno.errors.BadResource('Worker pool worker at index is missing'))
     }
     const priorTail = this.workerTails[workerIndex] ?? Promise.resolve()
+    let releaseTail: () => void = () => {}
+    const nextTail = new Promise<void>((resolve) => {
+      releaseTail = resolve
+    })
+    this.workerTails[workerIndex] = nextTail
     const resultPromise = priorTail
-      .catch(() => undefined)
       .then(() => {
         const currentWorker = this.workers[workerIndex]!
         return Worker.dispatch<T>(currentWorker, payload, this.taskTimeoutMs).catch(
@@ -99,10 +106,12 @@ export class Worker {
           }
         )
       })
-    this.workerTails[workerIndex] = resultPromise.then(
-      () => undefined,
-      () => undefined
-    )
+      .finally(() => {
+        if (this.workerTails[workerIndex] === nextTail) {
+          this.workerTails[workerIndex] = Promise.resolve()
+        }
+        releaseTail()
+      })
     return resultPromise
   }
 
@@ -117,11 +126,7 @@ export class Worker {
 
   /**
    * Dispatch payload and await reply.
-   * @description Attaches one-shot listeners, settles on first reply. A
-   * per-task timer bounds execution: if the worker does not reply within
-   * taskTimeoutMs (hung loop, missing postMessage), the dispatch rejects as a
-   * WorkerCrash so the caller path terminates and respawns the wedged slot,
-   * preventing permanent serialization-tail starvation (CWE-400).
+   * @description Attaches one-shot listeners, timer respawns hung worker.
    * @template T - Result type from worker
    * @param worker - Target worker instance
    * @param payload - Serializable payload
@@ -165,9 +170,7 @@ export class Worker {
         cleanup()
         reject(
           new Worker.WorkerCrash(
-            new Deno.errors.TimedOut(
-              `Worker task exceeded ${taskTimeoutMs}ms timeout`
-            )
+            new Deno.errors.TimedOut(`Worker task exceeded ${taskTimeoutMs}ms timeout`)
           )
         )
       }, taskTimeoutMs)
