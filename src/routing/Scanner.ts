@@ -1,4 +1,5 @@
 import type * as Types from '@interfaces/index.ts'
+import * as Core from '@core/index.ts'
 import type { FastRouter } from '@neabyte/fast-router'
 import nodeUrl from 'node:url'
 
@@ -74,30 +75,27 @@ export class Scanner {
             if (routePattern) {
               Scanner.validateModule(fileModule, routePath, methods)
               Scanner.registerHandlers(routerInstance, fileModule, routePattern, methods)
-              emit?.({
-                type: 'internal',
-                kind: 'route:loaded',
-                metadata: { routePath, pattern: routePattern },
-                timestamp: Date.now()
-              })
+              emit?.(
+                Core.Observability.internalEvent('route:loaded', {
+                  routePath,
+                  pattern: routePattern
+                })
+              )
             } else if (/[^\x20-\x7E]/.test(dirEntry.name)) {
-              emit?.({
-                type: 'internal',
-                kind: 'route:skipped',
-                metadata: { routePath, reason: 'filename contains non-ASCII characters' },
-                timestamp: Date.now()
-              })
+              emit?.(
+                Core.Observability.internalEvent('route:skipped', {
+                  routePath,
+                  reason: 'filename contains non-ASCII characters'
+                })
+              )
             }
           } catch (fileError) {
-            emit?.({
-              type: 'internal',
-              kind: 'route:error',
-              metadata: {
+            emit?.(
+              Core.Observability.internalEvent('route:error', {
                 routePath,
                 error: fileError instanceof Error ? fileError : new Error(String(fileError))
-              },
-              timestamp: Date.now()
-            })
+              })
+            )
           }
         }
       }

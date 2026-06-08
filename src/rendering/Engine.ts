@@ -14,10 +14,10 @@ export class Engine implements Types.ViewEngine, Types.WatchableEngine {
   private readonly maxIterations: number
   /** Compiled template cache */
   private readonly compileCache = new Map<string, Types.CompileResult>()
-  /** Discovered template path cache */
-  private discoveredPaths: Set<string> | null = null
   /** Optional lifecycle event emitter */
   private readonly emit: Types.EventEmit | undefined
+  /** Discovered template path cache */
+  private discoveredPaths: Set<string> | null = null
 
   /**
    * Create new engine instance.
@@ -50,12 +50,7 @@ export class Engine implements Types.ViewEngine, Types.WatchableEngine {
    * @param paths - Absolute paths that were refreshed
    */
   notifyRefresh(paths: readonly string[]): void {
-    this.emit?.({
-      type: 'internal',
-      kind: 'view:refreshed',
-      metadata: { paths: [...paths] },
-      timestamp: Date.now()
-    })
+    this.emit?.(Core.Observability.internalEvent('view:refreshed', { paths: [...paths] }))
   }
 
   /** Reset discovered template paths */
@@ -83,12 +78,12 @@ export class Engine implements Types.ViewEngine, Types.WatchableEngine {
     const compiled = await this.resolveTemplate(templatePath)
     const outputHtml = await this.renderNodes(compiled.ast, data, this.defaultViewsDir, depth)
     if (depth === 0) {
-      this.emit?.({
-        type: 'internal',
-        kind: 'view:rendered',
-        metadata: { path: templatePath, durationMs: performance.now() - renderStart },
-        timestamp: Date.now()
-      })
+      this.emit?.(
+        Core.Observability.internalEvent('view:rendered', {
+          path: templatePath,
+          durationMs: performance.now() - renderStart
+        })
+      )
     }
     return outputHtml
   }
@@ -106,12 +101,7 @@ export class Engine implements Types.ViewEngine, Types.WatchableEngine {
     const compiled = await this.resolveTemplate(templatePath)
     const { readable, writable } = new TransformStream()
     this.renderStream(compiled, templatePath, data, writable).catch((error: Error) => {
-      this.emit?.({
-        type: 'internal',
-        kind: 'view:error',
-        metadata: { path: templatePath, error },
-        timestamp: Date.now()
-      })
+      this.emit?.(Core.Observability.internalEvent('view:error', { path: templatePath, error }))
     })
     return readable
   }
@@ -132,12 +122,12 @@ export class Engine implements Types.ViewEngine, Types.WatchableEngine {
     const ast = EngineParts.Parser.parse(template)
     const compileResult = { ast }
     this.compileCache.set(absTemplatePath, compileResult)
-    this.emit?.({
-      type: 'internal',
-      kind: 'view:compiled',
-      metadata: { path: absTemplatePath, durationMs: performance.now() - compileStart },
-      timestamp: Date.now()
-    })
+    this.emit?.(
+      Core.Observability.internalEvent('view:compiled', {
+        path: absTemplatePath,
+        durationMs: performance.now() - compileStart
+      })
+    )
     return compileResult
   }
 
@@ -251,12 +241,12 @@ export class Engine implements Types.ViewEngine, Types.WatchableEngine {
           await writer.write(Core.Constant.encoder.encode(chunk))
         }
       }
-      this.emit?.({
-        type: 'internal',
-        kind: 'view:rendered',
-        metadata: { path: templatePath, durationMs: performance.now() - renderStart },
-        timestamp: Date.now()
-      })
+      this.emit?.(
+        Core.Observability.internalEvent('view:rendered', {
+          path: templatePath,
+          durationMs: performance.now() - renderStart
+        })
+      )
     } finally {
       await writer.close()
     }
