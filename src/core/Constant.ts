@@ -29,6 +29,8 @@ export class Constant {
   static readonly nonAsciiGlobalRegex = /[\u0080-\u{10FFFF}]/gu
   /** Dotted path regex for fast-path */
   static readonly simplePathRegex = /^[a-zA-Z_$][a-zA-Z0-9_$]*(\.[a-zA-Z_$][a-zA-Z0-9_$]*)*$/
+  /** Matches leading and trailing cookie whitespace */
+  static readonly cookieTrimRegex = /^[ \t]+|[ \t]+$/g
   /** DVE template file extension */
   static readonly dveExtension = '.dve'
   /** Default worker pool size */

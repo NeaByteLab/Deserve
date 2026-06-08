@@ -1,6 +1,5 @@
 import type * as Types from '@interfaces/index.ts'
 import * as Core from '@core/index.ts'
-import { Handler } from '@core/Handler.ts'
 
 /**
  * Request wrapper with parsed body.
@@ -50,7 +49,7 @@ export class Context {
   ) {
     this.req = req
     this.parsedUrl = url
-    this.routeParams = params
+    this.routeParams = Context.decodeParams(params)
     this.errorHandler = errorHandler
   }
 
@@ -160,8 +159,8 @@ export class Context {
     if (this.bodyParsedAs !== null) {
       return this.bodyData
     }
-    const contentType = this.req.headers.get('content-type') || ''
-    if (contentType.includes('application/json')) {
+    const mediaType = Context.parseMediaType(this.req.headers.get('content-type'))
+    if (mediaType === 'application/json') {
       try {
         this.bodyData = await this.req.json()
       } catch (parseError) {
@@ -170,8 +169,8 @@ export class Context {
       }
       this.bodyParsedAs = 'json'
     } else if (
-      contentType.includes('multipart/form-data') ||
-      contentType.includes('application/x-www-form-urlencoded')
+      mediaType === 'multipart/form-data' ||
+      mediaType === 'application/x-www-form-urlencoded'
     ) {
       try {
         this.bodyData = await this.req.formData()
@@ -204,6 +203,26 @@ export class Context {
       this.parseCookies()
     }
     return key ? this.cookieMap?.[key] : this.cookieMap
+  }
+
+  /**
+   * Apply accumulated headers to raw Response.
+   * @description Merges middleware headers and cookies, existing values win.
+   * @param response - The native Response returned by the handler
+   * @returns The same Response with accumulated headers and cookies applied
+   */
+  finalizeRaw(response: Response): Response {
+    for (const headerKey of Object.keys(this.responseHeaders)) {
+      if (!response.headers.has(headerKey)) {
+        response.headers.set(headerKey, this.responseHeaders[headerKey]!)
+      }
+    }
+    if (this.setCookieValues.length > 0 && response.headers.get('Set-Cookie') === null) {
+      for (const cookieValue of this.setCookieValues) {
+        response.headers.append('Set-Cookie', cookieValue)
+      }
+    }
+    return response
   }
 
   /**
@@ -258,7 +277,7 @@ export class Context {
     if (this.errorHandler) {
       return await this.errorHandler(this, statusCode, error)
     }
-    return Handler.errorResponse(this, statusCode)
+    return Core.Handler.errorResponse(this, statusCode)
   }
 
   /**
@@ -382,7 +401,7 @@ export class Context {
    * @returns Response with rendered HTML
    */
   async render(templatePath: string, data: Types.DataRecord = {}): Promise<Response> {
-    const viewEngine = this.getState(Handler.StateKeys.view)
+    const viewEngine = this.getState(Core.Handler.StateKeys.view)
     if (viewEngine === undefined) {
       throw new Deno.errors.NotSupported(
         'View engine not configured, set viewsDir in RouterOptions'
@@ -443,11 +462,11 @@ export class Context {
 
   /**
    * Merge route params into context.
-   * @description Merges params from router match with existing params.
+   * @description Percent-decodes incoming params, then merges with existing.
    * @param params - Params from router match
    */
   setParams(params: Types.StringRecord): void {
-    this.routeParams = { ...this.routeParams, ...params }
+    this.routeParams = { ...this.routeParams, ...Context.decodeParams(params) }
   }
 
   /**
@@ -463,19 +482,19 @@ export class Context {
 
   /**
    * Render template with streaming.
-   * @description Requires viewsDir set in Router.
+   * @description Requires viewsDir set in Router, validates before committing.
    * @param templatePath - Path to .dve template relative to viewsDir
    * @param data - Data for template
    * @returns Response with streaming HTML
    */
-  streamRender(templatePath: string, data: Types.DataRecord = {}): Response {
-    const viewEngine = this.getState(Handler.StateKeys.view)
+  async streamRender(templatePath: string, data: Types.DataRecord = {}): Promise<Response> {
+    const viewEngine = this.getState(Core.Handler.StateKeys.view)
     if (viewEngine === undefined) {
       throw new Deno.errors.NotSupported(
         'View engine not configured, set viewsDir in RouterOptions'
       )
     }
-    const htmlStream = viewEngine.streamRender(templatePath, data)
+    const htmlStream = await viewEngine.streamRender(templatePath, data)
     return this.send.stream(htmlStream, undefined, 'text/html; charset=utf-8')
   }
 
@@ -509,8 +528,31 @@ export class Context {
     try {
       new Headers().set(key, value)
     } catch {
-      throw Handler.createStatusError(500, `Invalid response header "${key}"`)
+      throw Core.Handler.createStatusError(500, `Invalid response header "${key}"`)
     }
+  }
+
+  /**
+   * Percent-decode route param values once.
+   * @description Decodes each value once, raw fallback on malformed input.
+   * @param params - Raw params from the router match
+   * @returns New record with each value decoded once
+   */
+  private static decodeParams(params: Types.StringRecord): Types.StringRecord {
+    const decoded: Types.StringRecord = Object.create(null)
+    for (const paramKey of Object.keys(params)) {
+      const rawValue = params[paramKey]!
+      if (rawValue.indexOf('%') === -1) {
+        decoded[paramKey] = rawValue
+        continue
+      }
+      try {
+        decoded[paramKey] = decodeURIComponent(rawValue)
+      } catch {
+        decoded[paramKey] = rawValue
+      }
+    }
+    return decoded
   }
 
   /** Throws if body already consumed */
@@ -525,13 +567,14 @@ export class Context {
     const parsedCookies = Object.create(null) as Types.StringRecord
     const cookieHeader = this.req.headers.get('cookie')
     if (cookieHeader) {
+      const trimRegex = Core.Constant.cookieTrimRegex
       for (const cookiePart of cookieHeader.split(';')) {
-        const trimmedPart = cookiePart.trim()
+        const trimmedPart = cookiePart.replace(trimRegex, '')
         const eqIndex = trimmedPart.indexOf('=')
         if (eqIndex <= 0) {
           continue
         }
-        const cookieName = trimmedPart.slice(0, eqIndex).trim()
+        const cookieName = trimmedPart.slice(0, eqIndex).replace(trimRegex, '')
         const cookieValue = trimmedPart.slice(eqIndex + 1)
         if (cookieName && !Object.hasOwn(parsedCookies, cookieName)) {
           parsedCookies[cookieName] = cookieValue
@@ -539,6 +582,21 @@ export class Context {
       }
     }
     this.cookieMap = parsedCookies
+  }
+
+  /**
+   * Parse Content-Type to canonical media type.
+   * @description Lowercases type, drops parameters after first semicolon.
+   * @param contentType - Raw Content-Type header value or null
+   * @returns Lowercased media type, empty string when absent
+   */
+  private static parseMediaType(contentType: string | null): string {
+    if (!contentType) {
+      return ''
+    }
+    const semicolonIndex = contentType.indexOf(';')
+    const typePart = semicolonIndex === -1 ? contentType : contentType.slice(0, semicolonIndex)
+    return typePart.trim().toLowerCase()
   }
 
   /**
@@ -568,6 +626,6 @@ export class Context {
         return parseError as Types.StatusError
       }
     }
-    return Handler.createStatusError(400, 'Malformed or unreadable request body')
+    return Core.Handler.createStatusError(400, 'Malformed or unreadable request body')
   }
 }
