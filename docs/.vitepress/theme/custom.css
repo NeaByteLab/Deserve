@@ -60,3 +60,45 @@ html:not(.dark) .twoslash-floating span[style*='--shiki'] {
   height: 28px;
   color: var(--vp-c-brand-1);
 }
+
+.vp-doc img[src*='/diagrams/'] {
+  border-radius: 12px;
+  cursor: zoom-in;
+}
+
+.diagram-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4vmin;
+  background: rgba(8, 10, 14, 0.82);
+  backdrop-filter: blur(4px);
+  cursor: zoom-out;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 0.18s ease,
+    visibility 0s linear 0.18s;
+}
+.diagram-lightbox.is-open {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition: opacity 0.18s ease;
+}
+.diagram-lightbox img {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 12px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+  transform: scale(0.98);
+  transition: transform 0.18s ease;
+  cursor: zoom-out;
+}
+.diagram-lightbox.is-open img {
+  transform: scale(1);
+}

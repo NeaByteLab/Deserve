@@ -5,6 +5,7 @@ import '@shikijs/vitepress-twoslash/style.css'
 import 'virtual:group-icons.css'
 import './custom.css'
 import { syncPackageTabs } from './synced-tabs'
+import { setupDiagramLightbox } from './diagram-lightbox'
 
 export default {
   extends: DefaultTheme,
@@ -12,6 +13,7 @@ export default {
     const parentSetup = (DefaultTheme as { setup?: () => void }).setup
     parentSetup?.()
     syncPackageTabs()
+    setupDiagramLightbox()
   },
   enhanceApp({ app }: EnhanceAppContext) {
     app.use(TwoslashFloatingVue)
