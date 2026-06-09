@@ -18,8 +18,11 @@
   "author": "NeaByteLab",
   "license": "MIT",
   "devDependencies": {
+    "@shikijs/vitepress-twoslash": "^3.23.0",
+    "mermaid": "^11.12.1",
     "vitepress": "^1.6.4",
-    "vitepress-plugin-mermaid": "^2.0.17",
-    "mermaid": "^11.12.1"
+    "vitepress-plugin-group-icons": "^1.7.5",
+    "vitepress-plugin-llms": "^1.13.1",
+    "vitepress-plugin-mermaid": "^2.0.17"
   }
 }
