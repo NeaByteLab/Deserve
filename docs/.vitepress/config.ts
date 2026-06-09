@@ -239,6 +239,14 @@ export default withMermaid(
                   { text: 'Server-Timing', link: '/by-design/server-timing' },
                   { text: 'Distributed Tracing', link: '/by-design/tracing' }
                 ]
+              },
+              {
+                text: 'Recipes',
+                collapsed: true,
+                items: [
+                  { text: 'File Uploads', link: '/recipes/file-upload' },
+                  { text: 'Streaming Data', link: '/recipes/streaming-data' }
+                ]
               }
             ]
           },
@@ -417,6 +425,14 @@ export default withMermaid(
                   { text: 'Locale Redirect', link: '/id/by-design/locale-redirect' },
                   { text: 'Server-Timing', link: '/id/by-design/server-timing' },
                   { text: 'Distributed Tracing', link: '/id/by-design/tracing' }
+                ]
+              },
+              {
+                text: 'Resep',
+                collapsed: true,
+                items: [
+                  { text: 'Upload File', link: '/id/recipes/file-upload' },
+                  { text: 'Streaming Data', link: '/id/recipes/streaming-data' }
                 ]
               }
             ]
