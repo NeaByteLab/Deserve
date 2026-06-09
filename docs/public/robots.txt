@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://docs-deserve.neabyte.com/sitemap.xml
+
+# LLM-friendly documentation
+# https://docs-deserve.neabyte.com/llms.txt
+# https://docs-deserve.neabyte.com/llms-full.txt
