@@ -6,6 +6,10 @@ description: "Scope middleware to a path prefix so it runs only for matching rou
 
 Route-specific middleware applies to specific route patterns, allowing targeted functionality like authentication for API routes or logging for admin routes.
 
+Matching is boundary-aware: `router.use('/api', fn)` runs for `/api` and `/api/users`, but not for `/apiv2`, because the pathname must equal the prefix or continue with a `/`.
+
+![Route-Specific prefix matching: router.use('/api', fn) matches /api exactly and /api/users on a boundary slash, but skips /apiv2 and /admin because they are not boundary matches of the prefix](/diagrams/middleware-route-matching.png)
+
 ## Basic Usage
 
 Apply middleware to specific route patterns using the `use()` method with a route path:
@@ -178,6 +182,8 @@ router.use('/api/users/admin', async (ctx, next) => {
 ## Middleware Execution Order
 
 Middleware runs in the order it is added:
+
+![Route-Specific execution for GET /api/users in one chain: the global logger runs, the /api auth runs on a prefix match, the /admin guard is skipped because it does not match without consuming a turn, the /api/users logger runs, then the route handler executes, all in registration order](/diagrams/middleware-route-chain.png)
 
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'

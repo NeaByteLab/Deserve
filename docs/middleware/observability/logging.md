@@ -6,6 +6,8 @@ description: "Turn Deserve request events into structured request logs."
 
 A single [`router.on()`](/middleware/observability/overview) subscription turns every finished request into a structured access log, with no logging code inside handlers.
 
+![Every finished request emits request:complete with OpenTelemetry-aligned metrics, and a request with status 400 or higher also emits request:error carrying the original error, so one router.on listener fans the same envelope into an access log line, a slow request warning filtered by duration, and an error report](/diagrams/obs-request-lifecycle.png)
+
 ## Basic Access Log
 
 Listen for `request:complete` and print one line per request:

@@ -6,6 +6,10 @@ description: "Daftarkan middleware global yang berjalan untuk setiap request den
 
 Middleware global dieksekusi untuk setiap request sebelum route handler, menyediakan fungsionalitas lintas-potong seperti autentikasi, logging, dan CORS.
 
+Setiap pemanggilan `router.use(fn)` menambahkan entry dengan path kosong, jadi cocok untuk setiap request dan berjalan persis dalam urutan pendaftarannya, sebelum route matching terjadi.
+
+![Pendaftaran dan posisi Global Middleware: tiap router.use(fn) menambahkan entry path-kosong yang cocok untuk setiap request dan berjalan sebelum route matching, dalam urutan pendaftaran](/diagrams/middleware-global-registration.png)
+
 ## Penggunaan Dasar
 
 Tambahkan middleware global memakai method `use()`:

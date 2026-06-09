@@ -6,6 +6,8 @@ description: "Reference of all lifecycle and error events emitted by a serving D
 
 Every event from [`router.on()`](/middleware/observability/overview) carries a `kind` discriminant and a `metadata` object. This page lists each kind and the fields it provides.
 
+![A request event is external by default but becomes internal when a timeout, a framework error, or a missing context produced it, while every non-request kind is always internal, so routing on the type field keeps normal client traffic out of the fault alert channel](/diagrams/obs-event-channel.png)
+
 ## Server
 
 | Kind                | Metadata                  |

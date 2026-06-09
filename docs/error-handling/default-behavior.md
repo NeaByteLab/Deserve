@@ -6,15 +6,7 @@ description: "How Deserve handles uncaught errors by default and the responses i
 
 This error handling mechanism catches every error that occurs during server runtime, which covers route handler errors, middleware failures, route not found scenarios, static file errors, and any other uncaught exception during request processing. Without a custom error handler set through `router.catch()`, Deserve falls back to this default behavior so the server never crashes from unhandled errors.
 
-```mermaid
-flowchart LR
-    A[Error Occurs] --> B{router.catch defined?}
-    B -->|No| C[Default Handler]
-    B -->|Yes| D[Custom Handler]
-    C --> E[JSON or HTML by Accept]
-    D --> F
-    E --> F[Return Response]
-```
+![When an error occurs, the request routes to a custom handler if router.catch is defined, otherwise to the default handler that returns JSON or HTML by Accept, then a single response](/diagrams/default-error-behavior.png)
 
 ## Basic Default Behavior
 

@@ -8,6 +8,8 @@ Deserve emits lifecycle and error events through a built-in event bus. A single 
 
 This middleware-style hook sits beside the router and watches everything that happens, from server startup to each finished request.
 
+![Server, route, view, request, and process signals all funnel into a single event bus that fans every event to one router.on listener, where you filter by event kind, and the emit is a no-op while no listener is registered](/diagrams/obs-single-bus.png)
+
 ## Subscribing to Events
 
 `router.on()` registers a listener and returns an unsubscribe function:

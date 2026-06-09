@@ -35,6 +35,8 @@ await router.serve(8000)
 
 `process:error` menyala untuk unhandled rejection, uncaught error, dan upaya terminasi yang diblokir. Router yang sedang melayani tetap berjalan dan melaporkan kesalahan alih-alih crash:
 
+![Unhandled rejection, uncaught error, dan terminasi diri yang diblokir masing-masing jadi event process:error yang membawa origin dan error-nya, jadi proses tetap berjalan tanpa downtime dan kesalahan tertangkap di listener router.on yang sama alih-alih hilang karena crash](/diagrams/obs-process-fault.png)
+
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
@@ -57,6 +59,8 @@ Dua hook menutup tugas berbeda:
 - `router.on()` mencatat apa yang terjadi untuk log dan metrik.
 
 Pakai `catch` untuk mengontrol balasan, dan `on` untuk mengamatinya. Pengaturan umum memasang keduanya:
+
+![Satu request gagal menyebar ke dua hook independen, di mana router.catch membentuk Response yang diterima klien dengan status dan body terkontrol, dan router.on mencatat kegagalan yang sama ke log dan metrik tanpa memengaruhi balasan](/diagrams/obs-catch-vs-on.png)
 
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'

@@ -6,13 +6,7 @@ description: "Layered error handling in Deserve to keep services available under
 
 Errors in Deserve pass through several layers, and each layer is a chance to catch, shape, or record a failure. When one layer lets an error through, the next one still holds, so the server keeps responding and never crashes.
 
-```mermaid
-flowchart TB
-    A[Route Handler try/catch] --> B[WrapMware labeled catch]
-    B --> C[router.catch custom handler]
-    C --> D[Default handler, masked message]
-    D --> E[Process Guard, never crashes]
-```
+![Five layered error defenses: route handler try/catch, WrapMware labeled catch, router.catch custom handler, default handler with masked message, and the process guard that never crashes](/diagrams/defense-in-depth.png)
 
 ## Layer 1 - Route Handler
 

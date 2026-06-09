@@ -6,6 +6,8 @@ description: "Ubah event request Deserve menjadi log request terstruktur."
 
 Satu langganan [`router.on()`](/id/middleware/observability/overview) mengubah setiap request yang selesai menjadi access log terstruktur, tanpa kode logging di dalam handler.
 
+![Setiap request yang selesai memancarkan request:complete dengan metrik selaras OpenTelemetry, dan request dengan status 400 atau lebih juga memancarkan request:error yang membawa error asli, jadi satu listener router.on menyebarkan amplop yang sama ke satu baris access log, peringatan request lambat yang disaring berdasarkan durasi, dan laporan error](/diagrams/obs-request-lifecycle.png)
+
 ## Access Log Dasar
 
 Dengarkan `request:complete` dan cetak satu baris per request:

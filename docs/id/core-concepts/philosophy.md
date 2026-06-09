@@ -16,6 +16,10 @@ Deno memberi runtime native yang kaya, tapi kaya bisa diam-diam berubah jadi ber
 
 Empat keyakinan ini membentuk setiap keputusan di framework, dan masing-masing terhubung ke fitur yang bisa dipakai hari ini.
 
+![Masing-masing dari empat keyakinan inti memetakan ke fitur konkret yang bisa dipakai hari ini, di mana lebih sedikit bagian bergerak menuju zero dependency, struktur adalah API menuju file-based routing, bangun di atas platform menuju HTTP dan stream native, dan pengalaman yang ikut tumbuh menuju dibangun untuk tim](/diagrams/philosophy-beliefs-to-features.png)
+
+![Pandangan abstrak bagaimana keyakinan berpikir sebagai satu pikiran, di mana satu ide akar tetap sekecil masalah memberi makan keempat keyakinan, keyakinan saling menguatkan menyusuri rantai, dan bersama mereka menyatu pada kesimpulan bahwa sederhana itu aman sebab makin sedikit kode berarti makin sedikit yang bisa salah](/diagrams/philosophy-principle-web.png)
+
 ### Lebih Sedikit Bagian Bergerak
 
 Pohon dependensi terkecil adalah yang tidak bisa rusak. Deno sudah membawa penanganan request, pemantauan file, dan primitif keamanan, jadi bersandar pada runtime lebih baik daripada menarik paket lain. Karena itu Deserve berjalan dengan [zero npm dependencies](/id/core-concepts/zero-dependency), menjaga permukaannya cukup kecil untuk benar-benar dipercaya.

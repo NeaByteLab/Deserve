@@ -25,6 +25,8 @@ routes/
 
 Tidak ada registry untuk dicek silang, tidak ada decorator untuk dilacak. Path di disk adalah path di jaringan, dibahas di [File-based Routing](/id/core-concepts/file-based-routing).
 
+![Folder adalah peta: createPattern mengubah tiap path berkas langsung menjadi pola URL, jadi routes/index.ts menjadi GET /, routes/users/index.ts menjadi GET /users, routes/users/[id].ts menjadi GET /users/:id, dan berkas berawalan underscore dilewati sebagai privat](/diagrams/team-folder-map.png)
+
 ## Junior Merilis di Hari Pertama
 
 Menambah endpoint berarti menambah berkas. Developer junior yang butuh rute `GET /products` membuat `routes/products/index.ts` dan mengekspor sebuah handler:
@@ -42,6 +44,8 @@ export function GET(ctx: Context): Response {
 ```
 
 Rute langsung aktif pada simpan berikutnya lewat [Hot Reload](/id/core-concepts/hot-reload), tanpa restart dan tanpa mengedit berkas config bersama yang bisa memicu konflik merge.
+
+![Junior merilis di hari pertama: membuat routes/products/index.ts memicu event file-created dari watcher, modulnya diimpor dan handler GET-nya didaftarkan, lalu rute menjawab GET /products pada request berikutnya, tanpa restart dan tanpa edit config bersama sehingga tidak ada konflik merge](/diagrams/team-junior-ships.png)
 
 ## Handler yang Dapat Ditebak
 
@@ -97,6 +101,8 @@ await router.serve(8000)
 
 Handler tetap fokus pada tugasnya sendiri, sementara perilaku bersama diterapkan sekali. Set lengkap blok penyusunnya ada di [Global Middleware](/id/middleware/global), dan error mengalir ke satu tempat lewat [penanganan error](/id/error-handling/object-details).
 
+![Aturan bersama di satu tempat: securityHeaders() yang didaftarkan dengan router.use(fn) menjangkau setiap rute, sedangkan basicAuth() yang didaftarkan dengan router.use('/admin', fn) hanya menjangkau /admin/*, jadi satu developer bisa memegang auth dan yang lain memegang logging tanpa menyentuh berkas rute satu sama lain](/diagrams/team-shared-rules.png)
+
 ## Banyak Tangan, Satu Proses
 
 Tim yang lebih besar sering memecah aplikasi menjadi beberapa service. Deserve menjalankan beberapa router dalam satu proses, jadi satu orang bisa mengerjakan API sementara yang lain mengerjakan auth tanpa deployment terpisah atau lem jaringan di antara keduanya:
@@ -116,6 +122,8 @@ await Promise.all([
 ```
 
 Tiap service punya folder, port, dan file watcher sendiri, jadi tim bergerak paralel tanpa saling mengganggu. Pola lengkapnya, termasuk kode bersama dan error handler bersama, ada di [Multi-Service](/id/core-concepts/multi-service).
+
+![Banyak tangan, satu proses: satu proses Deno menjalankan router API milik dev A di port 3001 dan router Auth milik dev B di port 3002, masing-masing dengan routesDir dan file watcher sendiri, jadi kedua developer bekerja paralel tanpa deployment terpisah atau lem jaringan](/diagrams/team-many-hands.png)
 
 ## Langkah Berikutnya
 

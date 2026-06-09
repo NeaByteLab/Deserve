@@ -8,6 +8,8 @@ Deserve memancarkan event siklus hidup dan error melalui event bus bawaan. Satu 
 
 Hook bergaya middleware ini duduk di samping router dan mengawasi semua yang terjadi, dari startup server sampai setiap request yang selesai.
 
+![Sinyal server, rute, view, request, dan proses semua menyatu ke satu event bus yang menyebarkan tiap event ke satu listener router.on, tempat kamu menyaring berdasarkan kind event, dan emit jadi no-op selama belum ada listener terdaftar](/diagrams/obs-single-bus.png)
+
 ## Berlangganan Event
 
 `router.on()` mendaftarkan listener dan mengembalikan fungsi berhenti berlangganan:

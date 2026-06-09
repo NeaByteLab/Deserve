@@ -6,6 +6,10 @@ description: "Register global middleware that runs for every request with router
 
 Global middleware executes for every request before route handlers, providing cross-cutting functionality like authentication, logging, and CORS.
 
+Each `router.use(fn)` call appends an entry with an empty path, so it matches every request and runs in the exact order you registered it, before any route matching happens.
+
+![Global Middleware registration and position: each router.use(fn) appends a path-empty entry that matches every request and runs before route matching, in registration order](/diagrams/middleware-global-registration.png)
+
 ## Basic Usage
 
 Add global middleware using the `use()` method:
@@ -38,6 +42,8 @@ type MiddlewareFn = (
 - **Return `undefined`** - treated as pass-through so the chain continues as if `next()` were called.
 
 Middleware must either call `next()` and use its result or return a `Response`. When it does neither, for example never calling `next()` and returning nothing, the request can hang, so `requestTimeoutMs` in `Router` caps the request duration and returns a 503 instead.
+
+![Global Middleware per-request control flow: return await next() continues the chain, returning a Response stops and skips the handler, returning undefined is pass-through; throwing routes to router.catch or 500, and stalling triggers the requestTimeoutMs 503 guard](/diagrams/middleware-global-flow.png)
 
 ## Common Global Middleware Patterns
 

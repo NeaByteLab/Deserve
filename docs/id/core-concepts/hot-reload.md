@@ -48,6 +48,8 @@ Semua berkas `.dve` di dalam `viewsDir` dipantau secara rekursif, jadi suntingan
 
 Berkas buruk ditangkap, dicatat, dan tidak pernah membuat server atau rute lain crash. Tiap kegagalan juga muncul sebagai event observability [`route:error` atau `reload:error`](/id/middleware/observability/events#rute), jadi logging tinggal di satu tempat.
 
+![Pandangan abstrak kenapa reload tetap aman, di mana menerapkan perubahan berkas secara live bertumpu pada tiga mekanisme yang berpegangan bersama, mengisolasi tiap berkas dengan try catch agar yang buruk tak pernah membuat yang lain crash, membuang cache modul dengan query timestamp agar kode basi tak pernah mengontaminasi yang baru, dan memuat ulang secara berurutan dengan menghapus lalu mendaftar setelah debounce, yang bersama menghadirkan edit live tanpa downtime, tanpa crash, dan tanpa kontaminasi](/diagrams/hot-reload-principles.png)
+
 ### Sintaks Salah Bentuk
 
 Sintaks tidak valid menggagalkan impor dan mencatat error. Rute lain tetap tak terpengaruh:
@@ -82,6 +84,8 @@ Beberapa perubahan berkas dalam jendela debounce digabung jadi satu operasi, men
 ## Cara Kerja
 
 ### Memuat Ulang Rute
+
+![Urutan reload rute sebagaimana watcher menjalankannya, di mana Deno.watchFs mendeteksi perubahan lalu mendebounce 150ms, FastRouter.remove melepas pola lama, modul diimpor ulang dengan query timestamp untuk melewati cache, lalu divalidasi punya metode HTTP dan handler-nya didaftarkan sambil memancarkan route:reloaded, dan kegagalan apa pun di langkah itu malah memancarkan reload:error sehingga server tetap hidup dan rute lain tak terpengaruh](/diagrams/hot-reload-route-sequence.png)
 
 1. `Deno.watchFs` mendeteksi perubahan di `routesDir`
 2. Setelah jendela debounce, watcher meresolusi path berkas ke pola rute

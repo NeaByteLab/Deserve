@@ -16,6 +16,10 @@ Deno gives you a rich native runtime, yet rich can quietly turn into heavy. Conf
 
 These four beliefs shape every decision in the framework, and each one connects to a feature you can reach today.
 
+![Each of the four core beliefs maps to a concrete feature you can reach today, where fewer moving parts leads to zero dependency, structure is the API leads to file-based routing, build on the platform leads to native HTTP and streams, and experience that scales leads to built for teams](/diagrams/philosophy-beliefs-to-features.png)
+
+![An abstract view of how the beliefs think as one mind, where a single root idea of staying as small as the problem feeds all four beliefs, the beliefs reinforce one another down the chain, and together they converge on the conclusion that simple is safe because less code means less that can go wrong](/diagrams/philosophy-principle-web.png)
+
 ### Fewer Moving Parts
 
 The smallest dependency tree is the one that cannot break. Deno already ships request handling, file watching, and security primitives, so leaning on the runtime beats pulling another package. That is why Deserve runs with [zero npm dependencies](/core-concepts/zero-dependency), keeping the surface small enough to actually trust.

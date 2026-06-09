@@ -10,6 +10,8 @@ Sajikan file statis dari beberapa direktori dengan konfigurasi berbeda per path.
 
 Konfigurasi beberapa direktori static:
 
+![Tiga panggilan static masing-masing mengikat satu prefix url ke foldernya sendiri dengan kebijakan cache sendiri, di mana garis miring admin menyajikan folder admin garis miring dist dengan etag aktif dan cache satu hari, garis miring uploads menyajikan folder uploads dengan etag nonaktif dan tanpa cache, dan garis miring docs menyajikan folder docs garis miring build dengan etag aktif dan cache satu jam](/diagrams/static-multiple-dirs.png)
+
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
@@ -36,6 +38,8 @@ await router.serve(8000)
 ```
 
 ## Pola Umum
+
+![Satu request memilih prefix static yang diawalinya, jadi GET garis miring uploads garis miring img garis miring a titik png cocok dengan pola garis miring uploads, prefiksnya dipotong, dan disajikan dari folder uploads dengan etag nonaktif dan tanpa cache, sementara tail yang sama pada GET garis miring docs garis miring img garis miring a titik png malah cocok dengan pola garis miring docs dan disajikan dari docs garis miring build dengan etag aktif dan cache satu jam, membuktikan prefix yang cocok menentukan folder sekaligus kebijakan cache](/diagrams/static-prefix-dispatch.png)
 
 ### Website + Panel Admin
 

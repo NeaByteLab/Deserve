@@ -8,19 +8,7 @@ Deserve runs multiple servers from a single Deno process. Each `Router` is a sta
 
 Traditionally, running 5 services means 5 processes, 5 deployments, and 5 copies of the shared code. With Deserve, one `main.ts` spawns as many routers as memory can hold, and each one listens on its own port and watches its own directory while a fault in one is contained instead of taking down the rest.
 
-```mermaid
-graph TB
-  subgraph Process["Deno Process (main.ts)"]
-    direction TB
-    API["Router :3001 - API"]
-    Auth["Router :3002 - Auth"]
-    Web["Router :3003 - Web"]
-  end
-
-  Client1["Client A"] -->|":3001"| API
-  Client2["Client B"] -->|":3002"| Auth
-  Client3["Client C"] -->|":3003"| Web
-```
+![One Deno process running an API, Auth, and Web router, each on its own port with a client connecting to each](/diagrams/process-overview.png)
 
 ## Basic Setup
 
@@ -53,27 +41,7 @@ Every `Router` runs in request-level isolation. Each one owns its own radix-tree
 
 Faults are contained at two levels. A throw inside one handler becomes an error response for that one request, so the rest of that service and every other service keep serving. A deeper fault that escapes a handler, like an unhandled rejection or an attempt to exit the process, is trapped process-wide by [process protection](/getting-started/server-configuration#process-protection) and surfaced as an event rather than a shutdown, so no service goes down.
 
-```mermaid
-graph LR
-  subgraph API["API :3001"]
-    A1["FastRouter"]
-    A2["Middleware"]
-    A3["Watcher"]
-  end
-
-  subgraph Auth["Auth :3002"]
-    B1["FastRouter"]
-    B2["Middleware"]
-    B3["Watcher"]
-  end
-
-  subgraph Web["Web :3003"]
-    C1["FastRouter"]
-    C2["Middleware"]
-    C3["Watcher"]
-    C4["DVE Engine"]
-  end
-```
+![Each router keeps its own FastRouter, middleware, and watcher in isolation, with the Web router also holding a DVE engine](/diagrams/router-isolation.png)
 
 If a route in API throws, only that request gets a 500. Auth and Web, and every other API request, keep serving normally.
 
@@ -119,29 +87,7 @@ project/
 
 Sharing one process is where the multi-service model pays off. Instead of Redis, HTTP calls, or a message broker, the services share state through plain objects in memory at the speed of a function call.
 
-```mermaid
-graph TB
-  subgraph Process["Deno Process"]
-    Shared["shared/"]
-    Sessions["Session Store"]
-    Bus["Event Bus"]
-    Cache["Cache"]
-
-    API["API :3001"] -->|"import"| Shared
-    Auth["Auth :3002"] -->|"import"| Shared
-    Web["Web :3003"] -->|"import"| Shared
-
-    API -->|"read/write"| Sessions
-    Auth -->|"read/write"| Sessions
-
-    API -->|"emit"| Bus
-    Auth -->|"listen"| Bus
-    Web -->|"listen"| Bus
-
-    API -->|"write"| Cache
-    Web -->|"read"| Cache
-  end
-```
+![Services importing shared modules and communicating through an in-process session store, event bus, and cache](/diagrams/shared-code-state.png)
 
 ### Shared Modules
 
@@ -219,12 +165,7 @@ export function GET(ctx: Context): Response {
 
 When API creates a user, Auth and Web can know about it instantly, with no message queue and no polling, just a direct function call across services. This bus carries application facts like `user:created`. For framework activity such as requests, routes, and faults, use the built-in [observability events](/middleware/observability/overview) instead.
 
-```mermaid
-graph LR
-  API["API :3001"] -->|"emit 'user:created'"| Bus["EventBus"]
-  Bus -->|"notify"| Auth["Auth :3002"]
-  Bus -->|"notify"| Web["Web :3003"]
-```
+![The API service emits an event to the EventBus, which notifies the Auth and Web services](/diagrams/event-bus.png)
 
 ```typescript twoslash
 // shared/bus.ts
@@ -314,23 +255,7 @@ Each router has its own middleware stack, so services configure independently wi
 
 One service can have CORS and body limits, another can have security headers, and a third can run with no middleware at all:
 
-```mermaid
-graph LR
-  subgraph API[":3001 API"]
-    direction LR
-    A1["CORS"] --> A2["BodyLimit"] --> A3["Routes"]
-  end
-
-  subgraph Auth[":3002 Auth"]
-    direction LR
-    B1["SecHeaders"] --> B2["Routes"]
-  end
-
-  subgraph Web[":3003 Web"]
-    direction LR
-    C1["Routes + DVE"]
-  end
-```
+![Each service composes its own middleware chain before its routes: API runs CORS then BodyLimit, Auth runs SecHeaders, Web runs routes with DVE](/diagrams/per-service-middleware.png)
 
 ```typescript twoslash
 import { Mware, Router } from '@neabyte/deserve'
@@ -476,18 +401,7 @@ When `apiAuth` throws, the log reads `[API] GET /users 500 - APIAuth - Missing A
 
 Since every request already flows through shared middleware, plugging in OpenTelemetry follows the same pattern. One OTel middleware applies to every service, so all spans from all ports go to one collector, which gives distributed tracing, latency dashboards, and error rate metrics across the entire system without instrumenting each service separately:
 
-```mermaid
-graph LR
-  subgraph Process["Deno Process"]
-    OTel["OTel Middleware"]
-    API[":3001"] --> OTel
-    Auth[":3002"] --> OTel
-    Web[":3003"] --> OTel
-  end
-
-  OTel -->|"export"| Collector["OTel Collector"]
-  Collector --> Jaeger["Jaeger / Grafana / Datadog"]
-```
+![A single OTel middleware collects spans from every service and exports them to an OTel Collector, then on to Jaeger, Grafana, or Datadog](/diagrams/observability.png)
 
 ```typescript twoslash
 // shared/otel.ts
@@ -549,13 +463,7 @@ CMD ["deno", "run", "-A", "main.ts"]
 
 Put Nginx or Caddy in front to route by domain to each service port:
 
-```mermaid
-graph LR
-  Client["Client"] --> Proxy["Nginx / Caddy"]
-  Proxy -->|"api.example.com"| API[":3001"]
-  Proxy -->|"auth.example.com"| Auth[":3002"]
-  Proxy -->|"example.com"| Web[":3003"]
-```
+![A reverse proxy such as Nginx or Caddy maps each hostname to a per-service port: api.example.com to 3001, auth.example.com to 3002, and example.com to 3003](/diagrams/reverse-proxy.png)
 
 ```nginx
 # API service
@@ -581,22 +489,7 @@ server {
 
 When a service outgrows the monolith, it extracts into its own process. Copy the folder, add a `main.ts`, and deploy independently. The route files do not change, since the `Router` API is the same whether one service runs or ten:
 
-```mermaid
-graph LR
-  subgraph Before["Single Process"]
-    A1["API"]
-    A2["Auth"]
-    A3["Web"]
-  end
-
-  subgraph After["Separate Processes"]
-    B1["API Process"]
-    B2["Auth Process"]
-    B3["Web Process"]
-  end
-
-  Before -->|"extract"| After
-```
+![Extracting services from a single process into separate API, Auth, and Web processes](/diagrams/scaling-out.png)
 
 - Copy `services/api/` to a new repository
 - Add its own `main.ts` with a single `Router`

@@ -25,6 +25,8 @@ routes/
 
 No registry to cross-check, no decorators to trace. The path on disk is the path on the wire, covered in [File-based Routing](/core-concepts/file-based-routing).
 
+![The folder is the map: createPattern turns each file path directly into a URL pattern, so routes/index.ts becomes GET /, routes/users/index.ts becomes GET /users, routes/users/[id].ts becomes GET /users/:id, and files prefixed with an underscore are skipped as private](/diagrams/team-folder-map.png)
+
 ## A Junior Ships on Day One
 
 Adding an endpoint means adding a file. A junior developer who needs a `GET /products` route creates `routes/products/index.ts` and exports a handler:
@@ -42,6 +44,8 @@ export function GET(ctx: Context): Response {
 ```
 
 The route is live on the next save through [Hot Reload](/core-concepts/hot-reload), with no restart and no edit to a shared config file that might cause a merge conflict.
+
+![A junior ships on day one: creating routes/products/index.ts triggers the watcher's file-created event, the module is imported and its GET handler registered, and the route answers GET /products on the next request, with no restart and no shared config edit so there is no merge conflict](/diagrams/team-junior-ships.png)
 
 ## Predictable Handlers
 
@@ -97,6 +101,8 @@ await router.serve(8000)
 
 Handlers stay focused on their own job, while shared behavior is applied once. The full set of building blocks is in [Global Middleware](/middleware/global), and errors flow to one place through [error handling](/error-handling/object-details).
 
+![Shared rules in one place: securityHeaders() registered with router.use(fn) reaches every route, while basicAuth() registered with router.use('/admin', fn) reaches only /admin/*, so one developer can own auth and another own logging without touching each other's route files](/diagrams/team-shared-rules.png)
+
 ## Many Hands, One Process
 
 Larger teams often split an app into services. Deserve runs several routers in a single process, so one person can work on the API while another works on auth without separate deployments or network glue between them:
@@ -116,6 +122,8 @@ await Promise.all([
 ```
 
 Each service has its own folder, port, and file watcher, so teams move in parallel without stepping on each other. The full pattern, including shared code and a shared error handler, is in [Multi-Service](/core-concepts/multi-service).
+
+![Many hands, one process: a single Deno process runs an API router owned by dev A on port 3001 and an Auth router owned by dev B on port 3002, each with its own routesDir and file watcher, so the two developers work in parallel without separate deployments or network glue](/diagrams/team-many-hands.png)
 
 ## Where to Go Next
 

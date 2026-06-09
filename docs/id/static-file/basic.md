@@ -10,6 +10,8 @@ Sajikan file statis (HTML, CSS, JS, images) menggunakan method `static()`.
 
 Sajikan file statis dari direktori:
 
+![Memanggil router.static dengan prefix garis miring static dan path titik garis miring public mendaftarkan pola garis miring static garis miring bintang bintang, lalu tiap request prefix garis miring static-nya dipotong dari ctx.pathname dan sisanya digabung di bawah public, jadi garis miring static memetakan ke public garis miring index titik html, garis miring static garis miring css garis miring style titik css memetakan ke public garis miring css garis miring style titik css, dan segmen apa pun yang diawali titik atau titik titik atau path yang lolos dari base ditolak dengan 404 sebelum pembacaan apa pun](/diagrams/static-url-to-file.png)
+
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
@@ -30,6 +32,7 @@ Ini menyajikan file dari direktori `public/` di path URL `/static`:
 - `GET /static/index.html` → menyajikan `public/index.html`
 - `GET /static/css/style.css` → menyajikan `public/css/style.css`
 - `GET /static/js/app.js` → menyajikan `public/js/app.js`
+
 
 ## Cara Kerja
 

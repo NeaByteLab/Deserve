@@ -6,13 +6,7 @@ description: "Penanganan error berlapis di Deserve untuk menjaga service tetap t
 
 Error di Deserve melewati beberapa lapisan, dan tiap lapisan adalah kesempatan untuk menangkap, membentuk, atau mencatat kegagalan. Ketika satu lapisan meloloskan error, lapisan berikutnya tetap menahan, jadi server terus merespons dan tidak pernah crash.
 
-```mermaid
-flowchart TB
-    A[Route Handler try/catch] --> B[WrapMware labeled catch]
-    B --> C[router.catch custom handler]
-    C --> D[Default handler, masked message]
-    D --> E[Process Guard, never crashes]
-```
+![Lima lapis pertahanan error: try/catch route handler, WrapMware labeled catch, custom handler router.catch, default handler dengan pesan tersamar, dan process guard yang tidak pernah crash](/diagrams/defense-in-depth.png)
 
 ## Lapis 1 - Route Handler
 

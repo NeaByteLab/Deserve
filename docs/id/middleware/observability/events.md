@@ -6,6 +6,8 @@ description: "Referensi semua event siklus hidup dan error yang dipancarkan rout
 
 Setiap event dari [`router.on()`](/id/middleware/observability/overview) membawa diskriminan `kind` dan objek `metadata`. Halaman ini mendaftar setiap jenis dan field yang disediakannya.
 
+![Event request bernilai external secara default tapi jadi internal ketika timeout, error framework, atau context yang hilang yang memicunya, sementara setiap kind non-request selalu internal, jadi merutekan berdasarkan field type menjaga lalu lintas klien normal tetap di luar kanal alert kesalahan](/diagrams/obs-event-channel.png)
+
 ## Server
 
 | Kind                | Metadata                  |

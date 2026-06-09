@@ -35,6 +35,8 @@ await router.serve(8000)
 
 `process:error` fires for unhandled rejections, uncaught errors, and blocked termination attempts. A serving router keeps running and reports the fault instead of crashing:
 
+![Unhandled rejections, uncaught errors, and blocked self-termination each become a process:error event carrying its origin and error, so the process keeps running with no downtime and the fault is captured in the same router.on listener instead of being lost to a crash](/diagrams/obs-process-fault.png)
+
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
@@ -57,6 +59,8 @@ Two hooks cover different jobs:
 - `router.on()` records what happened for logs and metrics.
 
 Use `catch` to control the reply, and `on` to observe it. A typical setup wires both:
+
+![One failed request fans out to two independent hooks, where router.catch shapes the Response the client receives with a controlled status and body, and router.on records the same failure into logs and metrics without affecting the reply](/diagrams/obs-catch-vs-on.png)
 
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'

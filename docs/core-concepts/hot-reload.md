@@ -48,6 +48,8 @@ All `.dve` files inside `viewsDir` are watched recursively, so [template](/rende
 
 Bad files are caught, logged, and never crash the server or other routes. Each failure also surfaces as a [`route:error` or `reload:error`](/middleware/observability/events#routes) observability event, so logging stays in one place.
 
+![An abstract view of why reloading stays safe, where applying a file change live rests on three mechanisms that hold together, isolating each file with a try catch so a bad one never crashes the others, busting the module cache with a timestamp query so stale code never contaminates the new, and reloading in sequence by removing then registering after a debounce, which together deliver live edits with no downtime, no crash, and no contamination](/diagrams/hot-reload-principles.png)
+
 ### Malformed Syntax
 
 Invalid syntax fails the import and logs the error. Other routes stay unaffected:
@@ -82,6 +84,8 @@ Multiple file changes within the debounce window are batched into a single opera
 ## How It Works
 
 ### Route Reloading
+
+![The route reload sequence as the watcher runs it, where Deno.watchFs detects a change and debounces for 150ms, FastRouter.remove drops the old pattern, the module is re-imported with a timestamp query to bypass the cache, then it is validated for an HTTP method and its handlers register while emitting route:reloaded, and any failure in that step instead emits reload:error so the server stays alive and other routes are unaffected](/diagrams/hot-reload-route-sequence.png)
 
 1. `Deno.watchFs` detects a change in `routesDir`
 2. After the debounce window, the watcher resolves the file path to a route pattern

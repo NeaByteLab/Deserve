@@ -8,19 +8,7 @@ Deserve menjalankan beberapa server dari satu proses Deno. Setiap `Router` adala
 
 Secara tradisional, menjalankan 5 service berarti 5 proses, 5 deployment, dan 5 salinan kode bersama. Dengan Deserve, satu `main.ts` menjalankan sebanyak router yang muat di memori, dan masing-masing listen di port sendiri serta memantau direktorinya sendiri, sementara kesalahan di satu tetap terkurung alih-alih menjatuhkan sisanya.
 
-```mermaid
-graph TB
-  subgraph Process["Deno Process (main.ts)"]
-    direction TB
-    API["Router :3001 - API"]
-    Auth["Router :3002 - Auth"]
-    Web["Router :3003 - Web"]
-  end
-
-  Client1["Client A"] -->|":3001"| API
-  Client2["Client B"] -->|":3002"| Auth
-  Client3["Client C"] -->|":3003"| Web
-```
+![Satu proses Deno menjalankan router API, Auth, dan Web, masing-masing di port sendiri dengan satu klien terhubung ke tiap port](/diagrams/process-overview.png)
 
 ## Setup Dasar
 
@@ -53,27 +41,7 @@ Setiap `Router` berjalan dalam isolasi tingkat request. Masing-masing punya radi
 
 Kesalahan terkurung di dua tingkat. Sebuah throw di dalam satu handler menjadi error response untuk satu request itu, jadi sisa service itu dan setiap service lain tetap melayani. Kesalahan yang lebih dalam yang lolos dari handler, seperti unhandled rejection atau upaya keluar dari proses, dijebak di seluruh proses oleh [proteksi proses](/id/getting-started/server-configuration#proteksi-proses) dan dimunculkan sebagai event alih-alih shutdown, jadi tidak ada service yang mati.
 
-```mermaid
-graph LR
-  subgraph API["API :3001"]
-    A1["FastRouter"]
-    A2["Middleware"]
-    A3["Watcher"]
-  end
-
-  subgraph Auth["Auth :3002"]
-    B1["FastRouter"]
-    B2["Middleware"]
-    B3["Watcher"]
-  end
-
-  subgraph Web["Web :3003"]
-    C1["FastRouter"]
-    C2["Middleware"]
-    C3["Watcher"]
-    C4["DVE Engine"]
-  end
-```
+![Setiap router punya FastRouter, middleware, dan watcher sendiri secara terisolasi, dengan router Web juga memegang DVE engine](/diagrams/router-isolation.png)
 
 Jika sebuah rute di API melempar, hanya request itu yang mendapat 500. Auth dan Web, serta setiap request API lain, tetap melayani normal.
 
@@ -119,29 +87,7 @@ project/
 
 Berbagi satu proses adalah tempat model multi-service membayar. Alih-alih Redis, HTTP call, atau message broker, service berbagi state lewat object biasa di memori secepat pemanggilan fungsi.
 
-```mermaid
-graph TB
-  subgraph Process["Deno Process"]
-    Shared["shared/"]
-    Sessions["Session Store"]
-    Bus["Event Bus"]
-    Cache["Cache"]
-
-    API["API :3001"] -->|"import"| Shared
-    Auth["Auth :3002"] -->|"import"| Shared
-    Web["Web :3003"] -->|"import"| Shared
-
-    API -->|"read/write"| Sessions
-    Auth -->|"read/write"| Sessions
-
-    API -->|"emit"| Bus
-    Auth -->|"listen"| Bus
-    Web -->|"listen"| Bus
-
-    API -->|"write"| Cache
-    Web -->|"read"| Cache
-  end
-```
+![Service mengimpor modul shared dan berkomunikasi lewat session store, event bus, dan cache dalam proses](/diagrams/shared-code-state.png)
 
 ### Modul Bersama
 
@@ -219,12 +165,7 @@ export function GET(ctx: Context): Response {
 
 Ketika API membuat user, Auth dan Web bisa mengetahuinya seketika, tanpa message queue dan tanpa polling, hanya pemanggilan fungsi langsung antar service. Bus ini membawa fakta aplikasi seperti `user:created`. Untuk aktivitas framework seperti request, rute, dan kesalahan, pakai [observability events](/id/middleware/observability/overview) bawaan sebagai gantinya.
 
-```mermaid
-graph LR
-  API["API :3001"] -->|"emit 'user:created'"| Bus["EventBus"]
-  Bus -->|"notify"| Auth["Auth :3002"]
-  Bus -->|"notify"| Web["Web :3003"]
-```
+![Service API memancarkan event ke EventBus, yang memberi tahu service Auth dan Web](/diagrams/event-bus.png)
 
 ```typescript twoslash
 // shared/bus.ts
@@ -314,23 +255,7 @@ Setiap router punya middleware stack sendiri, jadi service dikonfigurasi indepen
 
 Satu service bisa punya CORS dan body limit, yang lain bisa punya security headers, dan yang ketiga bisa berjalan tanpa middleware sama sekali:
 
-```mermaid
-graph LR
-  subgraph API[":3001 API"]
-    direction LR
-    A1["CORS"] --> A2["BodyLimit"] --> A3["Routes"]
-  end
-
-  subgraph Auth[":3002 Auth"]
-    direction LR
-    B1["SecHeaders"] --> B2["Routes"]
-  end
-
-  subgraph Web[":3003 Web"]
-    direction LR
-    C1["Routes + DVE"]
-  end
-```
+![Setiap service menyusun rantai middleware sendiri sebelum rutenya: API menjalankan CORS lalu BodyLimit, Auth menjalankan SecHeaders, Web menjalankan rute dengan DVE](/diagrams/per-service-middleware.png)
 
 ```typescript twoslash
 import { Mware, Router } from '@neabyte/deserve'
@@ -476,18 +401,7 @@ Ketika `apiAuth` melempar, log terbaca `[API] GET /users 500 - APIAuth - Missing
 
 Karena setiap request sudah mengalir lewat middleware bersama, memasang OpenTelemetry mengikuti pola yang sama. Satu middleware OTel berlaku ke setiap service, jadi semua span dari semua port menuju satu collector, yang memberi distributed tracing, dashboard latensi, dan metrik error rate di seluruh sistem tanpa menginstrumentasi tiap service secara terpisah:
 
-```mermaid
-graph LR
-  subgraph Process["Deno Process"]
-    OTel["OTel Middleware"]
-    API[":3001"] --> OTel
-    Auth[":3002"] --> OTel
-    Web[":3003"] --> OTel
-  end
-
-  OTel -->|"export"| Collector["OTel Collector"]
-  Collector --> Jaeger["Jaeger / Grafana / Datadog"]
-```
+![Satu middleware OTel mengumpulkan span dari setiap service dan mengekspornya ke OTel Collector, lalu ke Jaeger, Grafana, atau Datadog](/diagrams/observability.png)
 
 ```typescript twoslash
 // shared/otel.ts
@@ -549,13 +463,7 @@ CMD ["deno", "run", "-A", "main.ts"]
 
 Letakkan Nginx atau Caddy di depan untuk mengarahkan domain ke setiap port service:
 
-```mermaid
-graph LR
-  Client["Client"] --> Proxy["Nginx / Caddy"]
-  Proxy -->|"api.example.com"| API[":3001"]
-  Proxy -->|"auth.example.com"| Auth[":3002"]
-  Proxy -->|"example.com"| Web[":3003"]
-```
+![Reverse proxy seperti Nginx atau Caddy memetakan tiap hostname ke port per-service: api.example.com ke 3001, auth.example.com ke 3002, dan example.com ke 3003](/diagrams/reverse-proxy.png)
 
 ```nginx
 # Service API
@@ -581,22 +489,7 @@ server {
 
 Ketika sebuah service tumbuh melampaui monolit, ia diekstrak ke prosesnya sendiri. Salin foldernya, tambahkan `main.ts`, dan deploy secara independen. File rute tidak berubah, karena API `Router` sama baik satu service berjalan maupun sepuluh:
 
-```mermaid
-graph LR
-  subgraph Before["Satu Proses"]
-    A1["API"]
-    A2["Auth"]
-    A3["Web"]
-  end
-
-  subgraph After["Proses Terpisah"]
-    B1["Proses API"]
-    B2["Proses Auth"]
-    B3["Proses Web"]
-  end
-
-  Before -->|"ekstrak"| After
-```
+![Mengekstrak service dari satu proses menjadi proses API, Auth, dan Web yang terpisah](/diagrams/scaling-out.png)
 
 - Salin `services/api/` ke repositori baru
 - Tambahkan `main.ts` sendiri dengan satu `Router`

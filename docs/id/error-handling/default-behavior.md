@@ -6,15 +6,7 @@ description: "Cara Deserve menangani error tak tertangkap secara default dan res
 
 Mekanisme penanganan error ini menangkap setiap error yang terjadi selama runtime server, yang mencakup error route handler, kegagalan middleware, skenario rute tidak ditemukan, error berkas statis, dan exception tak tertangkap lainnya selama pemrosesan request. Tanpa error handler khusus yang diatur lewat `router.catch()`, Deserve jatuh ke perilaku default ini supaya server tidak pernah crash karena error tak tertangani.
 
-```mermaid
-flowchart LR
-    A[Error Occurs] --> B{router.catch defined?}
-    B -->|No| C[Default Handler]
-    B -->|Yes| D[Custom Handler]
-    C --> E[JSON or HTML by Accept]
-    D --> F
-    E --> F[Return Response]
-```
+![Saat error terjadi, request diarahkan ke custom handler jika router.catch terdefinisi, jika tidak ke default handler yang mengembalikan JSON atau HTML sesuai Accept, lalu satu response](/diagrams/default-error-behavior.png)
 
 ## Perilaku Default Dasar
 

@@ -10,6 +10,8 @@ Serve static files from multiple directories with different configurations per p
 
 Configure multiple static directories:
 
+![Three static calls each bind one url prefix to its own folder with its own cache policy, where slash admin serves the admin slash dist folder with etag on and a one day cache, slash uploads serves the uploads folder with etag off and no cache, and slash docs serves the docs slash build folder with etag on and a one hour cache](/diagrams/static-multiple-dirs.png)
+
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
@@ -36,6 +38,8 @@ await router.serve(8000)
 ```
 
 ## Common Patterns
+
+![One request picks the static prefix it starts with, so GET slash uploads slash img slash a dot png matches the slash uploads pattern, has its prefix sliced off, and is served from the uploads folder with that prefix etag off and no cache, while the same tail under GET slash docs slash img slash a dot png matches the slash docs pattern instead and is served from docs slash build with etag on and a one hour cache, proving the matched prefix decides both folder and cache policy](/diagrams/static-prefix-dispatch.png)
 
 ### Website + Admin Panel
 

@@ -18,11 +18,15 @@ return await ctx.render('large-template', data)
 return await ctx.streamRender('large-template', data)
 ```
 
+![Berdampingan, ctx.render membangun seluruh HTML jadi satu string lalu mengirim semuanya sekaligus sehingga klien menunggu, sementara ctx.streamRender mengompilasi di awal, mengembalikan ReadableStream, dan menulis tiap node saat diproduksi sehingga byte pertama keluar lebih cepat](/diagrams/stream-render-vs-blocking.png)
+
 ## Penggunaan Dasar
 
 ### 1. Di Context Handler
 
 `ctx.streamRender()` mengembalikan response HTML streaming, jadi cukup di-await oleh rute:
+
+![Rute meng-await ctx.streamRender, engine meresolusi dan mengompilasi template, membuat TransformStream, mengembalikan sisi readable seketika sehingga header response terkirim, lalu merender ke sisi writable di latar belakang di mana kegagalan muncul sebagai event view error](/diagrams/stream-render-pipeline.png)
 
 ```typescript twoslash
 import type { Context, DataRecord } from '@neabyte/deserve'
@@ -63,6 +67,8 @@ export async function GET(ctx: Context): Promise<Response> {
 ## Dukungan Template
 
 Semua fitur DVE dari [Sintaks Template](/id/rendering/syntax) bekerja dengan streaming:
+
+![Streaming melooping node template tingkat atas dan menulis tiap potongan yang diproduksi secara berurutan, jadi node teks ter-flush sendiri, tetapi blok each membangun semua barisnya jadi satu string dulu lalu ter-flush sebagai satu potongan, artinya granularitas streaming per node tingkat atas bukan per item loop](/diagrams/stream-render-chunks.png)
 
 ```html
 <!-- views/streaming-demo.dve -->
@@ -157,3 +163,5 @@ export async function GET(ctx: Context): Promise<Response> {
 ```
 
 Streaming rendering mengangkat performa untuk template besar dan halaman real-time, dan API-nya tetap satu await yang sama seperti render biasa.
+
+![Perbandingan time to first byte di mana render membuat klien menunggu selama seluruh halaman dibangun sehingga byte pertama datang terlambat, melawan streamRender yang mem-flush node pertama tepat setelah compile sehingga byte pertama datang lebih awal sementara potongan berikutnya terus berdatangan sampai stream ditutup](/diagrams/stream-render-ttfb.png)

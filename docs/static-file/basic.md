@@ -10,6 +10,8 @@ Serve static files (HTML, CSS, JS, images) using the `static()` method.
 
 Serve static files from a directory:
 
+![Calling router.static with the prefix slash static and path dot slash public registers the pattern slash static slash star star, then each request has its slash static prefix sliced off ctx.pathname and the remainder joined under public, so slash static maps to public slash index dot html, slash static slash css slash style dot css maps to public slash css slash style dot css, and any segment starting with a dot or dot dot or a path escaping the base is rejected with 404 before any read](/diagrams/static-url-to-file.png)
+
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
@@ -30,6 +32,7 @@ This serves files from the `public/` directory at the `/static` URL path:
 - `GET /static/index.html` → serves `public/index.html`
 - `GET /static/css/style.css` → serves `public/css/style.css`
 - `GET /static/js/app.js` → serves `public/js/app.js`
+
 
 ## How It Works
 

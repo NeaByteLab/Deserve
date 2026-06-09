@@ -18,11 +18,15 @@ return await ctx.render('large-template', data)
 return await ctx.streamRender('large-template', data)
 ```
 
+![Side by side, ctx.render builds the whole HTML into one string and sends it all at once so the client waits, while ctx.streamRender compiles up front, returns a ReadableStream, and writes each node as produced so the first bytes leave early](/diagrams/stream-render-vs-blocking.png)
+
 ## Basic Usage
 
 ### 1. In Context Handler
 
 `ctx.streamRender()` returns a streaming HTML response, so awaiting it is all that a route needs:
+
+![The route awaits ctx.streamRender, the engine resolves and compiles the template, creates a TransformStream, returns the readable side at once so response headers go out, then renders into the writable side in the background where a failure surfaces as a view error event](/diagrams/stream-render-pipeline.png)
 
 ```typescript twoslash
 import type { Context, DataRecord } from '@neabyte/deserve'
@@ -63,6 +67,8 @@ export async function GET(ctx: Context): Promise<Response> {
 ## Template Support
 
 All DVE features from [Template Syntax](/rendering/syntax) work with streaming:
+
+![Streaming loops the top-level template nodes and writes each produced chunk in order, so a text node flushes on its own, but an each block builds all its rows into one string first and then flushes as a single chunk, meaning the streaming granularity is per top-level node rather than per loop item](/diagrams/stream-render-chunks.png)
 
 ```html
 <!-- views/streaming-demo.dve -->
@@ -157,3 +163,5 @@ export async function GET(ctx: Context): Promise<Response> {
 ```
 
 Streaming rendering lifts performance for large templates and real-time pages, and the API stays the same single await that a regular render uses.
+
+![A time to first byte comparison where render makes the client wait while the whole page is built so the first byte lands late, against streamRender which flushes the first node right after compile so the first byte lands early while later chunks keep arriving until the stream closes](/diagrams/stream-render-ttfb.png)
