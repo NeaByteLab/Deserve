@@ -5,9 +5,36 @@ import { createFileSystemTypesCache } from '@shikijs/vitepress-twoslash/cache-fs
 import { groupIconMdPlugin, groupIconVitePlugin } from 'vitepress-plugin-group-icons'
 import llmstxt from 'vitepress-plugin-llms'
 import { fileURLToPath } from 'node:url'
-import { readFileSync } from 'node:fs'
+import { readFileSync, globSync } from 'node:fs'
 
 const hostname = 'https://docs-deserve.neabyte.com'
+const docsRoot = fileURLToPath(new URL('..', import.meta.url))
+const diagramImageMap = buildDiagramImageMap(docsRoot, hostname)
+
+function buildDiagramImageMap(
+  root: string,
+  host: string
+): Map<string, { url: string; caption: string }[]> {
+  const map = new Map<string, { url: string; caption: string }[]>()
+  const pattern = /!\[([^\]]*)\]\((\/diagrams\/[^)]+\.png)\)/g
+  const files = globSync('**/*.md', { cwd: root }).filter(
+    (file) => !file.startsWith('node_modules') && !file.includes('.vitepress')
+  )
+  for (const file of files) {
+    const content = readFileSync(`${root}/${file}`, 'utf-8')
+    const images: { url: string; caption: string }[] = []
+    for (const match of content.matchAll(pattern)) {
+      images.push({ url: `${host}${match[2]}`, caption: match[1].trim() })
+    }
+    if (images.length === 0) {
+      continue
+    }
+    const route = '/' + file.replace(/(index)?\.md$/, '').replace(/\/$/, '')
+    map.set(route === '/' ? '/' : route, images)
+  }
+  return map
+}
+
 const deserveTypes = readFileSync(
   fileURLToPath(new URL('./deserve-types.ts', import.meta.url)),
   'utf-8'
@@ -29,7 +56,13 @@ export default withMermaid(
     sitemap: {
       hostname,
       transformItems(items) {
-        return items.filter((item) => !item.url.startsWith('README'))
+        return items
+          .filter((item) => !item.url.startsWith('README'))
+          .map((item) => {
+            const route = '/' + item.url.replace(/^https?:\/\/[^/]+\//, '').replace(/\/$/, '')
+            const images = diagramImageMap.get(route === '/' ? '/' : route)
+            return images ? { ...item, img: images } : item
+          })
       }
     },
     themeConfig: {
