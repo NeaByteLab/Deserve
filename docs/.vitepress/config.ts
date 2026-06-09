@@ -1,11 +1,37 @@
 import { defineConfig } from 'vitepress'
 import { withMermaid } from 'vitepress-plugin-mermaid'
+import { transformerTwoslash } from '@shikijs/vitepress-twoslash'
+import { createFileSystemTypesCache } from '@shikijs/vitepress-twoslash/cache-fs'
+import { groupIconMdPlugin, groupIconVitePlugin } from 'vitepress-plugin-group-icons'
+import llmstxt from 'vitepress-plugin-llms'
+import { fileURLToPath } from 'node:url'
+import { readFileSync } from 'node:fs'
+
+const hostname = 'https://docs-deserve.neabyte.com'
+const deserveTypes = readFileSync(
+  fileURLToPath(new URL('./deserve-types.ts', import.meta.url)),
+  'utf-8'
+)
+const deserveDeno = readFileSync(
+  fileURLToPath(new URL('./deserve-deno.d.ts', import.meta.url)),
+  'utf-8'
+)
+const startYear = 2025
+const currentYear = new Date().getFullYear()
+const copyrightYears = currentYear > startYear ? `${startYear}-${currentYear}` : `${startYear}`
 
 export default withMermaid(
   defineConfig({
     base: '/',
     cleanUrls: true,
+    lastUpdated: true,
     ignoreDeadLinks: true,
+    sitemap: {
+      hostname,
+      transformItems(items) {
+        return items.filter((item) => !item.url.startsWith('README'))
+      }
+    },
     themeConfig: {
       search: {
         provider: 'local'
@@ -13,14 +39,26 @@ export default withMermaid(
     },
     head: [
       ['link', { rel: 'icon', href: '/favicon.svg', type: 'image/svg+xml' }],
+      [
+        'link',
+        {
+          rel: 'alternate',
+          type: 'text/plain',
+          title: 'llms.txt',
+          href: `${hostname}/llms.txt`
+        }
+      ],
       ['meta', { name: 'theme-color', content: '#158f77' }],
       ['meta', { property: 'og:type', content: 'website' }],
+      ['meta', { property: 'og:image', content: `${hostname}/image.png` }],
+      ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
+      ['meta', { name: 'twitter:image', content: `${hostname}/image.png` }],
       ['meta', { name: 'viewport', content: 'width=device-width, initial-scale=1.0' }]
     ],
     title: 'Deserve',
     description: 'Web Framework for Deno Ecosystem',
     locales: {
-      en: {
+      root: {
         lang: 'en-US',
         label: 'English',
         title: 'Deserve',
@@ -39,38 +77,47 @@ export default withMermaid(
         themeConfig: {
           logo: '/icon.svg',
           nav: [
-            { text: 'Docs', link: '/en/getting-started/installation' },
-            { text: 'Examples', link: '/en/examples' }
+            { text: 'Docs', link: '/getting-started/installation' },
+            { text: 'Examples', link: '/examples' },
+            {
+              text: 'LLM',
+              items: [
+                { text: 'llms.txt', link: '/llms.txt', target: '_blank' },
+                { text: 'llms-full.txt', link: '/llms-full.txt', target: '_blank' }
+              ]
+            }
           ],
           sidebar: {
-            '/en/': [
+            '/': [
               {
                 text: 'Core Concepts',
                 collapsed: true,
                 items: [
-                  { text: 'Philosophy', link: '/en/core-concepts/philosophy' },
-                  { text: 'File-based Routing', link: '/en/core-concepts/file-based-routing' },
-                  { text: 'Route Patterns', link: '/en/core-concepts/route-patterns' },
-                  { text: 'Context Object', link: '/en/core-concepts/context-object' },
-                  { text: 'Request Handling', link: '/en/core-concepts/request-handling' },
-                  { text: 'Hot Reload', link: '/en/core-concepts/hot-reload' },
-                  { text: 'Multi-Service', link: '/en/core-concepts/multi-service' },
-                  { text: 'Worker Pool', link: '/en/core-concepts/worker-pool' }
+                  { text: 'Philosophy', link: '/core-concepts/philosophy' },
+                  { text: 'Zero Dependency', link: '/core-concepts/zero-dependency' },
+                  { text: 'File-based Routing', link: '/core-concepts/file-based-routing' },
+                  { text: 'Route Patterns', link: '/core-concepts/route-patterns' },
+                  { text: 'Context Object', link: '/core-concepts/context-object' },
+                  { text: 'Request Handling', link: '/core-concepts/request-handling' },
+                  { text: 'Hot Reload', link: '/core-concepts/hot-reload' },
+                  { text: 'Multi-Service', link: '/core-concepts/multi-service' },
+                  { text: 'Worker Pool', link: '/core-concepts/worker-pool' }
                 ]
               },
               {
                 text: 'Getting Started',
                 collapsed: true,
                 items: [
-                  { text: 'Installation', link: '/en/getting-started/installation' },
-                  { text: 'Quick Start', link: '/en/getting-started/quick-start' },
+                  { text: 'Installation', link: '/getting-started/installation' },
+                  { text: 'Quick Start', link: '/getting-started/quick-start' },
+                  { text: 'Built for Teams', link: '/getting-started/built-for-teams' },
                   {
                     text: 'Routes Configuration',
-                    link: '/en/getting-started/routes-configuration'
+                    link: '/getting-started/routes-configuration'
                   },
                   {
                     text: 'Server Configuration',
-                    link: '/en/getting-started/server-configuration'
+                    link: '/getting-started/server-configuration'
                   }
                 ]
               },
@@ -78,52 +125,67 @@ export default withMermaid(
                 text: 'Rendering',
                 collapsed: true,
                 items: [
-                  { text: 'Template Engine', link: '/en/rendering/' },
-                  { text: 'Streaming Rendering', link: '/en/rendering/streaming' }
+                  { text: 'Overview', link: '/rendering/' },
+                  { text: 'Template Syntax', link: '/rendering/syntax' },
+                  { text: 'Performance and Limits', link: '/rendering/performance' },
+                  { text: 'Streaming Rendering', link: '/rendering/streaming' }
                 ]
               },
               {
                 text: 'Middleware',
                 collapsed: true,
                 items: [
-                  { text: 'Use Global', link: '/en/middleware/global' },
-                  { text: 'Use Route-Specific', link: '/en/middleware/route-specific' },
-                  { text: 'Basic Auth', link: '/en/middleware/basic-auth' },
-                  { text: 'Body Limit', link: '/en/middleware/body-limit' },
-                  { text: 'CORS', link: '/en/middleware/cors' },
-                  { text: 'Security Headers', link: '/en/middleware/security-headers' },
-                  { text: 'Session', link: '/en/middleware/session' },
-                  { text: 'WebSocket', link: '/en/middleware/websocket' }
+                  { text: 'Use Global', link: '/middleware/global' },
+                  { text: 'Use Route-Specific', link: '/middleware/route-specific' },
+                  { text: 'Basic Auth', link: '/middleware/basic-auth' },
+                  { text: 'Body Limit', link: '/middleware/body-limit' },
+                  { text: 'CORS', link: '/middleware/cors' },
+                  { text: 'CSRF', link: '/middleware/csrf' },
+                  { text: 'IP Restriction', link: '/middleware/ip' },
+                  { text: 'Security Headers', link: '/middleware/security-headers' },
+                  { text: 'Session', link: '/middleware/session' },
+                  { text: 'WebSocket', link: '/middleware/websocket' },
+                  {
+                    text: 'Observability',
+                    collapsed: true,
+                    items: [
+                      { text: 'Overview', link: '/middleware/observability/overview' },
+                      { text: 'Event Reference', link: '/middleware/observability/events' },
+                      { text: 'Request Logging', link: '/middleware/observability/logging' },
+                      { text: 'Error Reporting', link: '/middleware/observability/errors' }
+                    ]
+                  }
                 ]
               },
               {
                 text: 'Static Files',
                 collapsed: true,
                 items: [
-                  { text: 'Basic Usage', link: '/en/static-file/basic' },
-                  { text: 'Multiple Directories', link: '/en/static-file/multiple' }
+                  { text: 'Basic Usage', link: '/static-file/basic' },
+                  { text: 'Multiple Directories', link: '/static-file/multiple' }
                 ]
               },
               {
                 text: 'Response',
                 collapsed: true,
                 items: [
-                  { text: 'JSON Format', link: '/en/response/json' },
-                  { text: 'Text Format', link: '/en/response/text' },
-                  { text: 'HTML Format', link: '/en/response/html' },
-                  { text: 'File Downloads', link: '/en/response/file' },
-                  { text: 'Data Downloads', link: '/en/response/data' },
-                  { text: 'Stream', link: '/en/response/stream' },
-                  { text: 'Redirects', link: '/en/response/redirect' },
-                  { text: 'Custom Responses', link: '/en/response/custom' }
+                  { text: 'JSON Format', link: '/response/json' },
+                  { text: 'Text Format', link: '/response/text' },
+                  { text: 'HTML Format', link: '/response/html' },
+                  { text: 'File Downloads', link: '/response/file' },
+                  { text: 'Data Downloads', link: '/response/data' },
+                  { text: 'Stream', link: '/response/stream' },
+                  { text: 'Redirects', link: '/response/redirect' },
+                  { text: 'Custom Responses', link: '/response/custom' }
                 ]
               },
               {
                 text: 'Error Handling',
                 collapsed: true,
                 items: [
-                  { text: 'Default Behavior', link: '/en/error-handling/default-behavior' },
-                  { text: 'Object Details', link: '/en/error-handling/object-details' }
+                  { text: 'Default Behavior', link: '/error-handling/default-behavior' },
+                  { text: 'Defense in Depth', link: '/error-handling/defense-in-depth' },
+                  { text: 'Object Details', link: '/error-handling/object-details' }
                 ]
               }
             ]
@@ -131,7 +193,7 @@ export default withMermaid(
           socialLinks: [{ icon: 'github', link: 'https://github.com/NeaByteLab/Deserve' }],
           footer: {
             message: 'Released under the MIT License.',
-            copyright: 'Copyright © 2025 NeaByteLab'
+            copyright: `Copyright © ${copyrightYears} NeaByteLab`
           }
         }
       },
@@ -173,7 +235,14 @@ export default withMermaid(
           skipToContentLabel: 'Lewati ke konten',
           nav: [
             { text: 'Dokumentasi', link: '/id/getting-started/installation' },
-            { text: 'Contoh', link: '/id/examples' }
+            { text: 'Contoh', link: '/id/examples' },
+            {
+              text: 'LLM',
+              items: [
+                { text: 'llms.txt', link: '/llms.txt', target: '_blank' },
+                { text: 'llms-full.txt', link: '/llms-full.txt', target: '_blank' }
+              ]
+            }
           ],
           sidebar: {
             '/id/': [
@@ -182,6 +251,7 @@ export default withMermaid(
                 collapsed: true,
                 items: [
                   { text: 'Filosofi', link: '/id/core-concepts/philosophy' },
+                  { text: 'Tanpa Dependensi', link: '/id/core-concepts/zero-dependency' },
                   {
                     text: 'Routing Berbasis File',
                     link: '/id/core-concepts/file-based-routing'
@@ -200,6 +270,7 @@ export default withMermaid(
                 items: [
                   { text: 'Instalasi', link: '/id/getting-started/installation' },
                   { text: 'Mulai Cepat', link: '/id/getting-started/quick-start' },
+                  { text: 'Dibangun untuk Tim', link: '/id/getting-started/built-for-teams' },
                   {
                     text: 'Konfigurasi Rute',
                     link: '/id/getting-started/routes-configuration'
@@ -214,7 +285,9 @@ export default withMermaid(
                 text: 'Rendering',
                 collapsed: true,
                 items: [
-                  { text: 'Template Engine', link: '/id/rendering/' },
+                  { text: 'Ringkasan', link: '/id/rendering/' },
+                  { text: 'Sintaks Template', link: '/id/rendering/syntax' },
+                  { text: 'Performa dan Batas', link: '/id/rendering/performance' },
                   { text: 'Streaming Rendering', link: '/id/rendering/streaming' }
                 ]
               },
@@ -227,9 +300,21 @@ export default withMermaid(
                   { text: 'Basic Auth', link: '/id/middleware/basic-auth' },
                   { text: 'Body Limit', link: '/id/middleware/body-limit' },
                   { text: 'CORS', link: '/id/middleware/cors' },
+                  { text: 'CSRF', link: '/id/middleware/csrf' },
+                  { text: 'Pembatasan IP', link: '/id/middleware/ip' },
                   { text: 'Security Headers', link: '/id/middleware/security-headers' },
                   { text: 'Session', link: '/id/middleware/session' },
-                  { text: 'WebSocket', link: '/id/middleware/websocket' }
+                  { text: 'WebSocket', link: '/id/middleware/websocket' },
+                  {
+                    text: 'Observability',
+                    collapsed: true,
+                    items: [
+                      { text: 'Ringkasan', link: '/id/middleware/observability/overview' },
+                      { text: 'Referensi Event', link: '/id/middleware/observability/events' },
+                      { text: 'Request Logging', link: '/id/middleware/observability/logging' },
+                      { text: 'Pelaporan Error', link: '/id/middleware/observability/errors' }
+                    ]
+                  }
                 ]
               },
               {
@@ -259,6 +344,7 @@ export default withMermaid(
                 collapsed: true,
                 items: [
                   { text: 'Perilaku Default', link: '/id/error-handling/default-behavior' },
+                  { text: 'Pertahanan Berlapis', link: '/id/error-handling/defense-in-depth' },
                   { text: 'Detail Objek', link: '/id/error-handling/object-details' }
                 ]
               }
@@ -267,7 +353,7 @@ export default withMermaid(
           socialLinks: [{ icon: 'github', link: 'https://github.com/NeaByteLab/Deserve' }],
           footer: {
             message: 'Dirilis di bawah Lisensi MIT.',
-            copyright: 'Hak Cipta © 2025 NeaByteLab'
+            copyright: `Hak Cipta © ${copyrightYears} NeaByteLab`
           }
         }
       }
@@ -277,7 +363,59 @@ export default withMermaid(
       theme: {
         light: 'github-light',
         dark: 'github-dark'
+      },
+      languages: ['js', 'jsx', 'ts', 'tsx'],
+      codeTransformers: [
+        transformerTwoslash({
+          typesCache: createFileSystemTypesCache(),
+          twoslashOptions: {
+            extraFiles: {
+              'deserve.ts': deserveTypes,
+              'deserve-deno.d.ts': deserveDeno
+            },
+            compilerOptions: {
+              lib: ['ESNext', 'DOM', 'DOM.Iterable'],
+              types: [],
+              paths: {
+                '@neabyte/deserve': ['./deserve.ts']
+              }
+            }
+          }
+        })
+      ],
+      config(md) {
+        md.use(groupIconMdPlugin)
       }
+    },
+    vite: {
+      plugins: [
+        groupIconVitePlugin({
+          defaultLabels: ['deno', 'npm']
+        }),
+        llmstxt({
+          domain: hostname,
+          title: 'Deserve',
+          description: 'Web Framework for Deno Ecosystem',
+          details:
+            'Deserve is a zero-dependency, zero-configuration HTTP framework for Deno. It provides file-based routing, composable middleware, streaming responses, and a typed Context API for building servers with maximum productivity.',
+          ignoreFiles: ['id/**', 'index.md', 'README.md']
+        })
+      ]
+    },
+    transformHead({ pageData }) {
+      const fm = pageData.frontmatter
+      const title = fm.title ? `${fm.title} | Deserve` : 'Deserve - Web Framework for Deno'
+      const description =
+        fm.description ?? 'Build HTTP server effortlessly with zero configuration for productivity.'
+      const url = `${hostname}/${pageData.relativePath.replace(/(index)?\.md$/, '')}`
+      return [
+        ['link', { rel: 'canonical', href: url }],
+        ['meta', { property: 'og:title', content: title }],
+        ['meta', { property: 'og:description', content: description }],
+        ['meta', { property: 'og:url', content: url }],
+        ['meta', { name: 'twitter:title', content: title }],
+        ['meta', { name: 'twitter:description', content: description }]
+      ]
     }
   })
 )
