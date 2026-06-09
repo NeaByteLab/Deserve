@@ -13,6 +13,10 @@ declare namespace Deno {
   function kill(pid: number, signo?: string): void
   function readTextFile(path: string | URL): Promise<string>
   function readFile(path: string | URL): Promise<Uint8Array>
+  function writeFile(
+    path: string | URL,
+    data: Uint8Array | ReadableStream<Uint8Array>
+  ): Promise<void>
   function watchFs(
     paths: string | string[],
     options?: { recursive?: boolean }
