@@ -220,6 +220,25 @@ export default withMermaid(
                   { text: 'Defense in Depth', link: '/error-handling/defense-in-depth' },
                   { text: 'Object Details', link: '/error-handling/object-details' }
                 ]
+              },
+              {
+                text: 'By Design',
+                collapsed: true,
+                items: [
+                  { text: 'Overview', link: '/by-design/' },
+                  { text: 'Compression', link: '/by-design/compress' },
+                  { text: 'Pretty JSON', link: '/by-design/pretty-json' },
+                  { text: 'HTTPS Redirect', link: '/by-design/https-redirect' },
+                  { text: 'Bearer Auth', link: '/by-design/bearer-auth' },
+                  { text: 'XSS Input Sanitizer', link: '/by-design/xss' },
+                  { text: 'Caching', link: '/by-design/cache' },
+                  { text: 'Rate Limiting', link: '/by-design/rate-limit' },
+                  { text: 'Request ID', link: '/by-design/request-id' },
+                  { text: 'Method Override', link: '/by-design/method-override' },
+                  { text: 'Locale Redirect', link: '/by-design/locale-redirect' },
+                  { text: 'Server-Timing', link: '/by-design/server-timing' },
+                  { text: 'Distributed Tracing', link: '/by-design/tracing' }
+                ]
               }
             ]
           },
@@ -379,6 +398,25 @@ export default withMermaid(
                   { text: 'Perilaku Default', link: '/id/error-handling/default-behavior' },
                   { text: 'Pertahanan Berlapis', link: '/id/error-handling/defense-in-depth' },
                   { text: 'Detail Objek', link: '/id/error-handling/object-details' }
+                ]
+              },
+              {
+                text: 'Sesuai Desain',
+                collapsed: true,
+                items: [
+                  { text: 'Ringkasan', link: '/id/by-design/' },
+                  { text: 'Kompresi', link: '/id/by-design/compress' },
+                  { text: 'Pretty JSON', link: '/id/by-design/pretty-json' },
+                  { text: 'HTTPS Redirect', link: '/id/by-design/https-redirect' },
+                  { text: 'Bearer Auth', link: '/id/by-design/bearer-auth' },
+                  { text: 'XSS Input Sanitizer', link: '/id/by-design/xss' },
+                  { text: 'Caching', link: '/id/by-design/cache' },
+                  { text: 'Rate Limiting', link: '/id/by-design/rate-limit' },
+                  { text: 'Request ID', link: '/id/by-design/request-id' },
+                  { text: 'Method Override', link: '/id/by-design/method-override' },
+                  { text: 'Locale Redirect', link: '/id/by-design/locale-redirect' },
+                  { text: 'Server-Timing', link: '/id/by-design/server-timing' },
+                  { text: 'Distributed Tracing', link: '/id/by-design/tracing' }
                 ]
               }
             ]
