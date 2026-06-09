@@ -1,37 +1,45 @@
+---
+description: "Sajikan unduhan file dari filesystem dengan ctx.send.file()."
+---
+
 # Response Unduhan File
 
-Method `ctx.send.file()` mengirim isi file dari filesystem sebagai response. Cocok untuk download atau menyajikan file yang sudah ada di disk (path relatif atau absolut).
+Method `ctx.send.file()` mengirim isi file dari filesystem sebagai response. Cocok untuk unduhan atau menyajikan file yang sudah ada di disk (path relatif atau absolut).
 
 ## Penggunaan Dasar
 
-```typescript
-// 1. Import tipe Context
+```typescript twoslash
 import type { Context } from '@neabyte/deserve'
 
 export async function GET(ctx: Context): Promise<Response> {
-  // 2. Baca file dari path, kirim sebagai attachment (async)
+  // Stream file sebagai unduhan
   return await ctx.send.file('./uploads/document.pdf')
 }
 ```
 
 ## Dengan Nama File Kustom
 
-```typescript
+```typescript twoslash
+import type { Context } from '@neabyte/deserve'
+// ---cut---
 export async function GET(ctx: Context): Promise<Response> {
-  // 1. Param kedua: nama file yang didownload user (bisa beda dari path)
+  // Argumen kedua mengganti nama unduhan
   return await ctx.send.file('./files/data.csv', 'report.csv')
 }
 ```
 
 ## Penanganan Error
 
-```typescript
+File yang hilang atau tidak terbaca melempar `Deno.errors.NotFound`. Tangkap di handler untuk balasan presisi, atau biarkan naik ke [error handler terpusat](/id/error-handling/object-details):
+
+```typescript twoslash
+import type { Context } from '@neabyte/deserve'
+// ---cut---
 export async function GET(ctx: Context): Promise<Response> {
   try {
-    // 1. Coba baca dan kirim file
     return await ctx.send.file('./uploads/document.pdf')
   } catch (error) {
-    // 2. Jika gagal (e.g. file tidak ada), kirim 404 JSON
+    // File hilang melempar, balas 404
     return ctx.send.json({ error: 'File not found' }, { status: 404 })
   }
 }

@@ -1,80 +1,94 @@
+---
+description: "Konfigurasi cara server Deserve listen, shutdown dengan baik, dan melindungi proses."
+---
+
 # Konfigurasi Server
 
-> **Referensi**: [Deno.serve API Documentation](https://docs.deno.com/api/deno/~/Deno.serve)
+> **Referensi**: [Dokumentasi API Deno.serve](https://docs.deno.com/api/deno/~/Deno.serve)
 
-Konfigurasi server Deserve Anda dengan hostname binding dan graceful shutdown.
+Konfigurasi server Deserve dengan hostname binding dan graceful shutdown.
 
 ## Setup Server Dasar
 
-Cara paling sederhana untuk memulai server:
+Cara paling sederhana memulai server:
 
-```typescript
-// 1. Import Router
+```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
-// 2. Buat router
 const router = new Router()
 
-// 3. Jalankan server di port 8000 (bind 0.0.0.0)
+// Bind 0.0.0.0 di port 8000
 await router.serve(8000)
 ```
 
-Ini memulai server Anda di `0.0.0.0:8000` (semua interface).
+Ini memulai server di `0.0.0.0:8000`, yang mencakup semua interface.
 
-## Method Serve Yang Diperluas
+## Method Serve yang Diperluas
 
 Method `serve` Deserve yang diperluas mendukung tiga parameter:
 
 ```typescript
-// Method signatures
-async serve(port: number): Promise<void>
-async serve(port: number, hostname?: string): Promise<void>
-async serve(port: number, hostname?: string, signal?: AbortSignal): Promise<void>
+// Signature method
+async serve(port?: number): Promise<void>
+async serve(port?: number, hostname?: string): Promise<void>
+async serve(port?: number, hostname?: string, signal?: AbortSignal): Promise<void>
 ```
 
 ## Hostname Binding
 
-### Bind Ke Interface Spesifik
+### Bind ke Interface Spesifik
 
-```typescript
-// 1. Localhost saja (development)
+```typescript twoslash
+import { Router } from '@neabyte/deserve'
+
+const router = new Router()
+// ---cut---
+// Bind ke localhost saja
 await router.serve(8000, '127.0.0.1')
 
-// 2. Semua interface (default)
+// Bind ke semua interface (default)
 await router.serve(8000, '0.0.0.0')
 
-// 3. IP spesifik
+// Bind ke interface jaringan spesifik
 await router.serve(8000, '192.168.1.100')
 ```
 
-### Development Vs Production
+### Development vs Production
 
-```typescript
-// 1. Development: hanya localhost
+```typescript twoslash
+import { Router } from '@neabyte/deserve'
+
+const router = new Router()
+// ---cut---
+// Development - localhost saja
 await router.serve(8000, '127.0.0.1')
 
-// 2. Production: listen di semua interface
+// Production - semua interface
 await router.serve(8000, '0.0.0.0')
 ```
 
 ## Request Timeout
 
-Anda bisa mengatur timeout request saat membuat router. Jika middleware dan route handler tidak selesai dalam waktu tersebut, server merespons **503 Service Unavailable**:
+Request timeout diatur saat membuat router. Ketika middleware dan route handler tidak selesai dalam waktu itu, server membalas dengan **503 Service Unavailable**:
 
-```typescript
+```typescript twoslash
+import { Router } from '@neabyte/deserve'
+// ---cut---
 const router = new Router({
   requestTimeoutMs: 30_000
 })
 await router.serve(8000)
 ```
 
-Omit `requestTimeoutMs` untuk tanpa timeout (default).
+Hilangkan `requestTimeoutMs` untuk tanpa timeout (default).
 
 ## Batas Iterasi Template
 
-Anda bisa membatasi jumlah iterasi per blok <code v-pre>{{#each}}</code> di template DVE. Ini mencegah event loop starvation dari rendering template tanpa batas. Default adalah `100_000`:
+Opsi `maxIterations` membatasi iterasi per blok <code v-pre>{{#each}}</code> di template DVE, yang mencegah event loop kelaparan akibat rendering tak terbatas. Default-nya `100_000`:
 
-```typescript
+```typescript twoslash
+import { Router } from '@neabyte/deserve'
+// ---cut---
 const router = new Router({
   viewsDir: './views',
   maxIterations: 50_000
@@ -82,57 +96,135 @@ const router = new Router({
 await router.serve(8000)
 ```
 
-Jika template melebihi limit, server merespons **500 Internal Server Error**. Untuk dataset besar, gunakan [`streamRender`](/id/rendering/streaming). Untuk rendering yang CPU-intensive, pertimbangkan untuk offload ke [worker pool](/id/core-concepts/worker-pool).
+Jika template melewati batas, server membalas dengan **500 Internal Server Error**. Perilaku rendering lengkap ada di [Performa dan Batas](/id/rendering/performance#batas-iterasi). Untuk dataset besar, gunakan [`streamRender`](/id/rendering/streaming). Untuk rendering berat CPU, pertimbangkan mengalihkan ke [worker pool](/id/core-concepts/worker-pool).
+
+## Resolusi IP Klien
+
+Opsi `trustProxy` mengontrol cara IP klien asli diresolusi ketika server berjalan di balik proxy atau load balancer. Tanpa itu, `ctx.ip` mengembalikan peer TCP langsung:
+
+```typescript twoslash
+import { Router } from '@neabyte/deserve'
+// ---cut---
+const router = new Router({
+  trustProxy: [
+    'loopback',
+    '10.0.0.0/8'
+  ]
+})
+await router.serve(8000)
+```
+
+Ketika peer langsung cocok dengan aturan tepercaya, Deserve membaca header forwarded untuk menemukan IP pengunjung asli. Ia memeriksa `CF-Connecting-IP` dan `X-Real-IP` lebih dulu, lalu menelusuri rantai `X-Forwarded-For` dan `Forwarded` RFC 7239 dari kanan ke kiri melewati hop tepercaya.
+
+`trustProxy` menerima nilai-nilai ini:
+
+- **Nama preset** - `'loopback'`, `'linklocal'`, `'uniquelocal'`
+- **IP persis atau rentang CIDR** - misalnya `'10.0.0.0/8'`
+- **Sebuah predikat** - `(ip: string) => boolean`
+
+IP yang diresolusi tersedia di konteks request:
+
+```typescript twoslash
+import type { Context } from '@neabyte/deserve'
+// ---cut---
+export function GET(ctx: Context): Response {
+  // IP pengunjung asli setelah trustProxy
+  const client = ctx.ip
+  // Peer TCP langsung, abaikan header forwarded
+  const peer = ctx.directIp
+  return ctx.send.json({
+    client,
+    peer
+  })
+}
+```
+
+Tanpa aturan `trustProxy` yang cocok, `ctx.ip` dan `ctx.directIp` mengembalikan alamat peer langsung yang sama. [Middleware pembatasan IP](/id/middleware/ip) memakai `ctx.ip` untuk aturan izin dan tolaknya.
 
 ## Graceful Shutdown
 
-Gunakan `AbortSignal` untuk graceful server shutdown:
+Sebuah `AbortSignal` mengendalikan graceful shutdown server:
 
-```typescript
-// 1. Buat router dan AbortController
+```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
 const router = new Router()
 const ac = new AbortController()
 
-// 2. Serve dengan signal; panggil ac.abort() untuk shutdown
 await router.serve(8000, '127.0.0.1', ac.signal)
 
 ac.abort()
 ```
 
-### Penanganan Sinyal Process
+### Penanganan Sinyal Proses
 
-```typescript
-// 1. Buat router dan AbortController
+Tanpa `AbortSignal`, router mendengarkan `SIGINT` dan `SIGTERM` sendiri (hanya `SIGINT` di Windows) dan menguras dengan baik pada salah satunya. Tidak perlu perakitan sinyal manual:
+
+```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
 const router = new Router()
-const ac = new AbortController()
 
-// 2. Daftarkan signal handlers
-Deno.addSignalListener('SIGINT', async () => {
-  ac.abort()
-  Deno.exit(0)
-})
-Deno.addSignalListener('SIGTERM', async () => {
-  ac.abort()
-  Deno.exit(0)
-})
-
-// 3. Jalankan server dengan signal; panggil ac.abort() untuk shutdown
-await router.serve(8000, '127.0.0.1', ac.signal)
+// SIGINT dan SIGTERM menguras otomatis
+await router.serve(8000, '127.0.0.1')
 ```
+
+Berikan `AbortSignal` ketika shutdown perlu dikendalikan dari kode alih-alih dari sinyal, seperti ditunjukkan di atas. Perlu dicatat `Deno.exit()` dan panggilan terminasi lain diblokir selama server berjalan, jadi andalkan `AbortController` atau penanganan sinyal bawaan ketimbang keluar manual. Lihat [Proteksi Proses](#proteksi-proses) untuk alasannya.
+
+## Proteksi Proses
+
+Router yang sedang melayani memasang sentinel proses yang menjaga service tetap hidup melewati kesalahan yang biasanya menjatuhkannya. Ini penting karena Deserve menjalankan banyak hal dalam satu proses - watcher [hot reload](/id/core-concepts/multi-service#hot-reload), [worker pool](/id/core-concepts/worker-pool), dan sering beberapa [service berdampingan](/id/core-concepts/multi-service). Satu dependensi yang memanggil `Deno.exit()` semestinya tidak menjatuhkan semua service sekaligus.
+
+### Apa yang Diblokir
+
+Selama server berjalan, panggilan terminasi ini dicegat dan diubah jadi no-op:
+
+- `Deno.exit()` dan `Deno.kill()` yang menyasar proses saat ini
+- `process.exit()`, `process.abort()`, `process.reallyExit()`, dan `process.kill()` yang menyasar proses saat ini
+
+`kill` yang menyasar PID lain tetap lolos, jadi hanya terminasi-diri yang diblokir. Sentinel dilepas setelah server berhenti, yang memulihkan perilaku normal.
+
+### Tidak Diam
+
+Setiap panggilan yang diblokir dilaporkan, tidak pernah ditelan dalam diam. Sentinel memancarkan event [`process:error`](/id/middleware/observability/events#process) dengan `origin: 'process:exit'` dan pesan yang menyebut panggilan yang diblokir, misalnya `Blocked Deno.exit(0) - process termination is not permitted from application code`. Unhandled rejection dan uncaught error muncul dengan cara yang sama dengan `origin: 'unhandledrejection'` atau `'uncaughterror'`.
+
+Berlangganan untuk melihatnya:
+
+```typescript twoslash
+import { Router } from '@neabyte/deserve'
+
+const router = new Router()
+// ---cut---
+router.on((event) => {
+  if (event.kind === 'process:error') {
+    const { origin, error } = event.metadata as { origin: string; error: Error }
+    // Catat kesalahan yang diblokir atau tak tertangkap
+    console.error(`[${origin}]`, error.message)
+  }
+})
+```
+
+Lihat [Pelaporan Error](/id/middleware/observability/errors) untuk pola lengkapnya.
+
+### Model Ancaman
+
+Tujuannya adalah ketersediaan. Satu jalur kode yang cacat atau jahat semestinya tidak bisa membatalkan seluruh proses dan menolak layanan ke setiap rute dan service yang ditampungnya.
+
+- **Penyalahgunaan rantai pasok** - dependensi transitif yang memanggil `process.exit()` atau `Deno.exit()`, baik karena kecelakaan maupun sebagai serangan, tidak bisa lagi membuat server crash. Ini selaras dengan [OWASP A03:2025 Software Supply Chain Failures](https://owasp.org/Top10/2025/A03_2025-Software_Supply_Chain_Failures/) dan [CWE-1395](https://cwe.mitre.org/data/definitions/1395.html).
+- **Denial of service** - memblokir terminasi-diri menghapus saklar mati ketersediaan yang mudah, terkait [CWE-400](https://cwe.mitre.org/data/definitions/400.html) dan [CWE-730](https://cwe.mitre.org/data/definitions/730.html).
+- **Kesalahan tak tertangkap** - menjebak unhandled rejection dan uncaught error menjaga satu request buruk dari mengakhiri proses, terkait [CWE-248](https://cwe.mitre.org/data/definitions/248.html).
+
+Ini pertahanan upaya-terbaik, bukan sandbox. Ia menyisip ke titik masuk terminasi yang diketahui ketimbang mengisolasi kode tak tepercaya, jadi ia mengurangi blast radius tanpa mengklaim menghentikan setiap penyalahgunaan yang mungkin. Pasangkan dengan flag izin Deno dan tinjauan dependensi untuk jaminan lebih kuat. Pendekatan berlapis terhadap kesalahan dibahas di [Pertahanan Berlapis](/id/error-handling/defense-in-depth).
 
 ## Pengujian Konfigurasi
 
 ### Uji Server Dasar
 
 ```bash
-# Start server
+# Mulai server
 deno run --allow-net --allow-read main.ts
 
-# Test endpoint
+# Uji endpoint
 curl http://localhost:8000
 ```
 
@@ -142,19 +234,19 @@ curl http://localhost:8000
 # Bind ke localhost saja
 deno run --allow-net --allow-read main.ts
 
-# Seharusnya bekerja
+# Harusnya berhasil
 curl http://127.0.0.1:8000
 
-# Seharusnya gagal (jika binding ke 127.0.0.1 saja)
+# Harusnya gagal (jika bind ke 127.0.0.1 saja)
 curl http://0.0.0.0:8000
 ```
 
 ### Uji Graceful Shutdown
 
 ```bash
-# Start server
+# Mulai server
 deno run --allow-net --allow-read main.ts
 
 # Kirim SIGINT (Ctrl+C)
-# Server seharusnya shutdown dengan graceful
+# Server harusnya shutdown dengan baik
 ```

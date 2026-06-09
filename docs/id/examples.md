@@ -8,5 +8,5 @@
 
 ## Mulai Dari Mana
 
-- **[Mulai Cepat](/id/getting-started/quick-start)** - Jalankan server dan route pertama Anda.
+- **[Mulai Cepat](/id/getting-started/quick-start)** - Jalankan server dan route pertama.
 - **[Konfigurasi Server](/id/getting-started/server-configuration)** - Konfigurasi opsi, middleware, dan static files.

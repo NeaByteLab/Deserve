@@ -1,33 +1,35 @@
+---
+description: "Cara Deserve mengurai dan menangani request masuk, termasuk parsing body dan negosiasi konten."
+---
+
 # Penanganan Request
 
-> **Referensi**: [Deno Request API Documentation](https://docs.deno.com/deploy/classic/api/runtime-request/)
+> **Referensi**: [Dokumentasi API Request Deno](https://docs.deno.com/deploy/classic/api/runtime-request/)
 
-Deserve menyediakan objek `Context` yang membungkus `Request` native. Melalui Context Anda mengakses query, param route, header, cookie, dan body tanpa mengurus parsing manual.
+Deserve menyediakan objek `Context` yang membungkus `Request` native, jadi query, route param, header, cookie, dan body semua lewat Context tanpa parsing manual. Untuk permukaan Context lengkap, termasuk helper response dan state, lihat [Objek Context](/id/core-concepts/context-object).
 
-## Penggunaan Dasar
+Sebuah handler menerima satu `Context` dan membaca apa pun yang dibutuhkannya:
 
-Import tipe `Context` dan gunakan di route handler Anda:
-
-```typescript
-// 1. Import tipe Context
+```typescript twoslash
 import type { Context } from '@neabyte/deserve'
 
-// 2. ctx.query() = semua query params (object)
+// Baca data request dari ctx
 export function GET(ctx: Context): Response {
   const query = ctx.query()
   return ctx.send.json({ query })
 }
 ```
 
-## Query Parameters
+Bagian di bawah membahas tiap jenis input, dan [Referensi Method](#referensi-method) mendaftar tiap pembaca dengan tipe kembaliannya.
 
-Akses URL query parameters dengan parsing otomatis:
+## Parameter Query
 
-### Query Parameter Tunggal
+Query string diurai saat akses pertama, lalu di-cache. Dua pembaca menutup setiap kasus, `query()` untuk satu nilai dan `queries()` untuk kunci berulang:
 
-```typescript
+```typescript twoslash
+import type { Context } from '@neabyte/deserve'
+// ---cut---
 // URL: /search?q=deno&limit=10
-// 1. ctx.query() mengembalikan object; duplikat key = nilai terakhir
 export function GET(ctx: Context): Response {
   const query = ctx.query()
   return ctx.send.json({
@@ -37,206 +39,183 @@ export function GET(ctx: Context): Response {
 }
 ```
 
-**Penting:** Ketika ada kunci duplikat di URL, `query()` mengembalikan **nilai terakhir**:
+Ketika sebuah kunci berulang di URL, `query()` menyimpan **nilai terakhir** sementara `queries()` mengembalikan **semuanya**:
 
-```typescript
+```typescript twoslash
+import type { Context } from '@neabyte/deserve'
+declare const ctx: Context
+// ---cut---
 // URL: /search?tag=deno&tag=typescript
-const query = ctx.query() // { tag: 'typescript' } ← mengembalikan nilai terakhir
+ctx.query('tag') // 'typescript', nilai terakhir menang
+ctx.queries('tag') // ['deno', 'typescript'], semua nilai
 ```
 
-### Beberapa Nilai Untuk Kunci Yang Sama
+Gunakan `queries()` pada input array atau pilihan-ganda, dan `query()` di selain itu. Signature lengkap ada di [Referensi Method](#referensi-method).
 
-Gunakan `queries()` ketika Anda membutuhkan **semua nilai** untuk kunci spesifik:
+## Parameter Rute
 
-```typescript
-// URL: /search?tags=deno&tags=typescript&tags=javascript
-// 1. ctx.queries('key') = array semua nilai untuk key itu
+Segmen dinamis dari [routing berbasis file](/id/core-concepts/file-based-routing) tiba sebagai route param, dibaca satu per satu dengan `param()` atau sekaligus dengan `params()`:
+
+```typescript twoslash
+import type { Context } from '@neabyte/deserve'
+// ---cut---
+// routes/users/[id]/posts/[postId].ts
+// URL: /users/123/posts/456
 export function GET(ctx: Context): Response {
-  const tags = ctx.queries('tags')
-  return ctx.send.json({ tags })
-}
-```
-
-**Kapan memakai apa:**
-
-- **`query()`** - Ambil nilai tunggal atau nilai terakhir saat ada duplikat
-- **`queries()`** - Ambil semua nilai untuk array atau parameter multi-select
-
-### Objek Query Lengkap
-
-```typescript
-// URL: /api/users?page=1&limit=20&sort=name&order=asc
-// 1. Parse query lalu beri default jika kosong
-export function GET(ctx: Context): Response {
-  const query = ctx.query()
+  const id = ctx.param('id') // '123'
+  const all = ctx.params() // { id: '123', postId: '456' }
   return ctx.send.json({
-    page: parseInt(query.page || '1'),
-    limit: parseInt(query.limit || '10'),
-    sort: query.sort || 'id',
-    order: query.order || 'asc'
+    id,
+    all
   })
 }
 ```
 
-## Route Parameters
+Nilai di-percent-decode sekali sebelum handler membacanya. Cara pola dicocokkan dibahas di [Pola Rute](/id/core-concepts/route-patterns).
 
-Akses dynamic route parameters dari file-based routing:
+## Referensi Method
 
-### Parameter Tunggal
+### `ctx.query(key?)`
 
-```typescript
-// routes/users/[id].ts - URL: /users/123
-// 1. ctx.param('id') = nilai segmen dinamis
-export function GET(ctx: Context): Response {
-  const id = ctx.param('id')
-  return ctx.send.json({ userId: id })
-}
-```
+Mengembalikan semua parameter query sebagai objek, dan jatuh ke **nilai terakhir untuk kunci ganda**.
 
-### Parameter Ganda
-
-```typescript
-// routes/users/[id]/posts/[postId].ts - URL: /users/123/posts/456
-// 1. Satu ctx.param per segmen dinamis
-export function GET(ctx: Context): Response {
-  const id = ctx.param('id')
-  const postId = ctx.param('postId')
-  return ctx.send.json({ userId: id, postId })
-}
-```
-
-### Semua Parameter
-
-```typescript
-// routes/.../comments/[commentId].ts - URL: .../123/posts/456/comments/789
-// 1. ctx.params() = object semua param route
-export function GET(ctx: Context): Response {
-  const params = ctx.params()
-  return ctx.send.json(params)
-}
-```
-
-## Referensi Method Context
-
-#### `ctx.query(key?)`
-
-Mengembalikan semua query parameters sebagai objek. **Mengembalikan nilai terakhir untuk kunci duplikat.**
-
-```typescript
+```typescript twoslash
+import type { Context } from '@neabyte/deserve'
+declare const ctx: Context
+// ---cut---
 // URL: /search?q=deno&limit=10
-const query = ctx.query() // { q: 'deno', limit: '10' }
+ctx.query() // { q: 'deno', limit: '10' }
 
 // URL: /search?tag=deno&tag=typescript
-const query = ctx.query() // { tag: 'typescript' } ← hanya nilai terakhir
+ctx.query() // { tag: 'typescript' } ← nilai terakhir saja
 
 // Parameter tunggal
-const q = ctx.query('q') // Mengembalikan: 'deno'
+const q = ctx.query('q') // Returns: 'deno'
 ```
 
-#### `ctx.queries(key)`
+### `ctx.queries(key)`
 
-Mengembalikan **semua nilai** untuk kunci query parameter spesifik sebagai array.
+Mengembalikan **semua nilai** untuk satu kunci parameter query sebagai array.
 
-```typescript
+```typescript twoslash
+import type { Context } from '@neabyte/deserve'
+declare const ctx: Context
+// ---cut---
 // URL: /search?tags=deno&tags=typescript
 const tags = ctx.queries('tags') // ['deno', 'typescript'] ← semua nilai
 
-// Kapan menggunakan:
-// - query() untuk nilai tunggal atau saat Anda hanya membutuhkan nilai terakhir
-// - queries() saat Anda membutuhkan semua nilai untuk array/multi-select
+// query() menutup nilai tunggal atau terakhir, queries() menutup array dan pilihan-ganda
 ```
 
-#### `ctx.param(key)`
+### `ctx.param(key)`
 
-Mengembalikan nilai route parameter tunggal.
+Mengembalikan satu nilai parameter rute.
 
-```typescript
+```typescript twoslash
+import type { Context } from '@neabyte/deserve'
+declare const ctx: Context
+// ---cut---
 // Route: /users/[id]
 // URL: /users/123
 const id = ctx.param('id') // '123'
 ```
 
-#### `ctx.params()`
+### `ctx.params()`
 
-Mengembalikan semua route parameters sebagai objek.
+Mengembalikan semua parameter rute sebagai objek.
 
-```typescript
+```typescript twoslash
+import type { Context } from '@neabyte/deserve'
+declare const ctx: Context
+// ---cut---
 // Route: /users/[id]/posts/[postId]
 // URL: /users/123/posts/456
 const params = ctx.params() // { id: '123', postId: '456' }
 ```
 
-#### `ctx.body()`
+### `ctx.body()`
 
-Parse request body secara otomatis (JSON, form-data, atau text).
+Mengurai body request otomatis sebagai JSON, form-data, atau teks.
 
-```typescript
-// POST /api/users dengan JSON body
+```typescript twoslash
+import type { Context } from '@neabyte/deserve'
+// ---cut---
+// POST /api/users dengan body JSON
 export async function POST(ctx: Context): Promise<Response> {
   const body = await ctx.body() // { name: 'John', age: 30 }
   return ctx.send.json({ created: body })
 }
 ```
 
-#### `ctx.json()`
+### `ctx.json()`
 
-Parse request body sebagai JSON.
+Mengurai body request sebagai JSON.
 
-```typescript
-// POST /api/users dengan JSON body
+```typescript twoslash
+import type { Context } from '@neabyte/deserve'
+// ---cut---
+// POST /api/users dengan body JSON
 export async function POST(ctx: Context): Promise<Response> {
   const body = await ctx.json() // { name: 'John', age: 30 }
   return ctx.send.json({ created: body })
 }
 ```
 
-#### `ctx.formData()`
+### `ctx.formData()`
 
-Parse request body sebagai form data. Mengembalikan objek `FormData`.
+Mengurai body request sebagai form data dan mengembalikan objek `FormData`.
 
-```typescript
+```typescript twoslash
+import type { Context } from '@neabyte/deserve'
+// ---cut---
 // POST /api/users dengan form data
 export async function POST(ctx: Context): Promise<Response> {
-  const formData = await ctx.formData() // Objek FormData
+  const formData = await ctx.formData() // FormData object
   const name = formData.get('name') // 'John'
   return ctx.send.json({ name })
 }
 ```
 
-#### `ctx.text()`
+### `ctx.text()`
 
-Ambil request body sebagai text mentah.
+Membaca body request sebagai teks mentah.
 
-```typescript
-// POST /api/text dengan plain text
+```typescript twoslash
+import type { Context } from '@neabyte/deserve'
+// ---cut---
+// POST /api/text dengan teks polos
 export async function POST(ctx: Context): Promise<Response> {
   const text = await ctx.text() // 'Hello World'
   return ctx.send.text(text)
 }
 ```
 
-#### `ctx.arrayBuffer()`
+### `ctx.arrayBuffer()`
 
-Baca request body sebagai ArrayBuffer. Berguna untuk pemrosesan data biner.
+Membaca body request sebagai ArrayBuffer, yang cocok untuk pemrosesan data biner.
 
-```typescript
+```typescript twoslash
+import type { Context } from '@neabyte/deserve'
+// ---cut---
 // POST /api/upload dengan data biner
 export async function POST(ctx: Context): Promise<Response> {
-  const buffer = await ctx.arrayBuffer() // Objek ArrayBuffer
+  const buffer = await ctx.arrayBuffer() // ArrayBuffer object
   // Proses data biner...
   return ctx.send.json({ size: buffer.byteLength })
 }
 ```
 
-#### `ctx.blob()`
+### `ctx.blob()`
 
-Baca request body sebagai Blob. Berguna untuk upload file dan penanganan data biner.
+Membaca body request sebagai Blob, yang cocok untuk unggahan berkas dan penanganan biner.
 
-```typescript
-// POST /api/upload dengan data file
+```typescript twoslash
+import type { Context } from '@neabyte/deserve'
+// ---cut---
+// POST /api/upload dengan data berkas
 export async function POST(ctx: Context): Promise<Response> {
-  const blob = await ctx.blob() // Objek Blob
-  // Proses data file...
+  const blob = await ctx.blob() // Blob object
+  // Proses data berkas...
   return ctx.send.json({
     type: blob.type,
     size: blob.size
@@ -244,37 +223,44 @@ export async function POST(ctx: Context): Promise<Response> {
 }
 ```
 
-#### `ctx.header(key?)`
+### `ctx.header(key?)`
 
-Ambil nilai header berdasarkan kunci atau semua header (case-insensitive).
+Membaca satu header berdasarkan kunci atau setiap header sekaligus, mencocokkan kunci tanpa peduli huruf besar kecil dan menjadikannya huruf kecil.
 
-```typescript
+```typescript twoslash
+import type { Context } from '@neabyte/deserve'
+declare const ctx: Context
+// ---cut---
 // Ambil header spesifik
 const contentType = ctx.header('content-type')
 
 // Ambil semua header sebagai objek
 const headers = ctx.header()
-
-// Catatan: Semua header di-lowercase
 ```
 
-#### `ctx.headers`
+### `ctx.headers`
 
-Ambil objek Headers mentah untuk akses langsung.
+Mengekspos objek Headers mentah untuk akses langsung.
 
-```typescript
-// Akses raw Headers API
+```typescript twoslash
+import type { Context } from '@neabyte/deserve'
+declare const ctx: Context
+// ---cut---
+// Akses Headers API mentah
 const contentType = ctx.headers.get('Content-Type')
 ```
 
-#### `ctx.cookie(key?)`
+### `ctx.cookie(key?)`
 
-Ambil nilai cookie berdasarkan kunci atau semua cookies.
+Membaca satu cookie berdasarkan kunci atau setiap cookie sekaligus.
 
-```typescript
+```typescript twoslash
+import type { Context } from '@neabyte/deserve'
+declare const ctx: Context
+// ---cut---
 // Ambil cookie spesifik
 const sessionId = ctx.cookie('sessionId')
 
-// Ambil semua cookies
+// Ambil semua cookie
 const cookies = ctx.cookie() // { sessionId: 'abc123', theme: 'dark' }
 ```

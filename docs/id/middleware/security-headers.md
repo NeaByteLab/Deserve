@@ -1,39 +1,68 @@
+---
+description: "Terapkan header response keamanan umum dengan middleware security headers Deserve."
+---
+
 # Middleware Security Headers
 
 > **Referensi**: [OWASP Secure Headers Project](https://owasp.org/www-project-secure-headers/)
 
-Middleware Security Headers menambah atau mengatur header HTTP yang disarankan untuk keamanan (mis. X-Frame-Options, CSP, HSTS). Berguna untuk mengurangi risiko clickjacking, MIME sniffing, dan serangan berbasis browser.
+Middleware Security Headers mengatur header keamanan HTTP yang melindungi aplikasi dari kerentanan umum seperti clickjacking, MIME type sniffing, dan serangan XSS. Aman secara bawaan, jadi memanggilnya tanpa opsi sudah menerapkan baseline yang kuat.
 
 ## Penggunaan Dasar
 
-Terapkan middleware security headers menggunakan middleware built-in Deserve:
+Memanggil `Mware.securityHeaders()` tanpa opsi menerapkan default yang aman:
 
-```typescript
-// 1. Import Router dan Mware
+```typescript twoslash
 import { Mware, Router } from '@neabyte/deserve'
 
-// 2. Buat router
 const router = new Router()
 
-// 3. Pasang security headers (opsi per-header)
-router.use(
-  Mware.securityHeaders({
-    xContentTypeOptions: 'nosniff',
-    xFrameOptions: 'DENY',
-    referrerPolicy: 'no-referrer'
-  })
-)
+// Terapkan header default yang aman
+router.use(Mware.securityHeaders())
 
-// 4. Jalankan server
 await router.serve(8000)
 ```
 
-## Security Headers Per Rute
+Default mengatur header ini pada setiap response:
 
-Terapkan security headers berbeda pada route tertentu:
+| Header                              | Nilai default  |
+| ----------------------------------- | -------------- |
+| `Cross-Origin-Opener-Policy`        | `same-origin`  |
+| `Cross-Origin-Resource-Policy`      | `same-origin`  |
+| `Origin-Agent-Cluster`              | `?1`           |
+| `Referrer-Policy`                   | `no-referrer`  |
+| `X-Content-Type-Options`            | `nosniff`      |
+| `X-DNS-Prefetch-Control`            | `off`          |
+| `X-Download-Options`                | `noopen`       |
+| `X-Frame-Options`                   | `SAMEORIGIN`   |
+| `X-Permitted-Cross-Domain-Policies` | `none`         |
 
-```typescript
-// 1. Admin: header ketat + HSTS
+Berikan opsi untuk menimpa default atau mengaktifkan header yang mati sampai dikonfigurasi:
+
+```typescript twoslash
+import { Mware, Router } from '@neabyte/deserve'
+
+const router = new Router()
+// ---cut---
+// Timpa default di mana perlu
+router.use(
+  Mware.securityHeaders({
+    xFrameOptions: 'DENY',
+    strictTransportSecurity: 'max-age=31536000; includeSubDomains'
+  })
+)
+```
+
+## Security Headers Spesifik Rute
+
+Terapkan security header berbeda ke rute tertentu:
+
+```typescript twoslash
+import { Mware, Router } from '@neabyte/deserve'
+
+const router = new Router()
+// ---cut---
+// Header ketat untuk rute admin
 router.use(
   '/admin',
   Mware.securityHeaders({
@@ -44,7 +73,7 @@ router.use(
   })
 )
 
-// 2. Route publik: lebih longgar
+// Lebih longgar untuk rute publik
 router.use(
   '/api/public',
   Mware.securityHeaders({
@@ -56,7 +85,7 @@ router.use(
 
 ## Opsi Konfigurasi
 
-Semua header bersifat opsional. Setiap opsi header dapat diatur ke nilai string untuk mengaktifkannya, `false` untuk menonaktifkannya secara eksplisit, atau biarkan `undefined` untuk melewatkannya sepenuhnya.
+Setiap opsi header punya tiga bentuk. Nilai string mengatur header ke nilai itu. `false` menghilangkan header, bahkan yang punya default aman. Membiarkan opsi `undefined` mempertahankan default-nya ketika ada, atau melewatinya jika tidak. Empat header tanpa default - `contentSecurityPolicy`, `crossOriginEmbedderPolicy`, `strictTransportSecurity`, dan `xPoweredBy` - mati sampai sebuah nilai diberikan.
 
 ### `contentSecurityPolicy`
 
@@ -100,7 +129,7 @@ originAgentCluster: '?1'
 
 ### `referrerPolicy`
 
-Referrer Policy untuk mengontrol informasi referrer:
+Referrer Policy untuk mengontrol info referrer:
 
 ```typescript
 referrerPolicy: 'no-referrer' // atau 'strict-origin-when-cross-origin', dll.
@@ -124,7 +153,7 @@ xContentTypeOptions: 'nosniff'
 
 ### `xDnsPrefetchControl`
 
-Mengontrol DNS prefetching:
+Mengontrol prefetch DNS:
 
 ```typescript
 xDnsPrefetchControl: 'off' // atau 'on'
@@ -132,7 +161,7 @@ xDnsPrefetchControl: 'off' // atau 'on'
 
 ### `xDownloadOptions`
 
-Mengontrol opsi unduhan file:
+Mengontrol opsi unduhan berkas:
 
 ```typescript
 xDownloadOptions: 'noopen'
@@ -148,7 +177,7 @@ xFrameOptions: 'DENY' // atau 'SAMEORIGIN', 'ALLOW-FROM uri'
 
 ### `xPermittedCrossDomainPolicies`
 
-Kebijakan cross-domain untuk Flash:
+Kebijakan lintas-domain untuk Flash:
 
 ```typescript
 xPermittedCrossDomainPolicies: 'none' // atau 'master-only', 'all'
@@ -156,23 +185,20 @@ xPermittedCrossDomainPolicies: 'none' // atau 'master-only', 'all'
 
 ### `xPoweredBy`
 
-Hapus atau kustomisasi header X-Powered-By:
+Mati secara bawaan. Atur string untuk mengiklankan nilai, atau biarkan untuk tanpa header:
 
 ```typescript
-xPoweredBy: false // Hapus header
-xPoweredBy: 'Custom' // Atur nilai kustom
+xPoweredBy: 'Custom' // Tambah nilai khusus
 ```
 
 ## Contoh Lengkap
 
-```typescript
-// 1. Import Router dan Mware
+```typescript twoslash
 import { Mware, Router } from '@neabyte/deserve'
 
-// 2. Buat router
 const router = new Router({ routesDir: './routes' })
 
-// 3. Pasang security headers (semua opsi)
+// Terapkan set header yang luas
 router.use(
   Mware.securityHeaders({
     xContentTypeOptions: 'nosniff',
@@ -186,15 +212,15 @@ router.use(
   })
 )
 
-// 4. Jalankan server
 await router.serve(8000)
 ```
 
 ## Catatan Penting
 
-- **Semua header opsional**: Header hanya diatur jika Anda secara eksplisit memberikan nilai
-- **Set ke `false`**: Secara eksplisit menonaktifkan header yang mungkin diatur di tempat lain
-- **Undefined**: Lewati pengaturan header sepenuhnya
-- **X-Powered-By**: Set ke `false` untuk menghapus, string untuk menyesuaikan
-- **HSTS**: Hanya gunakan `strictTransportSecurity` pada server HTTPS
-- **CSP**: Content Security Policy bisa kompleks - uji dengan teliti
+- **Aman secara bawaan**: memanggil middleware tanpa opsi sudah menerapkan sembilan header baseline
+- **Nilai string**: mengatur header ke nilai persis itu, menimpa default mana pun
+- **Diatur ke `false`**: menghilangkan header, bahkan yang punya default
+- **Undefined**: mempertahankan default ketika header punya satu, jika tidak melewatinya
+- **X-Powered-By**: mati secara bawaan, atur string untuk menambahnya atau biarkan untuk tanpa header
+- **HSTS**: terapkan `strictTransportSecurity` hanya pada server HTTPS
+- **CSP**: Content Security Policy bisa jadi kompleks, jadi uji dengan teliti

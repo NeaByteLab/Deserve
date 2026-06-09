@@ -1,147 +1,158 @@
-# Perilaku Default Error
+---
+description: "Cara Deserve menangani error tak tertangkap secara default dan response yang dihasilkannya."
+---
 
-**TL;DR**: Mekanisme penanganan error ini menangkap semua error yang terjadi selama runtime server. Ini termasuk route handler errors, middleware failures, route not found scenarios, static file errors, dan uncaught exceptions lainnya selama pemrosesan request. Jika Anda tidak mendefinisikan custom error handler dengan `router.catch()`, Deserve secara otomatis menggunakan perilaku default ini untuk memastikan server Anda tidak pernah crash dari unhandled errors.
+# Perilaku Error Default
+
+Mekanisme penanganan error ini menangkap setiap error yang terjadi selama runtime server, yang mencakup error route handler, kegagalan middleware, skenario rute tidak ditemukan, error berkas statis, dan exception tak tertangkap lainnya selama pemrosesan request. Tanpa error handler khusus yang diatur lewat `router.catch()`, Deserve jatuh ke perilaku default ini supaya server tidak pernah crash karena error tak tertangani.
 
 ```mermaid
 flowchart LR
     A[Error Occurs] --> B{router.catch defined?}
     B -->|No| C[Default Handler]
     B -->|Yes| D[Custom Handler]
-    C --> E[JSON atau HTML by Accept]
+    C --> E[JSON or HTML by Accept]
     D --> F
     E --> F[Return Response]
 ```
 
 ## Perilaku Default Dasar
 
-Jika Anda tidak memanggil `router.catch()`, Deserve secara otomatis menangani semua error dengan response default (JSON atau HTML) dan status code yang sesuai:
+Tanpa panggilan ke `router.catch()`, Deserve menangani setiap error dengan response default, JSON atau HTML, dan status code yang cocok:
 
-```typescript
-// 1. Import Router
+```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
-// 2. Buat router
 const router = new Router({ routesDir: './routes' })
 
-// 3. Tidak panggil router.catch() - error akan pakai response default (JSON/HTML by Accept)
+// Tanpa router.catch, default mengambil alih
 
-// 4. Jalankan server
 await router.serve(8000)
 ```
 
 ## Response Error Default
 
-Response error default (tanpa custom `router.catch()`) mengikuti header `Accept` client:
+Response error default (tanpa `router.catch()` khusus) mengikuti header `Accept` klien:
 
-- **Accept menyertakan `application/json`** → Body JSON: `{ error, path, statusCode }`
-- **Selain itu** → Body HTML: halaman error sederhana dengan status dan pesan (escaped)
+- **Accept mencakup `application/json`** → body JSON: `{ error, path, statusCode }`
+- **Selain itu** → body HTML: halaman error sederhana dengan status dan pesan (di-escape)
 
-Selain itu:
+Juga:
 
-- **Status Code**: Mempertahankan status code error original (404, 500, dll.)
-- **Headers**: Menyertakan headers yang diatur via `ctx.setHeader()` sebelum error
+- **Status Code**: Mempertahankan status code error asli (404, 500, dll.)
+- **Header**: Mencakup header yang diatur lewat `ctx.setHeader()` sebelum error
 
 ```typescript
-// Contoh response default (client minta JSON)
+// Contoh response default (klien minta JSON)
 // Status: 404
 // Body: { "error": "...", "path": "/api/foo", "statusCode": 404 }
 
-// Contoh response default (client tidak minta JSON)
+// Contoh response default (klien tidak minta JSON)
 // Status: 404
 // Body: HTML dengan <title>404</title> dan pesan error
 ```
 
 ## Skenario Error
 
-Penanganan error default mencakup semua tipe error yang dapat terjadi selama pemrosesan request:
+Penanganan error default menutup semua jenis error yang bisa terjadi selama pemrosesan request:
 
-### 404 - Route Tidak Ditemukan
+### 404 - Rute Tidak Ditemukan
 
-Ketika route tidak ada atau tidak ada route handler yang cocok ditemukan:
+Ketika rute tidak ada atau tidak ada route handler yang cocok:
 
 ```typescript
 // GET /nonexistent
 // Status: 404
-// Body: JSON atau HTML (sesuai Accept)
+// Body: JSON atau HTML (lewat header Accept)
 // Headers: {}
 ```
 
-Ini termasuk:
+Ini mencakup:
 
-- Routes yang tidak ada
-- Routes dengan HTTP methods yang salah
-- Routes yang gagal match selama routing resolution
+- Rute yang tidak ada
+- Rute dengan metode HTTP yang salah
+- Rute yang gagal cocok saat resolusi routing
 
-### 500 - Server Errors
+### 500 - Error Server
 
-Ketika route handler melempar error atau exception:
+Ketika route handler melempar error atau exception apa pun:
 
-```typescript
+```typescript twoslash
+import type { Context } from '@neabyte/deserve'
+// ---cut---
 export function GET(ctx: Context): Response {
-  // 1. Melempar error → ditangkap oleh Deserve
+  // Lemparan ditangkap oleh Deserve
   throw new Error('Something went wrong')
-  // 2. Response default: Status 500, body JSON/HTML (tanpa router.catch)
+  // Balasan default adalah 500 JSON atau HTML
 }
 ```
 
 Ini mencakup:
 
-- Uncaught exceptions di route handlers
-- Runtime errors (TypeError, ReferenceError, dll.)
-- Async operation failures
+- Exception tak tertangkap di route handler
+- Error runtime (TypeError, ReferenceError, dll.)
+- Kegagalan operasi async
 - Error apa pun yang dilempar selama eksekusi handler
 
 ### Error Middleware
 
 Ketika fungsi middleware melempar error atau gagal:
 
-```typescript
-// 1. Middleware melempar → error ditangkap
+```typescript twoslash
+import { Router } from '@neabyte/deserve'
+
+const router = new Router()
+// ---cut---
+// Middleware yang melempar juga ditangkap
 router.use(async (ctx, next) => {
   throw new Error('Middleware failed')
-  // 2. Response default: Status 500, body JSON/HTML
+  // Balasan default adalah 500 JSON atau HTML
 })
 ```
 
-Semua middleware errors ditangkap dan ditangani oleh default error handler.
+Semua error middleware ditangkap dan ditangani oleh error handler default.
 
-### Error File Statis
+### Error Berkas Statis
 
-Ketika menyajikan file statis menemui masalah:
+Ketika melayani berkas statis menemui masalah:
 
-```typescript
-// 1. Mount static files di /static
+```typescript twoslash
+import { Router } from '@neabyte/deserve'
+
+const router = new Router()
+// ---cut---
+// Layani berkas statis di /static
 router.static('/static', { path: './public' })
 
-// 2. Jika file tidak ada (GET /static/missing.jpg):
-//    Status: 404, Body: JSON/HTML sesuai Accept
+// Berkas hilang (GET /static/missing.jpg):
+//   Status 404, JSON atau HTML per Accept
 ```
 
-Ini termasuk:
+Ini mencakup:
 
-- File not found errors (404)
-- File read permission errors (500)
-- Filesystem operation failures (500)
-- Invalid path resolution errors (500)
+- Error berkas tidak ditemukan (404)
+- Error izin baca berkas (500)
+- Kegagalan operasi filesystem (500)
+- Error resolusi path tidak valid (500)
 
-### Error Saat Memproses Request
+### Error Pemrosesan Request
 
-Error tak terduga selama penanganan request:
+Error tak terduga apa pun selama penanganan request:
 
 ```typescript
-// Errors di:
-// - URL parsing
-// - Context creation
-// - Route matching
-// - Response generation
-// Semua default ke: Status 500, body JSON/HTML
+// Error di:
+// - Parsing URL
+// - Pembuatan Context
+// - Pencocokan rute
+// - Pembuatan response
+// Semua default ke: Status 500, body JSON atau HTML (lewat Accept)
 ```
 
 ### Jaminan Penanganan Error
 
-Default error handler memastikan:
+Error handler default memastikan:
 
-- **Tidak ada crash server**: Semua error ditangkap dan dikonversi ke HTTP responses
-- **Perilaku konsisten**: Format response error yang sama di semua tipe error
-- **Preservasi header**: Header yang diatur sebelum error dipertahankan di response
-- **Akurasi status code**: Status code error original (404, 500, dll.) dipertahankan
+- **Tanpa crash server**: Semua error ditangkap dan diubah jadi response HTTP
+- **Perilaku konsisten**: Format response error sama di semua jenis error
+- **Pelestarian header**: Header yang diatur sebelum error dipertahankan di response
+- **Akurasi status code**: Status code error asli (404, 500, dll.) dipertahankan

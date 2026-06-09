@@ -1,43 +1,48 @@
+---
+description: "Batasi ukuran body request masuk untuk menjaga dari payload kebesaran."
+---
+
 # Middleware Body Limit
 
 > **Referensi**: [RFC 7230 HTTP/1.1 Message Syntax and Routing](https://datatracker.ietf.org/doc/html/rfc7230#section-3.3.1)
 
-Middleware Body Limit menegakkan ukuran body request maksimum. Jika body ada, stream body selalu dibungkus dengan limiter sehingga ukuran ditegakkan terlepas dari header. Mencegah payload besar yang dapat membebani server Anda.
+Middleware Body Limit memberlakukan ukuran maksimum body request. Ketika body ada, stream body selalu dibungkus dengan limiter sehingga ukurannya diberlakukan terlepas dari header, yang menjaga payload besar dari membebani server.
 
 ## Penggunaan Dasar
 
-Terapkan middleware body limit menggunakan middleware built-in Deserve:
+Terapkan middleware body limit memakai middleware bawaan Deserve:
 
-```typescript
-// 1. Import Router dan Mware
+```typescript twoslash
 import { Mware, Router } from '@neabyte/deserve'
 
-// 2. Buat router
 const router = new Router()
 
-// 3. Batasi body request maks 1MB; jika lebih → 413
+// Batasi body request di 1MB
 router.use(
   Mware.bodyLimit({
     limit: 1024 * 1024
   })
 )
 
-// 4. Jalankan server
 await router.serve(8000)
 ```
 
-## Limit Per Rute
+## Batas Spesifik Rute
 
-Terapkan limit body berbeda pada route tertentu:
+Terapkan batas body berbeda ke rute tertentu:
 
-```typescript
-// 1. Global: max 1MB
+```typescript twoslash
+import { Mware, Router } from '@neabyte/deserve'
+
+const router = new Router()
+// ---cut---
+// Batas 1MB untuk rute umum
 router.use(Mware.bodyLimit({ limit: 1024 * 1024 }))
 
-// 2. Hanya /uploads: max 5MB
+// Batas 5MB untuk rute upload
 router.use('/uploads', Mware.bodyLimit({ limit: 5 * 1024 * 1024 }))
 
-// 3. Hanya /api: max 10MB
+// Batas 10MB untuk rute API
 router.use('/api', Mware.bodyLimit({ limit: 10 * 1024 * 1024 }))
 ```
 
@@ -45,75 +50,49 @@ router.use('/api', Mware.bodyLimit({ limit: 10 * 1024 * 1024 }))
 
 ### `limit`
 
-Ukuran body maksimum dalam bytes:
+Ukuran body maksimum dalam byte:
 
 ```typescript
-// 1MB (1,048,576 bytes)
+// 1MB (1,048,576 byte)
 limit: 1024 * 1024
 
-// 5MB (5,242,880 bytes)
+// 5MB (5,242,880 byte)
 limit: 5 * 1024 * 1024
 
-// 10MB (10,485,760 bytes)
+// 10MB (10,485,760 byte)
 limit: 10 * 1024 * 1024
 ```
 
-## Cara Kerja Body Limit
+## Cara Kerja
 
-Jika request punya body, middleware membungkus stream body dengan byte limiter sehingga ukuran ditegakkan saat body dibaca (bukan hanya lewat header):
+Ketika request punya body, middleware membungkus stream body dengan limiter byte sehingga ukurannya diberlakukan saat body dibaca (bukan hanya lewat header):
 
-1. **GET/HEAD atau tanpa body** - Tidak dibungkus; request dilewati.
-2. **Body ada** - Stream body selalu dibungkus dengan limiter. Jika klien mengirim byte lebih dari `limit`, pembacaan dihentikan dan middleware merespons **413 Request Entity Too Large**.
-3. **Content-Length** - Jika ada dan di atas `limit`, middleware bisa menolak request sebelum membaca body (early reject).
+1. **GET/HEAD atau tanpa body** - tidak ada yang dibungkus dan request lolos.
+2. **Body ada** - stream body dibungkus dengan limiter. Ketika klien mengirim byte lebih banyak dari `limit`, pembacaan berhenti dan middleware membalas dengan **413**.
+3. **Content-Length** - ketika ada tanpa `Transfer-Encoding` dan di atas `limit`, request ditolak sebelum body dibaca.
 
 ### RFC 7230
 
-- Jika `Transfer-Encoding` dan `Content-Length` keduanya ada, `Transfer-Encoding` diutamakan.
-- Body chunked atau ukuran tidak diketahui tetap dibatasi oleh stream yang dibungkus; hanya byte yang dibaca yang dihitung ke limit.
+- Ketika `Transfer-Encoding` dan `Content-Length` sama-sama ada, `Transfer-Encoding` didahulukan.
+- Body chunked atau panjang tak diketahui tetap dibatasi oleh stream yang dibungkus, dan hanya byte yang dibaca yang dihitung terhadap batas.
 
 ## Contoh Lengkap
 
-```typescript
-// 1. Import Router dan Mware
+```typescript twoslash
 import { Mware, Router } from '@neabyte/deserve'
 
-// 2. Buat router
 const router = new Router({ routesDir: './routes' })
 
-// 3. Limit global 1MB
+// Batas global 1MB
 router.use(Mware.bodyLimit({ limit: 1024 * 1024 }))
 
-// 4. Per-path: /uploads 5MB, /api 10MB
+// Batas lebih besar untuk upload dan API
 router.use('/uploads', Mware.bodyLimit({ limit: 5 * 1024 * 1024 }))
 router.use('/api', Mware.bodyLimit({ limit: 10 * 1024 * 1024 }))
 
-// 5. Jalankan server
 await router.serve(8000)
 ```
 
 ## Penanganan Error
 
-Body Limit secara otomatis menggunakan `router.catch()` jika didefinisikan:
-
-```typescript
-// 1. Tangkap 413 (payload too large) dan error lain
-router.catch((ctx, { statusCode, error }) => {
-  if (statusCode === 413) {
-    return ctx.send.json(
-      { error: 'Request entity too large', message: error?.message },
-      { status: 413 }
-    )
-  }
-  return ctx.send.json(
-    {
-      error: error?.message ?? 'Error tidak diketahui'
-    },
-    { status: statusCode }
-  )
-})
-
-// 2. Pasang body limit (akan pakai router.catch di atas)
-router.use(Mware.bodyLimit({ limit: 1024 * 1024 }))
-```
-
-Ketika limit terlampaui, middleware mengembalikan pesan `Request entity too large` dengan `status code: 413` sebelum body request dibaca.
+Ketika batas terlampaui, middleware mengembalikan pesan `Request body exceeds <limit> bytes limit` dengan **status code 413**. `Content-Length` yang diketahui di atas batas ditolak sebelum body dibaca, sementara stream chunked atau kebesaran ditolak begitu byte tambahan tiba. Untuk membentuk response itu, daftarkan satu handler dengan [`router.catch()`](/id/error-handling/object-details), atau andalkan [perilaku default](/id/error-handling/default-behavior).

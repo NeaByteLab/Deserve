@@ -1,12 +1,16 @@
+---
+description: "Cara Deserve memetakan struktur direktori routes ke endpoint HTTP memakai routing berbasis file."
+---
+
 # Routing Berbasis File
 
-> **Referensi**: [Deno File-based Routing Tutorial](https://docs.deno.com/examples/file_based_routing_tutorial/)
+> **Referensi**: [Tutorial File-based Routing Deno](https://docs.deno.com/examples/file_based_routing_tutorial/)
 
-Routing berbasis file adalah konsep inti Deserve - struktur sistem file Anda menjadi struktur API secara otomatis, mengikuti pola yang sama seperti [Next.js](https://nextjs.org/) tapi untuk API Deno.
+Routing berbasis file adalah konsep inti Deserve, di mana struktur sistem berkas otomatis menjadi struktur API, mengikuti pola yang sama seperti [Next.js](https://nextjs.org/) tapi untuk API Deno.
 
 ## Cara Kerja
 
-Deserve memindai direktori routes Anda dan membuat endpoint dari struktur file. Semua ekstensi yang didukung (`.ts`, `.js`, `.tsx`, `.jsx`, `.mjs`, `.cjs`) bekerja dengan cara yang sama:
+Deserve memindai direktori routes dan membuat endpoint dari struktur berkas, dan setiap ekstensi yang didukung (`.ts`, `.js`, `.tsx`, `.jsx`, `.mjs`, `.cjs`) bekerja dengan cara yang sama:
 
 ```
 routes/
@@ -21,7 +25,7 @@ routes/
 
 ## Aturan Inti
 
-### 1. Nama File Menjadi Rute
+### 1. Nama Berkas Menjadi Rute
 
 - `index.ts`, `index.js`, `index.mjs` → `/` (root)
 - `about.ts`, `about.js`, `about.mjs` → `/about`
@@ -34,49 +38,55 @@ Semua ekstensi yang didukung (`.ts`, `.js`, `.tsx`, `.jsx`, `.mjs`, `.cjs`) beke
 - `users/[id].ts` → `/users/:id`
 - `users/[id]/posts.ts` → `/users/:id/posts`
 
-### 3. Parameter Dinamis Menggunakan Sintaks `[param]`
+### 3. Parameter Dinamis Memakai Sintaks `[param]`
 
 - `[id].ts` → parameter `:id`
 - `[userId].ts` → parameter `:userId`
 - `[postId].ts` → parameter `:postId`
 
-### 4. HTTP Methods Adalah Fungsi Yang Diekspor
+Segmen dinamis dicocokkan oleh [Pola Rute](/id/core-concepts/route-patterns) dan dibaca dengan `ctx.param()` dari [Penanganan Request](/id/core-concepts/request-handling#parameter-rute).
 
-```typescript
-// 1. Import tipe Context
+### 4. Metode HTTP Adalah Fungsi yang Diekspor
+
+```typescript twoslash
 import type { Context } from '@neabyte/deserve'
 
-// 2. Export GET → route GET /; POST → POST /
+// Tiap export memetakan ke metodenya
 export function GET(ctx: Context): Response {
   return ctx.send.json({ users: [] })
 }
 
 export async function POST(ctx: Context): Promise<Response> {
   const data = await ctx.body()
-  return ctx.send.json({ message: 'User created', data })
+  return ctx.send.json({
+    message: 'User created',
+    data
+  })
 }
 
-// 3. Method lain: PUT, PATCH, DELETE, dll. - export dengan nama yang sama
+// PUT, PATCH, DELETE ikut bentuk yang sama
 // export function [method](ctx: Context): Response { ... }
 ```
 
-### 5. URL Case-Sensitive (Huruf Besar/Kecil Diperhitungkan)
+### 5. URL Sensitif Huruf Besar Kecil
 
-URL bersifat case-sensitive sesuai standar HTTP:
+URL sensitif huruf besar kecil mengikuti standar HTTP:
 
 - `/Users/John` ≠ `/users/john`
 - `/API/v1` ≠ `/api/v1`
 
-### 6. Karakter Nama File Yang Valid
+### 6. Karakter Nama Berkas yang Valid
 
-File dapat berisi aturan spesifik:
+Berkas bisa berisi aturan tertentu:
 
 - `a-z`, `A-Z`, `0-9` - Karakter alfanumerik
-- `_` - Underscore (jangan awali segmen path - lihat bawah)
-- `-` - Dash
-- `.` - Dot
+- `_` - Garis bawah (jangan jadi awalan segmen path - lihat di bawah)
+- `-` - Strip
+- `.` - Titik
 - `~` - Tilde
 - `+` - Tanda plus
-- `[` `]` - Bracket untuk parameter dinamis
+- `[` `]` - Kurung siku untuk parameter dinamis
 
-**Segmen yang di-skip:** Folder atau nama file yang **diawali** `_` atau `@` tidak didaftar sebagai route (mis. `_layout.ts`, `@middleware.ts`, folder `_components/`). Berguna untuk file pendukung yang bukan endpoint.
+**Segmen yang dilewati:** Folder atau nama berkas yang **diawali** `_` atau `@` tidak didaftarkan sebagai rute (misalnya `_layout.ts`, `@middleware.ts`, folder `_components/`). Berguna untuk berkas pendukung yang bukan endpoint.
+
+Berkas rute yang diedit dimuat ulang seketika tanpa restart, dibahas di [Hot Reload](/id/core-concepts/hot-reload).

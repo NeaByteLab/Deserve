@@ -1,15 +1,18 @@
+---
+description: "Kirim response streaming dari ReadableStream dengan ctx.send.stream()."
+---
+
 # Response Stream
 
-Method `ctx.send.stream()` mengembalikan response body dari `ReadableStream`, berguna untuk streaming data besar atau server-sent events tanpa buffering penuh.
+Method `ctx.send.stream()` mengembalikan body response dari `ReadableStream`, berguna untuk streaming data besar atau server-sent events tanpa buffering penuh.
 
 ## Penggunaan Dasar
 
-```typescript
-// 1. Import tipe Context
+```typescript twoslash
 import type { Context } from '@neabyte/deserve'
 
 export function GET(ctx: Context): Response {
-  // 2. Buat ReadableStream (contoh: kirim dua chunk teks)
+  // Dorong dua chunk teks lalu tutup
   const stream = new ReadableStream({
     start(controller) {
       controller.enqueue(new TextEncoder().encode('Hello\n'))
@@ -17,31 +20,43 @@ export function GET(ctx: Context): Response {
       controller.close()
     }
   })
-  // 3. Kirim response dengan body stream
+  // Stream menjadi body response
   return ctx.send.stream(stream)
 }
 ```
 
 ## Dengan Content-Type Kustom
 
-Parameter ketiga adalah content type (default `application/octet-stream`):
+Parameter ketiga adalah content type dan defaultnya `application/octet-stream`:
 
-```typescript
+```typescript twoslash
+import type { Context } from '@neabyte/deserve'
+// ---cut---
 export function GET(ctx: Context): Response {
-  // 1. Siapkan stream (definisikan di tempat lain)
-  const stream = new ReadableStream({ ... })
-  // 2. Param ketiga: content-type (default application/octet-stream)
+  const stream = new ReadableStream({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode('Hello'))
+      controller.close()
+    }
+  })
+  // Argumen ketiga mengatur content type
   return ctx.send.stream(stream, undefined, 'text/plain')
 }
 ```
 
-## Dengan Status Dan Headers
+## Dengan Status dan Header
 
-```typescript
+```typescript twoslash
+import type { Context } from '@neabyte/deserve'
+// ---cut---
 export function GET(ctx: Context): Response {
-  // 1. Siapkan stream
-  const stream = new ReadableStream({ ... })
-  // 2. Param kedua: status + headers; ketiga: content-type
+  const stream = new ReadableStream({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode('{"ok":true}\n'))
+      controller.close()
+    }
+  })
+  // Argumen kedua status, ketiga tipe
   return ctx.send.stream(stream, {
     status: 200,
     headers: { 'X-Custom': 'value' }
@@ -49,7 +64,7 @@ export function GET(ctx: Context): Response {
 }
 ```
 
-## Signature Method
+## Method Signature
 
 ```typescript
 ctx.send.stream(
@@ -60,5 +75,5 @@ ctx.send.stream(
 ```
 
 - **stream** - ReadableStream yang dipakai sebagai body response
-- **options** - Opsional; status dan headers (ResponseInit)
-- **contentType** - Opsional; default `'application/octet-stream'`
+- **options** - status dan header opsional (ResponseInit)
+- **contentType** - opsional, default `'application/octet-stream'`

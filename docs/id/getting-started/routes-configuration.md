@@ -1,16 +1,19 @@
+---
+description: "Konfigurasi direktori routes, batas parameter, dan timeout request di Router Deserve."
+---
+
 # Konfigurasi Rute
 
-Konfigurasi direktori routes Deserve agar sesuai dengan struktur proyek Anda.
+Konfigurasi direktori routes Deserve agar cocok dengan struktur proyek.
 
 ## Opsi Router
 
-Konstruktor `Router` menerima opsi konfigurasi. Opsi utama: `routesDir` (direktori file route), `requestTimeoutMs` (timeout request), serta opsional `errorResponseBuilder` / `staticHandler`.
+Konstruktor `Router` menerima opsi konfigurasi. Yang umum adalah `routesDir` untuk folder rute dan `requestTimeoutMs` untuk timeout request. Rendering, batas request, worker pool, dan builder error khusus semuanya bisa dikonfigurasi juga. Kepercayaan proxy lewat `trustProxy` dan worker pool ada di [Resolusi IP Klien](/id/getting-started/server-configuration#resolusi-ip-klien) dan [Worker Pool](/id/core-concepts/worker-pool).
 
-```typescript
-// 1. Import Router
+```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
-// 2. routesDir custom dan opsional request timeout (default: ./routes, tanpa timeout)
+// Folder rute dan timeout khusus
 const router = new Router({
   routesDir: 'src/routes',
   requestTimeoutMs: 30_000
@@ -21,13 +24,15 @@ const router = new Router({
 
 ### `routesDir`
 
-Direktori yang berisi file route Anda:
+Direktori yang berisi berkas rute:
 
-```typescript
-// 1. Default: routes dari ./routes
-const router = new Router()
+```typescript twoslash
+import { Router } from '@neabyte/deserve'
+// ---cut---
+// Default ke ./routes
+const defaultRouter = new Router()
 
-// 2. Custom: routes dari ./src/api
+// Baca rute dari ./src/api
 const router = new Router({
   routesDir: 'src/api'
 })
@@ -35,9 +40,11 @@ const router = new Router({
 
 ### `requestTimeoutMs`
 
-Opsi timeout dalam milidetik untuk seluruh request (middleware + route handler). Jika terlampaui, server merespons **503 Service Unavailable**. Omit atau biarkan undefined untuk tanpa timeout.
+Timeout opsional dalam milidetik untuk seluruh request (middleware + route handler). Jika terlampaui, server membalas dengan **503 Service Unavailable**. Hilangkan atau biarkan undefined untuk tanpa timeout.
 
-```typescript
+```typescript twoslash
+import { Router } from '@neabyte/deserve'
+// ---cut---
 const router = new Router({
   routesDir: 'routes',
   requestTimeoutMs: 30_000
@@ -46,9 +53,11 @@ const router = new Router({
 
 ### `maxIterations`
 
-Jumlah maksimum iterasi yang diizinkan per blok <code v-pre>{{#each}}</code> di template DVE. Mencegah event loop starvation dari rendering template tanpa batas. Default adalah `100_000`. Jika terlampaui, engine akan throw dan server merespons **500 Internal Server Error**.
+Iterasi maksimum yang diizinkan per blok <code v-pre>{{#each}}</code> di template DVE. Batas ini mencegah event loop kelaparan akibat rendering tak terbatas. Default-nya `100_000`, dan melampauinya membuat mesin melempar sehingga server membalas dengan **500 Internal Server Error**.
 
-```typescript
+```typescript twoslash
+import { Router } from '@neabyte/deserve'
+// ---cut---
 const router = new Router({
   routesDir: 'routes',
   viewsDir: './views',
@@ -56,11 +65,67 @@ const router = new Router({
 })
 ```
 
-Untuk dataset lebih besar dari limit, gunakan [`streamRender`](/id/rendering/streaming). Untuk rendering yang CPU-intensive, pertimbangkan untuk offload ke [worker pool](/id/core-concepts/worker-pool).
+Untuk dataset lebih besar dari batas, gunakan [`streamRender`](/id/rendering/streaming), dan lihat [Performa dan Batas](/id/rendering/performance#batas-iterasi) untuk perilaku batasnya. Untuk rendering berat CPU, pertimbangkan mengalihkan ke [worker pool](/id/core-concepts/worker-pool).
 
-## Ekstensi File Yang Didukung
+### `maxUrlLength`
 
-Deserve secara otomatis mendeteksi dan mendukung ekstensi file ini:
+Panjang maksimum URL request dalam karakter. URL lebih panjang ditolak dengan **414 URI Too Long** sebelum rute mana pun berjalan. Default-nya `8192`:
+
+```typescript twoslash
+import { Router } from '@neabyte/deserve'
+// ---cut---
+const router = new Router({
+  routesDir: 'routes',
+  maxUrlLength: 4096
+})
+```
+
+### `maxParamLength`
+
+Panjang maksimum satu nilai parameter rute. Nilai lebih panjang ditolak dengan **414 URI Too Long**. Default-nya `1024`:
+
+```typescript twoslash
+import { Router } from '@neabyte/deserve'
+// ---cut---
+const router = new Router({
+  routesDir: 'routes',
+  maxParamLength: 512
+})
+```
+
+### `errorResponseBuilder`
+
+Opsi lanjutan yang mengganti cara response error dibangun. Ia menerima context, status code, error, dan handler yang diatur dengan [`router.catch()`](/id/error-handling/object-details), lalu mengembalikan `Response` final. Kebanyakan aplikasi membentuk error lewat `router.catch()` saja, dibahas di [Penanganan Error](/id/error-handling/object-details):
+
+```typescript twoslash
+import type { Context, ErrorMiddleware } from '@neabyte/deserve'
+import { Router } from '@neabyte/deserve'
+// ---cut---
+const router = new Router({
+  routesDir: 'routes',
+  errorResponseBuilder: {
+    // Bangun response error khusus
+    async build(
+      ctx: Context,
+      statusCode: number,
+      error: Error,
+      errorMiddleware?: ErrorMiddleware
+    ) {
+      return ctx.send.json(
+        {
+          failed: true,
+          statusCode
+        },
+        { status: statusCode }
+      )
+    }
+  }
+})
+```
+
+## Ekstensi Berkas yang Didukung
+
+Deserve otomatis mendeteksi dan mendukung ekstensi berkas ini:
 
 - `.ts` (TypeScript)
 - `.js` (JavaScript)
@@ -69,30 +134,33 @@ Deserve secara otomatis mendeteksi dan mendukung ekstensi file ini:
 - `.mjs` (ES Modules)
 - `.cjs` (CommonJS)
 
-Anda tidak perlu mengonfigurasi ekstensi - Deserve secara otomatis mendeteksinya.
+Tidak perlu konfigurasi tambahan, karena Deserve mendeteksinya otomatis.
 
-## Path Absolut Dan Relatif
+## Path Absolut vs Relatif
 
-### Relative Paths
+### Path Relatif
 
-```typescript
-// 1. Path relatif terhadap CWD
+```typescript twoslash
+import { Router } from '@neabyte/deserve'
+// ---cut---
 const router = new Router({
   routesDir: 'routes'
 })
 ```
 
-### Absolute Paths
+### Path Absolut
 
-```typescript
-// 1. Pakai Deno.cwd() untuk base absolut
+```typescript twoslash
+import { Router } from '@neabyte/deserve'
+// ---cut---
 const router = new Router({
   routesDir: `${Deno.cwd()}/routes`
 })
 ```
 
-```typescript
-// 2. Atau path absolut literal
+```typescript twoslash
+import { Router } from '@neabyte/deserve'
+// ---cut---
 const router = new Router({
   routesDir: '/absolute/path/to/routes'
 })

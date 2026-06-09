@@ -1,109 +1,123 @@
+---
+description: "Streaming template rendering di Deserve untuk response time-to-first-byte yang lebih cepat."
+---
+
 # Streaming Template Rendering
 
-Streaming template rendering memungkinkan Anda mengirim HTML, mengurangi time-to-first-byte (TTFB) dan meningkatkan user experience untuk template besar.
+Streaming template rendering mengirim HTML saat diproduksi, yang menurunkan time-to-first-byte (TTFB) dan membuat halaman besar terasa responsif. Ini pasangan progresif dari render biasa yang dibahas di [Ringkasan Rendering](/id/rendering/).
 
 ## Konsep Dasar
 
-Daripada menunggu template render, streaming mengirim HTML chunk by chunk:
+Alih-alih menunggu seluruh template selesai, streaming mengirim HTML potongan demi potongan:
 
 ```typescript
 // Render biasa (blocking) - tunggu semua selesai
-const html = await view.render('large-template', data)
-return ctx.send.html(html)
+return await ctx.render('large-template', data)
 
-// Streaming render (progressive) - kirim chunk by chunk
-const stream = view.streamRender('large-template', data)
-return ctx.send.stream(stream, undefined, 'text/html; charset=utf-8')
+// Streaming render (progresif) - kirim potongan demi potongan
+return await ctx.streamRender('large-template', data)
 ```
 
 ## Penggunaan Dasar
 
 ### 1. Di Context Handler
 
-Gunakan `ctx.streamRender()` untuk streaming HTML response:
+`ctx.streamRender()` mengembalikan response HTML streaming, jadi cukup di-await oleh rute:
 
-```typescript
+```typescript twoslash
+import type { Context, DataRecord } from '@neabyte/deserve'
+declare function getUser(): DataRecord
+declare function getAnalytics(): DataRecord
+// ---cut---
 // routes/dashboard.ts
-import type { Context } from '@neabyte/deserve'
 
-export function GET(ctx: Context): Response {
-  // Streaming render dashboard yang kompleks
-  return ctx.streamRender('dashboard', {
-    user: ctx.state.user,
-    analytics: ctx.state.analytics
+// Streaming render dashboard kompleks
+export async function GET(ctx: Context): Promise<Response> {
+  return await ctx.streamRender('dashboard', {
+    user: getUser(),
+    analytics: getAnalytics()
   })
 }
 ```
 
-### 2. Custom Response Headers
+### 2. Header Response Khusus
 
-Gunakan `ctx.streamRender()` dengan custom headers:
+View engine ada di framework state, jadi `ctx.getState` menjangkaunya untuk kontrol penuh atas response yang di-stream:
 
-```typescript
-import type { Context } from '@neabyte/deserve'
-
-export function GET(ctx: Context): Response {
-  // Akses view engine dari context state
-  const stream = ctx.state.view.streamRender('report', reportData)
-  return new Response(stream, {
-    headers: {
-      'Content-Type': 'text/html; charset=utf-8',
-      'Cache-Control': 'no-cache'
-    }
-  })
+```typescript twoslash
+import type { Context, DataRecord, ViewEngine } from '@neabyte/deserve'
+declare const reportData: DataRecord
+// ---cut---
+// Akses view engine dari framework state
+export async function GET(ctx: Context): Promise<Response> {
+  const view = ctx.getState<ViewEngine>('view' as never)
+  const stream = await view!.streamRender('report', reportData)
+  return ctx.send.stream(
+    stream,
+    { headers: { 'Cache-Control': 'no-cache' } },
+    'text/html; charset=utf-8'
+  )
 }
 ```
 
-## Template Support
+## Dukungan Template
 
-Semua fitur DVE template bekerja dengan streaming:
+Semua fitur DVE dari [Sintaks Template](/id/rendering/syntax) bekerja dengan streaming:
 
 ```html
 <!-- views/streaming-demo.dve -->
 <!DOCTYPE html>
 <html>
   <head>
-    <title>{{judul}}</title>
+    <title>{{title}}</title>
   </head>
   <body>
     <header>{{header}}</header>
 
-    <!-- Each loop akan streaming item by item -->
+    <!-- Each loop streams item by item -->
     {{#each items as item}}
     <div class="item">
-      <h3>{{item.nama}}</h3>
-      <p>{{item.deskripsi}}</p>
+      <h3>{{item.name}}</h3>
+      <p>{{item.description}}</p>
     </div>
     {{/each}}
 
     <!-- Conditional rendering -->
-    {{#if tampilkanFooter}}
+    {{#if showFooter}}
     <footer>{{footer}}</footer>
     {{/if}}
   </body>
 </html>
 ```
 
-## Use Case Terbaik
+## Kasus Pakai Terbaik
 
 ### 1. Template Besar
 
-```typescript
+```typescript twoslash
+import type { Context, DataRecord } from '@neabyte/deserve'
+declare function getTransactions(): Promise<DataRecord[]>
+declare function calculateSummary(): DataRecord
+// ---cut---
 // Report dengan ribuan baris data
-export function GET(ctx: Context): Response {
-  return ctx.streamRender('financial-report', {
+export async function GET(ctx: Context): Promise<Response> {
+  return await ctx.streamRender('financial-report', {
     transactions: await getTransactions(), // 10,000+ items
     summary: calculateSummary()
   })
 }
 ```
 
-### 2. Real-time Data
+### 2. Data Real-time
 
-```typescript
+```typescript twoslash
+import type { Context, DataRecord } from '@neabyte/deserve'
+declare function getLatestMetrics(): DataRecord
+declare function getActiveAlerts(): DataRecord
+// ---cut---
 // Dashboard dengan data live
-export function GET(ctx: Context): Response {
-  return ctx.streamRender('live-dashboard', {
+export async function GET(ctx: Context): Promise<Response> {
+  return await ctx.streamRender('live-dashboard', {
     metrics: getLatestMetrics(),
     alerts: getActiveAlerts()
   })
@@ -112,30 +126,34 @@ export function GET(ctx: Context): Response {
 
 ### 3. Progressive Enhancement
 
-```typescript
+```typescript twoslash
+import type { Context, DataRecord } from '@neabyte/deserve'
+declare function getLayoutData(): DataRecord
+declare function getContent(): Promise<DataRecord>
+declare function getAnalytics(): Promise<DataRecord>
+// ---cut---
 // Kirim skeleton dulu, data mengalir
-export function GET(ctx: Context): Response {
-  return ctx.streamRender('progressive-app', {
+export async function GET(ctx: Context): Promise<Response> {
+  return await ctx.streamRender('progressive-app', {
     layout: getLayoutData(), // Fast
     content: await getContent(), // Slow
-    analytics: getAnalytics() // Very slow
+    analytics: await getAnalytics() // Very slow
   })
 }
 ```
 
-## Migration dari Render Biasa
+## Migrasi dari Render Biasa
 
 ```typescript
 // Sebelum (blocking) - tunggu semua selesai
 export async function GET(ctx: Context): Promise<Response> {
-  const html = await ctx.render('large-template', data)
-  return html
+  return await ctx.render('large-template', data)
 }
 
 // Sesudah (streaming) - kirim progresif
-export function GET(ctx: Context): Response {
-  return ctx.streamRender('large-template', data)
+export async function GET(ctx: Context): Promise<Response> {
+  return await ctx.streamRender('large-template', data)
 }
 ```
 
-Streaming rendering meningkatkan performa secara signifikan untuk template besar dan aplikasi real-time. API yang sederhana dan mudah digunakan.
+Streaming rendering mengangkat performa untuk template besar dan halaman real-time, dan API-nya tetap satu await yang sama seperti render biasa.

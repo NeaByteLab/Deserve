@@ -1,19 +1,21 @@
-# Beberapa Direktori Static
+---
+description: "Sajikan aset statis dari beberapa direktori di bawah prefix URL berbeda pada Deserve."
+---
 
-Anda bisa memanggil `router.static()` lebih dari sekali untuk menyajikan file dari beberapa folder. Setiap panggilan memetakan satu prefix URL ke satu folder dengan opsi (etag, cache) sendiri.
+# Beberapa Direktori
+
+Sajikan file statis dari beberapa direktori dengan konfigurasi berbeda per path. Setiap pemanggilan berbagi opsi dan aturan resolusi yang sama seperti di [Penyajian Static Dasar](/id/static-file/basic).
 
 ## Penggunaan Dasar
 
-Konfigurasi beberapa direktori statis:
+Konfigurasi beberapa direktori static:
 
-```typescript
-// 1. Import Router
+```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
-// 2. Buat router
 const router = new Router()
 
-// 3. Mount beberapa direktori: URL prefix → path, etag, cache
+// Tiap path punya folder dan cache sendiri
 router.static('/admin', {
   path: './admin/dist',
   etag: true,
@@ -30,21 +32,26 @@ router.static('/docs', {
   cacheControl: 3600
 })
 
-// 4. Jalankan server
 await router.serve(8000)
 ```
 
 ## Pola Umum
 
-### Website Dan Admin Panel
+### Website + Panel Admin
 
-```typescript
-// 1. Root: public; 2. /admin: admin/dist
+```typescript twoslash
+import { Router } from '@neabyte/deserve'
+
+const router = new Router()
+// ---cut---
+// Website utama
 router.static('/', {
   path: './public',
   etag: true,
   cacheControl: 86400
 })
+
+// Panel admin
 router.static('/admin', {
   path: './admin/dist',
   etag: true,
@@ -52,39 +59,47 @@ router.static('/admin', {
 })
 ```
 
-### Assets Dan Uploads
+### Aset + Uploads
 
-```typescript
-// 1. Assets: cache panjang (1 tahun)
+```typescript twoslash
+import { Router } from '@neabyte/deserve'
+
+const router = new Router()
+// ---cut---
+// Aset statis dengan cache jangka panjang
 router.static('/assets', {
   path: './public/assets',
   etag: true,
-  cacheControl: 31536000
+  cacheControl: 31536000 // 1 tahun
 })
 
-// 2. Uploads: no cache
+// Upload pengguna tanpa cache
 router.static('/uploads', {
   path: './uploads',
   etag: false,
-  cacheControl: 0
+  cacheControl: 0 // Tanpa cache
 })
 ```
 
-### Development Dan Production
+### Development + Production
 
-```typescript
-// 1. Dev: no cache
+```typescript twoslash
+import { Router } from '@neabyte/deserve'
+
+const router = new Router()
+// ---cut---
+// File development - cache pendek
 router.static('/dev', {
   path: './dev',
   etag: true,
-  cacheControl: 0
+  cacheControl: 0 // Tanpa cache untuk dev
 })
 
-// 2. Production: cache 1 tahun
+// Build production - cache panjang
 router.static('/', {
   path: './dist',
   etag: true,
-  cacheControl: 31536000
+  cacheControl: 31536000 // 1 tahun
 })
 ```
 
@@ -131,22 +146,26 @@ router.static('/', {
 
 ### Strategi Caching Berbeda
 
-```typescript
-// 1. Assets: cache 1 tahun
+```typescript twoslash
+import { Router } from '@neabyte/deserve'
+
+const router = new Router()
+// ---cut---
+// Aset cache jangka panjang (1 tahun)
 router.static('/assets', {
   path: './public/assets',
   etag: true,
   cacheControl: 31536000
 })
 
-// 2. Images: cache 1 hari
+// Cache jangka menengah (1 hari)
 router.static('/images', {
   path: './public/images',
   etag: true,
   cacheControl: 86400
 })
 
-// 3. Uploads: no cache
+// Tanpa cache untuk upload dinamis
 router.static('/uploads', {
   path: './uploads',
   etag: false,
@@ -156,15 +175,19 @@ router.static('/uploads', {
 
 ### Pengaturan ETag Berbeda
 
-```typescript
-// 1. ETag on: cocok untuk file jarang berubah
+```typescript twoslash
+import { Router } from '@neabyte/deserve'
+
+const router = new Router()
+// ---cut---
+// Aktifkan ETag untuk caching efisien
 router.static('/static', {
   path: './public',
   etag: true,
   cacheControl: 86400
 })
 
-// 2. ETag off: file sering berubah
+// Matikan ETag untuk file yang sering berubah
 router.static('/reports', {
   path: './reports',
   etag: false,
@@ -176,24 +199,27 @@ router.static('/reports', {
 
 ### Konflik Route
 
-Routes diregistrasi untuk semua HTTP methods (`GET`, `POST`, dll.). Pastikan static routes tidak konflik dengan dynamic routes:
+Route diregistrasi untuk semua HTTP method (`GET`, `POST`, dll.). Pastikan static route tidak bentrok dengan dynamic route:
 
-```typescript
-// 1. Urutan mount: pastikan tidak konflik dengan dynamic routes
+```typescript twoslash
+import { Router } from '@neabyte/deserve'
+
+const router = new Router()
+// ---cut---
 router.static('/', { path: './public' })
 router.static('/admin', { path: './admin/dist' })
 ```
 
 ### File Tidak Ditemukan
 
-- Periksa nilai `path` benar (relative ke cwd atau absolute)
+- Periksa nilai `path` benar (relatif ke cwd atau absolut)
 - Verifikasi struktur direktori cocok dengan konfigurasi
 - Pastikan file ada di direktori yang ditentukan
-- Periksa URL paths cocok dengan pola route
+- Periksa path URL cocok dengan pola route
 
 ### Masalah Performa
 
 - Aktifkan `etag: true` untuk caching efisien
-- Set nilai `cacheControl` yang sesuai berdasarkan tipe konten
-- Static assets: cache panjang (31536000 = 1 tahun)
-- Konten dinamis: cache pendek atau no cache (0 atau 3600)
+- Atur nilai `cacheControl` sesuai tipe konten
+- Aset statis: cache panjang (31536000 = 1 tahun)
+- Konten dinamis: cache pendek atau tanpa cache (0 atau 3600)

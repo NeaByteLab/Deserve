@@ -1,12 +1,16 @@
+---
+description: "Sintaks pola rute di Deserve termasuk parameter dinamis, wildcard, dan aturan pencocokan."
+---
+
 # Pola Rute
 
-> **Referensi**: [Fast Router GitHub Repository](https://github.com/NeaByteLab/Fast-Router)
+> **Referensi**: [Repositori GitHub Fast Router](https://github.com/NeaByteLab/Fast-Router)
 
-Deserve menggunakan **Fast Router** (radix tree) untuk pencocokan rute dan ekstraksi parameter. Path file di folder `routes` diubah menjadi pola; segmen dinamis memakai `[param]` yang menjadi `:param` di level router.
+[Routing Berbasis File](/id/core-concepts/file-based-routing) membahas aturan yang mengubah folder menjadi URL. Halaman ini membahas separuh lainnya, mesin pencocokan yang memutuskan berkas mana yang menjawab request masuk. Deserve memakai **Fast Router** (radix tree) untuk mencocokkan path dan menarik parameter, di mana folder `[param]` menjadi slot `:param` di tingkat router.
 
 ## Pencocokan Pola
 
-Deserve mengonversi path file menjadi pola rute. **FastRouter** menangani pencocokan pola dengan radix tree untuk performa optimal:
+Deserve mengubah path berkas menjadi pola rute, dan **FastRouter** mencocokkannya dengan radix tree untuk pencarian cepat:
 
 ```
 .
@@ -16,56 +20,33 @@ Deserve mengonversi path file menjadi pola rute. **FastRouter** menangani pencoc
 ├── routes/users/[id]/posts.ts   → /users/:id/posts
 ```
 
+## Cara Pencocokan Bekerja
+
+Ketika request tiba, mesin mencari metode dan pathname, lalu menerapkan beberapa aturan tetap:
+
+- **Path persis, metode persis** - handler yang cocok berjalan dengan param-nya terisi
+- **HEAD jatuh ke GET** - sebuah `HEAD` tanpa handler memakai ulang handler `GET`
+- **Metode salah** - path dikenal tanpa handler untuk metode itu mengembalikan **405** dengan header `Allow` yang mendaftar metode yang memang ada
+- **Path tidak dikenal** - tanpa kecocokan mengembalikan **404** lewat [error handler](/id/error-handling/object-details)
+- **Input kebesaran** - URL melewati `maxUrlLength` atau param melewati `maxParamLength` mengembalikan **414**, keduanya bisa disetel di [Konfigurasi Server](/id/getting-started/server-configuration)
+
+Param di-percent-decode sekali sebelum handler membacanya, jadi `ctx.param('id')` mengembalikan nilai yang sudah didekode.
+
 ## Parameter Dinamis
 
-Gunakan sintaks `[param]` untuk segmen rute dinamis:
+Folder atau berkas `[param]` menjadi slot bernama `:param` di pola. Tiap kurung di path berubah menjadi satu parameter, dan bersarang tinggal menambah lebih banyak:
 
-### Parameter Tunggal
+| Path berkas                                        | Pola                                       | Param                        |
+| -------------------------------------------------- | ------------------------------------------ | ---------------------------- |
+| `users/[id].ts`                                    | `/users/:id`                               | `id`                         |
+| `users/[id]/posts/[postId].ts`                     | `/users/:id/posts/:postId`                 | `id`, `postId`               |
+| `api/v1/users/[userId]/posts/[postId].ts`          | `/api/v1/users/:userId/posts/:postId`      | `userId`, `postId`           |
 
-```typescript
-// File: routes/users/[id].ts
-// 1. Import Context
-import type { Context } from '@neabyte/deserve'
-
-// 2. GET /users/:id - ambil param dari ctx.param('id')
-export function GET(ctx: Context): Response {
-  const id = ctx.param('id')
-  return ctx.send.json({ userId: id })
-}
-```
-
-### Parameter Ganda
-
-```typescript
-// File: routes/users/[id]/posts/[postId].ts
-// 1. Satu segmen satu ctx.param('nama')
-import type { Context } from '@neabyte/deserve'
-
-export function GET(ctx: Context): Response {
-  const id = ctx.param('id')
-  const postId = ctx.param('postId')
-  return ctx.send.json({ userId: id, postId })
-}
-```
-
-### Parameter Bersarang
-
-```typescript
-// File: routes/api/v1/users/[userId]/posts/[postId]/comments/[commentId].ts
-// 1. Setiap [param] di path → ctx.param('param')
-import type { Context } from '@neabyte/deserve'
-
-export function GET(ctx: Context): Response {
-  const userId = ctx.param('userId')
-  const postId = ctx.param('postId')
-  const commentId = ctx.param('commentId')
-  return ctx.send.json({ userId, postId, commentId })
-}
-```
+Nilai yang dicocokkan dibaca di dalam handler dengan `ctx.param()` dan `ctx.params()`, dibahas di [Penanganan Request](/id/core-concepts/request-handling#parameter-rute).
 
 ## Contoh Pola
 
-### Manajemen Pengguna
+### Manajemen User
 
 ```
 routes/
@@ -76,7 +57,7 @@ routes/
 └── users/[id]/posts/[postId].ts   → /users/:id/posts/:postId
 ```
 
-### API Versioning
+### Versioning API
 
 ```
 routes/
@@ -101,13 +82,13 @@ routes/
 
 ## Validasi Parameter
 
-Ekstrak dan validasi parameter di route handler Anda:
+Router mencocokkan bentuk sebuah pola, bukan makna sebuah nilai, jadi `/users/:id` mencocokkan `abc` sama mudahnya dengan `123`. Sebuah handler memvalidasi nilai dan mengembalikan status code yang mengalir ke [error handler](/id/error-handling/object-details):
 
-```typescript
+```typescript twoslash
 // File: routes/users/[id].ts
-// 1. Ambil param lalu validasi; jika invalid → 400
 import type { Context } from '@neabyte/deserve'
 
+// Tolak id non-numerik dengan 400
 export function GET(ctx: Context): Response {
   const id = ctx.param('id')
   if (!id || !/^\d+$/.test(id)) {

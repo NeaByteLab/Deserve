@@ -1,15 +1,18 @@
+---
+description: "Kirim response HTML dengan ctx.send.html()."
+---
+
 # Response HTML
 
 Method `ctx.send.html()` membuat response HTML.
 
 ## Penggunaan Dasar
 
-```typescript
-// 1. Import tipe Context
+```typescript twoslash
 import type { Context } from '@neabyte/deserve'
 
 export function GET(ctx: Context): Response {
-  // 2. String HTML + kirim (Content-Type: text/html)
+  // Default text/html
   const html = '<html><body><h1>Hello World</h1></body></html>'
   return ctx.send.html(html)
 }
@@ -17,9 +20,11 @@ export function GET(ctx: Context): Response {
 
 ## HTML Dinamis
 
-```typescript
+```typescript twoslash
+import type { Context } from '@neabyte/deserve'
+// ---cut---
 export function GET(ctx: Context): Response {
-  // 1. Bangun HTML (bisa template literal, atau dari engine)
+  // Bangun markup dengan template literal
   const html = `
     <!DOCTYPE html>
     <html>
@@ -30,16 +35,17 @@ export function GET(ctx: Context): Response {
       </body>
     </html>
   `
-  // 2. Kirim sebagai response HTML
   return ctx.send.html(html)
 }
 ```
 
-## Dengan Status Code Kustom
+## Dengan Status Code
 
-```typescript
+```typescript twoslash
+import type { Context } from '@neabyte/deserve'
+// ---cut---
 export function GET(ctx: Context): Response {
-  // 1. Halaman "Not Found" + status 404
+  // Halaman Not Found dengan status 404
   const html = '<html><body><h1>Not Found</h1></body></html>'
   return ctx.send.html(html, { status: 404 })
 }
@@ -47,11 +53,12 @@ export function GET(ctx: Context): Response {
 
 ## Header Kustom
 
-```typescript
+```typescript twoslash
+import type { Context } from '@neabyte/deserve'
+// ---cut---
 export function GET(ctx: Context): Response {
-  // 1. Atur security header
+  // Atur header sebelum kirim
   ctx.setHeader('X-Frame-Options', 'DENY')
-  // 2. Kirim HTML (header ikut terkirim)
   return ctx.send.html('<html><body>Content</body></html>')
 }
 ```

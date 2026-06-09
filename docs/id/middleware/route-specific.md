@@ -1,45 +1,61 @@
+---
+description: "Batasi cakupan middleware ke prefix path supaya hanya berjalan untuk rute yang cocok."
+---
+
 # Middleware Spesifik Rute
 
-Middleware spesifik rute diterapkan hanya ke request yang path-nya diawali dengan string yang Anda berikan (prefix match). Misalnya `router.use('/api', mw)` menjalankan `mw` untuk `/api`, `/api/users`, `/api/v1`, dan seterusnya. memungkinkan fungsi bertarget seperti autentikasi untuk API routes atau logging untuk admin routes.
+Middleware spesifik rute berlaku untuk pola rute tertentu, memungkinkan fungsionalitas tertarget seperti autentikasi untuk rute API atau logging untuk rute admin.
 
 ## Penggunaan Dasar
 
-Terapkan middleware ke pola rute spesifik menggunakan method `use()` dengan path rute:
+Terapkan middleware ke pola rute tertentu memakai method `use()` dengan path rute:
 
-```typescript
-// 1. Import Router
+```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
-// 2. Buat router
 const router = new Router()
 
-// 3. Pasang middleware untuk path yang diawali /api (prefix match)
+// Berjalan untuk path yang diawali /api
 router.use('/api', async (ctx, next) => {
   console.log(`API request: ${ctx.request.method} ${ctx.url}`)
   return await next()
 })
 
-// 4. Jalankan server
 await router.serve(8000)
 ```
 
 ## Pencocokan Pola Rute
 
-Middleware berlaku untuk routes yang dimulai dengan pola yang ditentukan:
+Middleware berlaku untuk rute yang diawali pola yang ditentukan:
 
-```typescript
-// 1. Prefix path = scope middleware (prefix match)
+```typescript twoslash
+import type { MiddlewareFn } from '@neabyte/deserve'
+import { Router } from '@neabyte/deserve'
+
+const router = new Router()
+declare const middleware: MiddlewareFn
+// ---cut---
+// Berlaku untuk rute /api/*
 router.use('/api', middleware)
+
+// Berlaku untuk rute /api/users/*
 router.use('/api/users', middleware)
+
+// Berlaku untuk rute /admin/*
 router.use('/admin', middleware)
 ```
 
-## Pola Umum Middleware Per Rute
+## Pola Spesifik Rute Umum
 
 ### Autentikasi API
 
-```typescript
-// 1. Auth hanya untuk /api
+```typescript twoslash
+import { Router } from '@neabyte/deserve'
+
+const router = new Router()
+declare function isValidToken(token: string): boolean
+// ---cut---
+// Wajibkan bearer token di bawah /api
 router.use('/api', async (ctx, next) => {
   const authHeader = ctx.header('authorization')
   if (!authHeader) {
@@ -55,8 +71,12 @@ router.use('/api', async (ctx, next) => {
 
 ### Otorisasi Admin
 
-```typescript
-// 1. Cek role admin untuk /admin
+```typescript twoslash
+import { Router } from '@neabyte/deserve'
+
+const router = new Router()
+// ---cut---
+// Izinkan hanya peran admin di bawah /admin
 router.use('/admin', async (ctx, next) => {
   const userRole = ctx.header('x-user-role')
   if (userRole !== 'admin') {
@@ -68,18 +88,26 @@ router.use('/admin', async (ctx, next) => {
 
 ### Logging Rute Publik
 
-```typescript
-// 1. Log akses ke /public
+```typescript twoslash
+import { Router } from '@neabyte/deserve'
+
+const router = new Router()
+// ---cut---
+// Catat akses di bawah /public
 router.use('/public', async (ctx, next) => {
   console.log(`Public access: ${ctx.request.method} ${ctx.url}`)
   return await next()
 })
 ```
 
-### Middleware Per Versi
+### Middleware Spesifik Versi
 
-```typescript
-// 1. Middleware per versi API
+```typescript twoslash
+import { Router } from '@neabyte/deserve'
+
+const router = new Router()
+// ---cut---
+// Middleware terpisah per versi API
 router.use('/api/v1', async (ctx, next) => {
   console.log('Legacy API v1 request')
   return await next()
@@ -91,12 +119,16 @@ router.use('/api/v2', async (ctx, next) => {
 })
 ```
 
-## Beberapa Middleware Untuk Path Yang Sama
+## Banyak Middleware Spesifik Rute
 
 Terapkan beberapa middleware ke pola rute yang sama:
 
-```typescript
-// 1. Auth dulu untuk /api
+```typescript twoslash
+import { Router } from '@neabyte/deserve'
+
+const router = new Router()
+// ---cut---
+// Auth berjalan lebih dulu di bawah /api
 router.use('/api', async (ctx, next) => {
   const authHeader = ctx.header('authorization')
   if (!authHeader) {
@@ -105,7 +137,7 @@ router.use('/api', async (ctx, next) => {
   return await next()
 })
 
-// 2. Lalu logging (jalan setelah auth ok)
+// Logging berjalan setelah auth lolos
 router.use('/api', async (ctx, next) => {
   console.log(`API: ${ctx.request.method} ${ctx.url}`)
   return await next()
@@ -116,20 +148,24 @@ router.use('/api', async (ctx, next) => {
 
 Terapkan middleware ke pola rute bersarang:
 
-```typescript
-// 1. /api → semua path di bawah /api
+```typescript twoslash
+import { Router } from '@neabyte/deserve'
+
+const router = new Router()
+// ---cut---
+// Menutup setiap path di bawah /api
 router.use('/api', async (ctx, next) => {
   console.log('API request')
   return await next()
 })
 
-// 2. /api/users → lebih spesifik
+// Mempersempit ke /api/users
 router.use('/api/users', async (ctx, next) => {
   console.log('User API request')
   return await next()
 })
 
-// 3. /api/users/admin → cek role
+// Mempersempit lagi dan cek peran
 router.use('/api/users/admin', async (ctx, next) => {
   const role = ctx.header('x-user-role')
   if (role !== 'admin') {
@@ -141,23 +177,24 @@ router.use('/api/users/admin', async (ctx, next) => {
 
 ## Urutan Eksekusi Middleware
 
-Middleware dieksekusi sesuai urutan penambahannya:
+Middleware berjalan sesuai urutan penambahannya:
 
-```typescript
-// 1. Global: jalan untuk semua request
+```typescript twoslash
+import { Router } from '@neabyte/deserve'
+
+const router = new Router()
+// ---cut---
+// Global berjalan untuk setiap request
 router.use(async (ctx, next) => {
   console.log('Global middleware')
   return await next()
 })
 
-// 2. Path /api: jalan jika path diawali /api
+// Middleware path berjalan untuk request /api
 router.use('/api', async (ctx, next) => {
   console.log('API middleware')
   return await next()
 })
 
-// Urutan eksekusi untuk request ke /api/users:
-// 1. Global middleware (ditambahkan pertama)
-// 2. API middleware (route-specific, ditambahkan kedua)
-// 3. Route handler
+// Untuk /api/users: global, lalu API, lalu handler
 ```

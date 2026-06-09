@@ -1,123 +1,129 @@
-# Middleware Global
+---
+description: "Daftarkan middleware global yang berjalan untuk setiap request dengan router.use()."
+---
 
-Middleware global dieksekusi untuk setiap request sebelum route handlers, menyediakan fungsi lintas seperti autentikasi, logging, dan CORS.
+# Global Middleware
+
+Middleware global dieksekusi untuk setiap request sebelum route handler, menyediakan fungsionalitas lintas-potong seperti autentikasi, logging, dan CORS.
 
 ## Penggunaan Dasar
 
-Tambahkan middleware global menggunakan method `use()`:
+Tambahkan middleware global memakai method `use()`:
 
-```typescript
-// 1. Import Router
+```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
-// 2. Buat router
 const router = new Router()
 
-// 3. Tambah middleware global: log tiap request, lalu lanjut
+// Catat setiap request, lalu lanjut
 router.use(async (ctx, next) => {
   console.log(`${ctx.request.method} ${ctx.url}`)
   return await next()
 })
 
-// 4. Jalankan server
 await router.serve(8000)
 ```
 
 ## Signature Fungsi Middleware
 
 ```typescript
-type Middleware = (
+type MiddlewareFn = (
   ctx: Context,
   next: () => Promise<Response | undefined>
-) => Response | Promise<Response | undefined>
+) => Response | undefined | Promise<Response | undefined>
 ```
 
-- **Return `await next()`** - Lanjut ke middleware atau route handler berikutnya; memungkinkan modifikasi dan inspeksi response.
-- **Return `Response`** - Hentikan pemrosesan dan kembalikan response tersebut.
-- **Return `undefined`** - Dianggap pass-through (rantai berlanjut seperti `next()` dipanggil).
+- **Kembalikan `await next()`** - lanjut ke middleware atau route handler berikutnya, yang memungkinkan modifikasi dan inspeksi response.
+- **Kembalikan `Response`** - hentikan pemrosesan dan kembalikan response itu seketika.
+- **Kembalikan `undefined`** - diperlakukan sebagai pass-through jadi rantai lanjut seolah `next()` dipanggil.
 
-Middleware harus memanggil `next()` dan memakai hasilnya atau mengembalikan `Response`. Jika tidak (mis. tidak pernah memanggil `next()` dan tidak return apa-apa), request bisa hang; gunakan `requestTimeoutMs` di `Router` untuk membatasi durasi request dan mendapat 503.
+Middleware harus memanggil `next()` dan memakai hasilnya atau mengembalikan sebuah `Response`. Ketika tidak melakukan keduanya, misalnya tidak pernah memanggil `next()` dan tidak mengembalikan apa pun, request bisa menggantung, jadi `requestTimeoutMs` di `Router` membatasi durasi request dan mengembalikan 503.
 
 ## Pola Middleware Global Umum
 
 ### Logging Request
 
-```typescript
-// 1. Catat waktu mulai
+```typescript twoslash
+import { Router } from '@neabyte/deserve'
+
+const router = new Router()
+// ---cut---
 router.use(async (ctx, next) => {
   const start = Date.now()
-  // 2. Log request masuk
-  console.log(`🌐 ${ctx.request.method} ${ctx.url} - ${new Date().toISOString()}`)
-  // 3. Jalankan middleware/route berikutnya
+  console.log(`${ctx.request.method} ${ctx.url} - ${new Date().toISOString()}`)
   const response = await next()
-  // 4. Hitung durasi dan log selesai
   const duration = Date.now() - start
-  console.log(`✅ Completed in ${duration}ms`)
+  console.log(`Completed in ${duration}ms`)
   return response
 })
 ```
 
 ### Autentikasi
 
-```typescript
-// 1. Cek header Authorization
+```typescript twoslash
+import { Router } from '@neabyte/deserve'
+
+const router = new Router()
+declare function isValidToken(token: string): boolean
+// ---cut---
 router.use(async (ctx, next) => {
   const authHeader = ctx.header('authorization')
   if (!authHeader) {
     return ctx.send.text('Unauthorized', { status: 401 })
   }
-  // 2. Ambil token (strip "Bearer ")
+  // Validasi token di sini...
   const token = authHeader.replace('Bearer ', '')
-  // 3. Validasi token; jika invalid → 401
   if (!isValidToken(token)) {
     return ctx.send.text('Invalid token', { status: 401 })
   }
-  // 4. Valid → lanjut
   return await next()
 })
 ```
 
-## Membungkus Middleware Dengan Error Handling
+## Membungkus Middleware Dengan Penanganan Error
 
-Middleware custom yang melempar error bisa dibungkus dengan `wrapMiddleware` agar error tertangkap dan diteruskan ke `router.catch()` (jika ada):
+Middleware kustom yang melempar bisa dibungkus dengan `WrapMware`, jadi error ditangkap dan diteruskan ke `router.catch()` ketika didefinisikan:
 
-```typescript
-// 1. Import Router, wrapMiddleware (dan Mware jika perlu)
-import { Mware, Router, wrapMiddleware } from '@neabyte/deserve'
+```typescript twoslash
+import { Router, WrapMware } from '@neabyte/deserve'
 
-// 2. Buat router
 const router = new Router()
 
-// 3. Bungkus middleware dengan label; error akan masuk ke router.catch
-const myAuth = wrapMiddleware('Auth', async (ctx, next) => {
+// Bungkus supaya lemparan sampai ke router.catch
+const myAuth = WrapMware('Auth', async (ctx, next) => {
   if (!ctx.header('x-api-key')) {
     throw new Error('Missing API key')
   }
   return await next()
 })
 
-// 4. Pasang middleware dan error handler
+// Terapkan middleware dan error handler
 router.use(myAuth)
 router.catch((ctx, err) => ctx.send.json({ error: err.error?.message }, { status: 500 }))
 
-// 5. Jalankan server
 await router.serve(8000)
 ```
 
-**Signature:** `wrapMiddleware(label: string, middleware: Middleware): Middleware`. Jika middleware melempar, error akan diproses lewat `ctx.handleError()` sehingga `router.catch()` dipanggil.
+**Signature:** `WrapMware(label: string, middleware: MiddlewareFn): MiddlewareFn`. Ketika middleware melempar, error berjalan lewat `ctx.handleError()` sehingga `router.catch()` dipanggil.
 
 ## Middleware Per Path
 
-Anda dapat menerapkan middleware ke path spesifik:
+Middleware juga berlaku untuk path spesifik:
 
-```typescript
-// 1. Middleware hanya untuk path yang diawali /api
+```typescript twoslash
+import type { Context } from '@neabyte/deserve'
+import { Router } from '@neabyte/deserve'
+
+const router = new Router()
+declare function isAuthenticated(ctx: Context): boolean
+// ---cut---
+// Berjalan hanya untuk path /api
 router.use('/api', async (ctx, next) => {
   console.log('API request:', ctx.url)
   return await next()
 })
 
-// 2. Middleware untuk path /admin: cek auth dulu
+// Jaga path /admin dengan cek auth
 router.use('/admin', async (ctx, next) => {
   if (!isAuthenticated(ctx)) {
     return ctx.send.text('Unauthorized', { status: 401 })

@@ -1,32 +1,33 @@
+---
+description: "Upgrade request menjadi koneksi WebSocket dengan callback siklus hidup di Deserve."
+---
+
 # Middleware WebSocket
 
-> **Referensi**: [Dokumentasi Deno upgradeWebSocket API](https://docs.deno.com/api/deno/~/Deno.upgradeWebSocket)
+> **Referensi**: [Dokumentasi API Deno upgradeWebSocket](https://docs.deno.com/api/deno/~/Deno.upgradeWebSocket)
 
 Middleware WebSocket menangani upgrade koneksi WebSocket, memungkinkan komunikasi dua arah real-time antara klien dan server.
 
 ## Penggunaan Dasar
 
-Terapkan middleware WebSocket menggunakan middleware built-in Deserve:
+Terapkan middleware WebSocket memakai middleware bawaan Deserve:
 
-```typescript
-// 1. Import Router dan Mware
+```typescript twoslash
 import { Mware, Router } from '@neabyte/deserve'
 
-// 2. Buat router
 const router = new Router()
 
-// 3. Upgrade request ke WebSocket di path /ws; onConnect kirim welcome
+// Upgrade /ws dan sapa saat connect
 router.use(
   Mware.websocket({
     listener: '/ws',
-    onConnect: (socket, ctx) => {
-      console.log('WebSocket terhubung:', ctx.url)
-      socket.send('Selamat datang!')
+    onConnect: (socket, event, ctx) => {
+      console.log('WebSocket connected:', ctx.url)
+      socket.send('Welcome')
     }
   })
 )
 
-// 4. Jalankan server
 await router.serve(8000)
 ```
 
@@ -37,42 +38,57 @@ await router.serve(8000)
 Tentukan prefix path untuk upgrade WebSocket:
 
 ```typescript
-listener: '/ws' // Cocok dengan /ws, /ws/chat, /ws/room/123, dll.
-listener: '/api/ws' // Cocok dengan /api/ws, /api/ws/data, dll.
+listener: '/ws' // Cocok /ws, /ws/chat, /ws/room/123, dll.
+listener: '/api/ws' // Cocok /api/ws, /api/ws/data, dll.
 ```
 
-**Penting:** Middleware hanya akan mengupgrade request yang:
+**Penting:** Middleware hanya mengupgrade request yang:
 
-- Memiliki header `Upgrade: websocket`
-- Path dimulai dengan nilai `listener`
+- Membawa header `Upgrade: websocket`
+- Memakai metode `GET`
+- Punya path yang dimulai dengan nilai `listener`
+
+Tanpa `listener`, middleware meneruskan setiap request dan tidak pernah mengupgrade.
+
+### `allowedOrigins`
+
+Kontrol origin handshake mana yang diterima, yang menjaga dari pembajakan WebSocket lintas situs:
+
+```typescript
+allowedOrigins: '*' // Terima origin apa pun
+allowedOrigins: ['https://example.com', 'https://app.example.com'] // Allowlist
+```
+
+Saat `allowedOrigins` dibiarkan undefined, hanya handshake same-origin yang diterima. Origin yang ditolak mengembalikan **403 Forbidden**.
 
 ### `onConnect`
 
 Menangani koneksi WebSocket baru:
 
 ```typescript
-onConnect: ;
-;((socket: WebSocket, ctx: Context) => {
-  console.log('Klien terhubung:', ctx.url)
-  socket.send(JSON.stringify({ type: 'welcome', message: 'Terhubung!' }))
-})
+onConnect: (socket: WebSocket, event: Event, ctx: Context) => {
+  console.log('Client connected:', ctx.url)
+  socket.send(JSON.stringify({
+    type: 'welcome',
+    message: 'Connected'
+  }))
+}
 ```
 
 ### `onMessage`
 
-Menangani pesan WebSocket yang masuk:
+Menangani pesan WebSocket masuk:
 
 ```typescript
-onMessage: ;
-;((socket: WebSocket, event: MessageEvent, ctx: Context) => {
-  console.log('Diterima:', event.data)
+onMessage: (socket: WebSocket, event: MessageEvent, ctx: Context) => {
+  console.log('Received:', event.data)
   try {
     const data = JSON.parse(event.data as string)
     socket.send(JSON.stringify({ echo: data }))
   } catch {
-    socket.send(JSON.stringify({ error: 'JSON tidak valid' }))
+    socket.send(JSON.stringify({ error: 'Invalid JSON' }))
   }
-})
+}
 ```
 
 ### `onDisconnect`
@@ -80,10 +96,9 @@ onMessage: ;
 Menangani pemutusan koneksi WebSocket. `CloseEvent` menyediakan `code`, `reason`, dan `wasClean`:
 
 ```typescript
-onDisconnect: ;
-;((socket: WebSocket, event: CloseEvent, ctx: Context) => {
-  console.log('Klien terputus:', event.code, event.reason, event.wasClean)
-})
+onDisconnect: (socket: WebSocket, event: CloseEvent, ctx: Context) => {
+  console.log('Client disconnected:', event.code, event.reason, event.wasClean)
+}
 ```
 
 ### `onError`
@@ -91,36 +106,32 @@ onDisconnect: ;
 Menangani error WebSocket:
 
 ```typescript
-onError: ;
-;((socket: WebSocket, event: Event, ctx: Context) => {
-  console.error('Error WebSocket:', event, 'pada', ctx.url)
-})
+onError: (socket: WebSocket, event: Event, ctx: Context) => {
+  console.error('WebSocket error:', event, 'on', ctx.url)
+}
 ```
 
 ## Contoh Lengkap
 
-```typescript
-// 1. Import Router dan Mware
+```typescript twoslash
 import { Mware, Router } from '@neabyte/deserve'
 
-// 2. Buat router
 const router = new Router({ routesDir: './routes' })
 
-// 3. Pasang WebSocket: listener path + lifecycle hooks
 router.use(
   Mware.websocket({
     listener: '/ws',
-    onConnect: (socket, ctx) => {
-      console.log(`WebSocket terhubung: ${ctx.url}`)
+    onConnect: (socket, event, ctx) => {
+      console.log(`WebSocket connected: ${ctx.url}`)
       socket.send(
         JSON.stringify({
           type: 'welcome',
-          message: 'Terhubung ke server WebSocket Deserve!'
+          message: 'Connected to Deserve WebSocket server'
         })
       )
     },
     onMessage: (socket, event, ctx) => {
-      console.log(`Pesan dari ${ctx.url}:`, event.data)
+      console.log(`Message from ${ctx.url}:`, event.data)
       try {
         const data = JSON.parse(event.data as string)
         if (data.type === 'ping') {
@@ -143,49 +154,47 @@ router.use(
         socket.send(
           JSON.stringify({
             type: 'error',
-            message: 'JSON tidak valid'
+            message: 'Invalid JSON'
           })
         )
       }
     },
     onDisconnect: (socket, event, ctx) => {
-      console.log(`WebSocket terputus: ${ctx.url} code=${event.code} reason=${event.reason}`)
+      console.log(`WebSocket disconnected: ${ctx.url} code=${event.code} reason=${event.reason}`)
     },
     onError: (socket, event, ctx) => {
-      console.error(`Error WebSocket pada ${ctx.url}:`, event)
+      console.error(`WebSocket error on ${ctx.url}:`, event)
     }
   })
 )
 
-// 4. Jalankan server
 await router.serve(8000)
 ```
 
-## Penggunaan Di Sisi Klien
+## Penggunaan Sisi Klien
 
-Hubungkan dari browser menggunakan WebSocket API native:
+Hubungkan dari browser dengan WebSocket API native:
 
-```typescript
-// 1. Buka koneksi ke path listener
+```typescript twoslash
 const socket = new WebSocket('ws://localhost:8000/ws')
 
 socket.addEventListener('open', () => {
-  console.log('Terhubung!')
+  console.log('Connected')
   socket.send(
     JSON.stringify({
       type: 'message',
-      text: 'Halo!'
+      text: 'Hello'
     })
   )
 })
 
 socket.addEventListener('message', (event) => {
   const data = JSON.parse(event.data)
-  console.log('Diterima:', data)
+  console.log('Received:', data)
 })
 
 socket.addEventListener('close', () => {
-  console.log('Terputus')
+  console.log('Disconnected')
 })
 
 socket.addEventListener('error', (error) => {
@@ -193,49 +202,42 @@ socket.addEventListener('error', (error) => {
 })
 ```
 
-## Properti Objek WebSocket
+## Properti WebSocket
 
-Akses properti WebSocket di handler:
+Akses properti WebSocket di dalam handler:
 
 ```typescript
-onConnect: ;
-;((socket, ctx) => {
+onConnect: (socket, event, ctx) => {
   console.log('URL:', socket.url)
   console.log('Protocol:', socket.protocol)
   console.log('State:', socket.readyState)
   // 0=CONNECTING, 1=OPEN, 2=CLOSING, 3=CLOSED
-})
+}
 ```
 
 ## Penanganan Error
 
-Middleware akan melempar error jika upgrade WebSocket gagal:
+Handshake yang ditolak diarahkan lewat error handler alih-alih melempar saat setup:
 
-```typescript
-try {
-  router.use(Mware.websocket({ listener: '/ws' }))
-} catch (error) {
-  console.error('Setup WebSocket gagal:', error)
-}
-```
+- **Origin tidak diizinkan** mengembalikan **403** dengan pesan `WebSocket handshake rejected because the Origin is not allowed`.
+- **Upgrade salah bentuk** mengembalikan **400** dengan pesan `WebSocket handshake is malformed because ...`.
+
+Untuk membentuk response ini, daftarkan satu handler dengan [`router.catch()`](/id/error-handling/object-details), atau andalkan [perilaku default](/id/error-handling/default-behavior).
 
 ## Integrasi Dengan CORS
 
-Saat menggunakan WebSocket dengan klien yang mengaktifkan CORS:
+WebSocket berpasangan dengan klien ber-CORS seperti ini:
 
-```typescript
-// 1. Import Router dan Mware
+```typescript twoslash
 import { Mware, Router } from '@neabyte/deserve'
 
-// 2. Buat router
 const router = new Router()
 
-// 3. CORS dulu (preflight), lalu WebSocket
+// CORS menangani HTTP, WebSocket menangani upgrade
 router.use(Mware.cors({ origin: '*' }))
 router.use(Mware.websocket({ listener: '/ws' }))
 
-// 4. Jalankan server
 await router.serve(8000)
 ```
 
-Middleware CORS menangani HTTP request, sementara middleware WebSocket menangani upgrade WebSocket. Keduanya bekerja bersama dengan mulus.
+Middleware CORS menangani HTTP request, sementara middleware WebSocket menangani upgrade, dan keduanya berjalan bersama tanpa konflik.

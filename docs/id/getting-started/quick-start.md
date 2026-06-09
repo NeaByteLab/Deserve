@@ -1,10 +1,14 @@
+---
+description: "Bangun server HTTP dan rute Deserve pertama dalam kurang dari lima menit."
+---
+
 # Mulai Cepat
 
-Mulai menggunakan Deserve dalam kurang dari 5 menit!
+Jalankan server Deserve dalam kurang dari 5 menit.
 
 ## Struktur Proyek
 
-Di akhir panduan ini, Anda akan memiliki struktur proyek berikut. Buat folder dan file sesuai urutan langkah di bawah:
+Panduan ini berakhir dengan struktur proyek berikut:
 
 ```
 .
@@ -13,32 +17,30 @@ Di akhir panduan ini, Anda akan memiliki struktur proyek berikut. Buat folder da
     └── index.ts
 ```
 
-## 1. Buat Server Anda
+## 1. Buat Server
 
 Buat `main.ts`:
 
-```typescript
-// 1. Import Router
+```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
-// 2. Buat instance router (pakai default routesDir: ./routes)
+// Router default routesDir ke ./routes
 const router = new Router()
 
-// 3. Jalankan server di port 8000
+// Dengarkan di port 8000
 await router.serve(8000)
 ```
 
-## 2. Buat Route Pertama Anda
+## 2. Buat Rute Pertama
 
 Buat folder `routes` dan tambahkan `index.ts`:
 
-```typescript
-// 1. Import tipe Context
+```typescript twoslash
 import type { Context } from '@neabyte/deserve'
 
-// 2. Export handler dengan nama method HTTP (GET) - file-based routing
+// Handler GET memetakan ke rute ini
 export function GET(ctx: Context): Response {
-  // 3. Kirim JSON response
+  // Balas dengan body JSON
   return ctx.send.json({
     message: 'Hello from Deserve!',
     timestamp: new Date().toISOString()
@@ -46,19 +48,19 @@ export function GET(ctx: Context): Response {
 }
 ```
 
-## 3. Jalankan Server Anda
+## 3. Jalankan Server
 
 ```bash
 deno run --allow-net --allow-read main.ts
 ```
 
-## 4. Uji API Anda
+## 4. Uji API
 
 ```bash
 curl http://localhost:8000
 ```
 
-Anda seharusnya melihat:
+Response-nya terlihat seperti ini:
 
 ```json
 {

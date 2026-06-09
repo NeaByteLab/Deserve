@@ -1,71 +1,82 @@
+---
+description: "Mengalihkan kerja terikat-CPU ke pool worker Deno lewat API worker pool Deserve."
+---
+
 # Worker Pool
 
-> **Referensi**: [Deno Workers API](https://docs.deno.com/runtime/manual/workers/)
+> **Referensi**: [API Workers Deno](https://docs.deno.com/runtime/manual/workers/)
 
-Worker pool memindahkan pekerjaan yang berat di CPU ke sekumpulan Deno Worker agar main thread tetap responsif. Saat Anda mengonfigurasi worker pool, `ctx.state.worker` tersedia di route handler dan Anda bisa menjalankan tugas dengan `worker.run(payload)`.
+Worker pool mengalihkan kerja terikat-CPU ke pool Worker Deno supaya thread utama tetap responsif. Setelah worker pool dikonfigurasi, route handler menjangkau handle worker lewat `ctx.getState('worker' as never)` dan mengirim tugas dengan `run(payload)`.
 
-## Kapan Menggunakan
+## Kapan Dipakai
 
-Gunakan worker pool ketika sebuah route melakukan **pekerjaan berat di CPU** (misalnya kalkulasi berat, parsing, kompresi) yang bisa memblokir event loop. Untuk pekerjaan I/O (file, jaringan), main thread biasanya sudah cukup.
+Pakai worker pool ketika sebuah rute melakukan **kerja terikat-CPU** (misalnya matematika berat, parsing, kompresi) yang akan memblokir event loop. Untuk kerja terikat-I/O (berkas, jaringan), thread utama biasanya sudah cukup.
 
 ## Penggunaan Dasar
 
 ### 1. Konfigurasi Router dengan Worker
 
-Berikan opsi `worker` saat membuat router. Anda harus menyediakan **URL skrip** yang mengarah ke modul (misalnya lewat `import.meta.resolve()` atau `URL.createObjectURL()` untuk kode inline):
+Berikan `worker` saat membuat router, bersama **script URL** yang meresolusi ke sebuah modul (misalnya lewat `import.meta.resolve()` atau `URL.createObjectURL()` untuk kode inline):
 
-```typescript
-// 1. Import Router
+```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
-// 2. Resolve URL skrip worker (harus berupa modul)
+// Resolusi script worker sebagai modul
 const workerScriptUrl = import.meta.resolve('./worker.ts')
 
-// 3. Buat router dengan worker pool
+// Aktifkan pool pada router
 const router = new Router({
   routesDir: './routes',
-  worker: { scriptURL: workerScriptUrl, poolSize: 4 }
+  worker: {
+    scriptURL: workerScriptUrl,
+    poolSize: 4
+  }
 })
 
-// 4. Jalankan server
 await router.serve(8000)
 ```
 
-### 2. Implementasi Skrip Worker
+### 2. Implementasi Script Worker
 
-Skrip worker harus mendengarkan `message` dan membalas dengan `postMessage`. Payload dan hasil harus **structured-clone serializable** (tanpa fungsi atau symbol):
+Script worker harus mendengarkan `message` dan membalas dengan `postMessage`. Payload dan hasil harus **dapat diserialisasi structured-clone** (tanpa fungsi atau simbol):
 
 ```typescript
 // worker.ts
 self.onmessage = (e: MessageEvent) => {
   const data = e.data as { iterations?: number }
-  const n = Math.max(0, Number(data?.iterations) ?? 50_000)
+  const n = Math.max(0, Number(data?.iterations) || 50_000)
   let value = 0
   for (let i = 0; i < n; i++) {
     value += Math.sqrt(i)
   }
-  self.postMessage({ done: true, value })
+  self.postMessage({
+    done: true,
+    value
+  })
 }
 ```
 
-Untuk melaporkan error dari worker, kirim objek dengan `error: true` dan opsional `message`:
+Untuk melaporkan error dari worker, kirim objek dengan `error: true` dan `message` opsional:
 
 ```typescript
-self.postMessage({ error: true, message: 'Komputasi gagal' })
+self.postMessage({
+  error: true,
+  message: 'Computation failed'
+})
 ```
 
-### 3. Penggunaan di Route
+### 3. Pakai di Rute
 
-Baca `ctx.state.worker` dan panggil `run(payload)`. Jika router dibuat tanpa `worker`, `ctx.state.worker` akan undefined; kembalikan 503 atau tangani sesuai kebutuhan:
+Handle worker tinggal di framework state, jadi `ctx.getState` menjangkaunya dengan tipe `WorkerRunHandle`. Router yang dibuat tanpa `worker` membiarkan handle undefined, yang merupakan momen untuk mengembalikan 503:
 
-```typescript
+```typescript twoslash
 // routes/heavy.ts
-import type { Context } from '@neabyte/deserve'
+import type { Context, WorkerRunHandle } from '@neabyte/deserve'
 
-export async function GET(ctx: Context) {
-  const worker = ctx.state['worker'] as { run: <T>(p: unknown) => Promise<T> } | undefined
-  if (!worker?.run) {
-    return ctx.send.json({ error: 'Worker tidak diaktifkan' }, { status: 503 })
+export async function GET(ctx: Context): Promise<Response> {
+  const worker = ctx.getState<WorkerRunHandle>('worker' as never)
+  if (!worker) {
+    return ctx.send.json({ error: 'Worker not enabled' }, { status: 503 })
   }
   const result = await worker.run<{ done: boolean; value: number }>({ iterations: 50_000 })
   return ctx.send.json({ value: result?.value })
@@ -76,24 +87,38 @@ export async function GET(ctx: Context) {
 
 ### `scriptURL`
 
-URL skrip worker. Harus mengarah ke **modul** (Deno menjalankan worker dengan `type: 'module'`). Sumber yang umum:
+URL script worker. Harus menunjuk ke sebuah **modul** (Deno menjalankan worker dengan `type: 'module'`). Sumber umum:
 
-- **Path file:** `import.meta.resolve('./worker.ts')`
-- **Skrip inline:** `URL.createObjectURL(new Blob([code], { type: 'application/javascript' }))`
+- **Path berkas:** `import.meta.resolve('./worker.ts')`
+- **Script inline:** `URL.createObjectURL(new Blob([code], { type: 'application/javascript' }))`
 
 ### `poolSize`
 
-Jumlah worker di pool. Default **4**. Minimum 1. Tugas didistribusikan round-robin.
+Jumlah worker dalam pool. Default adalah **4**. Minimum 1. Tugas dikirim round-robin.
 
 ```typescript
-worker: { scriptURL: workerScriptUrl, poolSize: 8 }
+worker: {
+  scriptURL: workerScriptUrl,
+  poolSize: 8
+}
+```
+
+### `taskTimeoutMs`
+
+Timeout per tugas dalam milidetik. Default adalah **30000**. Tugas yang berjalan lebih lama ditolak dengan error timeout dan worker dilahirkan ulang.
+
+```typescript
+worker: {
+  scriptURL: workerScriptUrl,
+  taskTimeoutMs: 10_000
+}
 ```
 
 ## Contoh Lengkap (Worker Inline)
 
-Menggunakan skrip worker inline dengan `Blob` dan `createObjectURL`:
+Memakai script worker inline dengan `Blob` dan `createObjectURL`:
 
-```typescript
+```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
 const workerCode = `
@@ -113,7 +138,10 @@ const workerScriptUrl = URL.createObjectURL(
 
 const router = new Router({
   routesDir: './routes',
-  worker: { scriptURL: workerScriptUrl, poolSize: 4 }
+  worker: {
+    scriptURL: workerScriptUrl,
+    poolSize: 4
+  }
 })
 
 await router.serve(8000)
@@ -121,21 +149,23 @@ await router.serve(8000)
 
 ## Penanganan Error
 
-- **Tanpa pool:** Jika router dibuat tanpa `worker`, `ctx.state.worker` undefined. Kembalikan 503 atau pesan yang jelas ketika route membutuhkan worker.
-- **Error dari worker:** Jika worker memanggil `postMessage({ error: true, message: '...' })`, `worker.run()` akan reject dengan `Error` berisi pesan tersebut. Jika tidak ada pesan, error berbunyi `Worker returned an error with no message`.
-- **Worker crash:** Jika worker throw atau crash, `run()` reject dengan `Worker terminated unexpectedly before responding`.
+- **Tanpa pool:** Router yang dibuat tanpa `worker` membiarkan `ctx.getState('worker' as never)` undefined. Kembalikan 503 atau pesan jelas ketika rute butuh worker.
+- **Error worker:** Ketika worker memanggil `postMessage({ error: true, message: '...' })`, `worker.run()` ditolak dengan `Error` yang membawa pesan itu. Tanpa pesan, error berbunyi `Worker returned an error with no message`.
+- **Crash worker:** Ketika worker melempar atau crash, `run()` ditolak dengan `Worker task failed before responding`.
+- **Timeout tugas:** Ketika tugas berjalan melewati `taskTimeoutMs` (default 30000), `run()` ditolak dengan `Worker task exceeded <ms>ms timeout`.
 
-Tangani error di route:
+Tangkap tugas yang ditolak dan teruskan ke [error handler terpusat](/id/error-handling/object-details):
 
 ```typescript
 try {
   const result = await worker.run(payload)
   return ctx.send.json(result)
 } catch (err) {
-  return ctx.handleError(500, err as Error)
+  // Alihkan kegagalan lewat penanganan error
+  return await ctx.handleError(500, err as Error)
 }
 ```
 
-## Structured Clone Saja
+## Hanya Structured Clone
 
-Payload dan hasil dikirim lewat `postMessage` / `onmessage`. Hanya data **structured-clone serializable** yang diperbolehkan: objek/array primitif, primitif, `Date`, `RegExp`, `Map`, `Set`, dll. Anda tidak bisa mengirim fungsi, symbol, atau instance class yang tidak bisa di-clone.
+Payload dan hasil dikirim lewat `postMessage` / `onmessage`, jadi hanya data yang **dapat diserialisasi structured-clone** yang diizinkan, yang mencakup objek polos, array, primitif, `Date`, `RegExp`, `Map`, `Set`, dan nilai serupa. Fungsi, simbol, dan instance kelas yang tidak dapat diklon tidak bisa melewati batas itu.

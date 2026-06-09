@@ -1,26 +1,27 @@
-# Penggunaan Dasar Static File
+---
+description: "Sajikan file statis dari sebuah direktori dengan static handler Deserve."
+---
 
-Sajikan file statis (HTML, CSS, JS, images) dari sebuah folder menggunakan method `router.static()`. Request ke path URL yang Anda tentukan akan di-resolve ke file di dalam folder tersebut.
+# Penyajian Static Dasar
+
+Sajikan file statis (HTML, CSS, JS, images) menggunakan method `static()`.
 
 ## Penggunaan Dasar
 
 Sajikan file statis dari direktori:
 
-```typescript
-// 1. Import Router
+```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
-// 2. Buat router
 const router = new Router()
 
-// 3. Mount static: URL /static → folder ./public, plus ETag & cache
+// Sajikan ./public di path /static
 router.static('/static', {
   path: './public',
   etag: true,
   cacheControl: 86400
 })
 
-// 4. Jalankan server
 await router.serve(8000)
 ```
 
@@ -32,19 +33,19 @@ Ini menyajikan file dari direktori `public/` di path URL `/static`:
 
 ## Cara Kerja
 
-Deserve memetakan URL ke file di disk dengan alur berikut:
+Deserve memakai implementasi penyajian file statis kustom:
 
-1. **Route Matching**: Membuat routes dengan pola `${urlPath}/**` untuk mencocokkan semua file
-2. **Path Extraction**: Menggunakan `ctx.pathname` langsung untuk mendapatkan full request path (pola `/**` dari FastRouter hanya menangkap segment pertama, jadi kita menggunakan pathname sebagai gantinya)
-3. **File Resolution**: Memetakan URL paths ke file system paths menggunakan opsi `path`
-4. **Priority**: Static routes diregistrasi untuk semua HTTP methods sebelum dynamic routes
+1. **Route Matching**: Membuat route dengan pola `${urlPath}/**` untuk mencocokkan semua file
+2. **Path Extraction**: Membaca `ctx.pathname` langsung untuk mendapat full request path, karena pola `/**` FastRouter hanya menangkap segment pertama
+3. **File Resolution**: Memetakan path URL ke path file system memakai opsi `path`
+4. **Priority**: Static route diregistrasi untuk semua HTTP method sebelum dynamic route
 
-### Perilaku Wildcard Pattern
+### Perilaku Pola Wildcard
 
-Ketika `urlPath` adalah `/`, Deserve membuat pola `/**`. Untuk path resolution, Deserve menggunakan `ctx.pathname` daripada mengandalkan wildcard parameter, karena:
+Ketika `urlPath` adalah `/`, Deserve membuat pola `/**`. Untuk path resolution, Deserve memakai `ctx.pathname` daripada mengandalkan parameter wildcard, karena:
 
-- Pola `/**` dari FastRouter hanya menangkap **segment pertama** dari request path alih-alih full path (misalnya, `"styles"` untuk `/styles/ui.css`)
-- Untuk menyajikan file nested dengan benar, Deserve mengekstrak full path dari `ctx.pathname` dan menghapus leading `/` untuk mendapatkan relative file path
+- Pola `/**` FastRouter hanya menangkap **segment pertama** dari request path alih-alih full path (misalnya `"styles"` untuk `/styles/ui.css`)
+- Untuk menyajikan file bersarang dengan benar, Deserve mengekstrak full path dari `ctx.pathname` dan menghapus `/` awal untuk mendapat path file relatif
 
 **Contoh:**
 
@@ -55,74 +56,92 @@ Ketika `urlPath` adalah `/`, Deserve membuat pola `/**`. Untuk path resolution, 
 
 ## Opsi Static File
 
-Method `static()` menerima objek `ServeOptions`:
+Method `static()` menerima object `ServeOptions`:
 
 ### `path`
 
 Path direktori file system untuk menyajikan file:
 
-```typescript
-// 1. Path relatif (dari CWD)
+```typescript twoslash
+import { Router } from '@neabyte/deserve'
+
+const router = new Router()
+// ---cut---
 router.static('/static', {
-  path: './public'
+  path: './public' // Sajikan file dari folder public/
 })
 
-// 2. Path absolut
 router.static('/assets', {
-  path: '/absolute/path/to/assets'
+  path: '/absolute/path/to/assets' // Path absolut juga didukung
 })
 ```
 
 ### `etag`
 
-Aktifkan generasi ETag untuk caching. Menggunakan algoritma SHA-256:
+Aktifkan generasi ETag untuk caching. Tag adalah hash SHA-256 dari ukuran file dan waktu modifikasi, bukan isi file penuh, jadi tetap murah dihitung:
 
-```typescript
-// 1. Aktifkan ETag (SHA-256) untuk 304 Not Modified
+```typescript twoslash
+import { Router } from '@neabyte/deserve'
+
+const router = new Router()
+// ---cut---
 router.static('/static', {
   path: './public',
-  etag: true
+  etag: true // Generate ETag dari size dan mtime
 })
 ```
 
-Ketika diaktifkan, Deserve menghasilkan ETag headers dari content hash. Jika client mengirim header `If-None-Match` yang cocok dengan ETag, response `304 Not Modified` dikembalikan.
+Saat aktif, client yang mengirim header `If-None-Match` yang cocok menerima response `304 Not Modified` tanpa body.
 
 ### `cacheControl`
 
-Set Cache-Control header max-age dalam detik:
+Atur Cache-Control max-age dalam detik. Deserve mengirimnya sebagai `public, max-age=<detik>`, hanya berlaku saat nilainya `0` atau lebih:
 
-```typescript
-// 1. Cache-Control max-age (detik): 1 hari
+```typescript twoslash
+import { Router } from '@neabyte/deserve'
+
+const router = new Router()
+// ---cut---
 router.static('/static', {
   path: './public',
-  cacheControl: 86400
+  cacheControl: 86400 // Cache 1 hari (86400 detik)
 })
 
-// 2. Cache 1 tahun
 router.static('/assets', {
   path: './assets',
-  cacheControl: 31536000
+  cacheControl: 31536000 // Cache 1 tahun
 })
 ```
+
+## Resolusi File dan Keamanan
+
+Penyajian static memetakan path URL ke file di bawah direktori yang dikonfigurasi, dengan beberapa aturan bawaan:
+
+- **Index fallback** - request ke root route menyajikan `index.html` dari direktori.
+- **Content type** - tipe dipilih dari ekstensi file. Aset web umum seperti HTML, CSS, JavaScript, JSON, images, fonts, dan dokumen sudah dipetakan langsung, dan ekstensi tidak dikenal jatuh ke `application/octet-stream`.
+- **Dotfiles diblokir** - segment path apa pun yang namanya diawali `.` ditolak dengan **404**, jadi file seperti `.env`, `.git/config`, atau `..` di awal tidak pernah disajikan. Aturan melihat nama segment, bukan ekstensi, jadi file biasa seperti `report.env` tetap disajikan.
+- **Directory traversal diblokir** - real path hasil resolusi harus tetap di dalam direktori dasar. Path yang lolos keluar, misalnya dibangun dari `..`, ditolak dengan **404**.
+
+File yang hilang atau diblokir mengembalikan 404 lewat [error handler terpusat](/id/error-handling/object-details).
 
 ## Pemecahan Masalah
 
 ### File Tidak Ditemukan
 
-- Periksa `path` benar (relative ke current working directory atau absolute)
+- Periksa `path` benar (relatif ke current working directory atau absolut)
 - Verifikasi permission file
 - Pastikan file ada di direktori
-- Periksa bahwa URL path cocok dengan pola route (`/static/file.css` untuk `router.static('/static', ...)`)
+- Periksa path URL cocok dengan pola route (`/static/file.css` untuk `router.static('/static', ...)`)
 
 ### Error 404
 
 - Verifikasi static route diregistrasi sebelum memanggil `router.serve()`
-- Periksa bahwa file paths cocok dengan struktur URL
-- Pastikan file ada di path yang di-resolve
+- Periksa path file cocok dengan struktur URL
+- Pastikan file ada di path hasil resolusi
 
 ### Masalah Caching
 
 - Verifikasi `etag` dan `cacheControl` diatur dengan benar
-- Periksa browser DevTools Network tab untuk header ETag dan Cache-Control
-- Clear browser cache untuk testing
-- Gunakan response `304 Not Modified` (terlihat saat ETag cocok)
+- Periksa tab Network di DevTools browser untuk header ETag dan Cache-Control
+- Bersihkan cache browser untuk testing
+- Pakai response `304 Not Modified` (terlihat saat ETag cocok)

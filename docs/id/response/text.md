@@ -1,42 +1,51 @@
+---
+description: "Kirim response teks biasa dengan ctx.send.text()."
+---
+
 # Response Teks
 
 Method `ctx.send.text()` membuat response teks biasa.
 
 ## Penggunaan Dasar
 
-```typescript
-// 1. Import tipe Context
+```typescript twoslash
 import type { Context } from '@neabyte/deserve'
 
 export function GET(ctx: Context): Response {
-  // 2. Kirim plain text (Content-Type: text/plain)
+  // Default text/plain
   return ctx.send.text('Hello World')
 }
 ```
 
-## Dengan Status Code Kustom
+## Dengan Status Code
 
-```typescript
+```typescript twoslash
+import type { Context } from '@neabyte/deserve'
+// ---cut---
 export function POST(ctx: Context): Response {
-  // 1. Kirim teks dengan status 501 (Not Implemented)
+  // Balas Not Implemented dengan 501
   return ctx.send.text('Not Implemented', { status: 501 })
 }
 ```
 
 ## Pesan Error
 
-```typescript
+```typescript twoslash
+import type { Context } from '@neabyte/deserve'
+// ---cut---
 export function GET(ctx: Context): Response {
-  // 1. Pesan error plain text + status 500
+  // Error teks biasa dengan status 500
   return ctx.send.text('Internal Server Error', { status: 500 })
 }
 ```
 
 ## Header Kustom
 
-```typescript
+```typescript twoslash
+import type { Context } from '@neabyte/deserve'
+// ---cut---
 export function GET(ctx: Context): Response {
-  // 1. Kirim teks + custom headers lewat options
+  // Tambah header lewat opsi
   return ctx.send.text('Hello World', {
     headers: {
       'Content-Language': 'en',

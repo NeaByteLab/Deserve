@@ -1,29 +1,32 @@
-# Objek Konteks
+---
+description: "Objek Context yang diteruskan ke setiap handler: akses request, helper response, param, state, dan cookie."
+---
 
-Objek `Context` membungkus `Request` native dan menyediakan method yang nyaman untuk mengakses data request, mengatur response header, dan mengirim response.
+# Objek Context
+
+Objek `Context` membungkus `Request` native dan menyediakan method nyaman untuk mengakses data request, mengatur header response, dan mengirim response.
 
 ## Apa Itu Context?
 
-Context adalah wrapper di sekitar objek `Request` native Deno. Setiap request yang masuk akan dibungkus menjadi satu objek Context yang sama dari middleware hingga route handler. Alih-alih bekerja langsung dengan `Request` mentah, Anda menggunakan `Context` yang memberi Anda:
+Context adalah pembungkus di sekitar objek `Request` native Deno, dan setiap request masuk dibungkus dalam satu Context yang mengalir dari middleware ke route handler. Bekerja lewat Context alih-alih `Request` mentah membawa:
 
-- **Lazy parsing** - Data di-parse hanya saat Anda mengaksesnya
-- **Method yang nyaman** - API sederhana untuk operasi umum
-- **Utility response** - Method built-in untuk mengirim response
-- **Manajemen header** - Manipulasi response header yang mudah
+- **Parsing malas** - data diurai hanya saat sebuah method membacanya
+- **Method nyaman** - API sederhana untuk operasi umum
+- **Utilitas response** - method bawaan untuk mengirim response
+- **Manajemen header** - perubahan header response yang mudah
 
-## Mengapa Menggunakan Context?
+## Kenapa Context?
 
-Context menghindari multiple parsing dan pemrosesan berulang selama lifecycle request. Handler menerima satu objek Context yang bertahan melalui seluruh lifecycle - dari middleware ke route handler.
+Context menghindari parsing dan pemrosesan ulang berulang selama siklus hidup request, karena handler menerima satu objek Context yang bertahan sepanjang jalan dari middleware ke route handler.
 
 ## Membuat Context
 
-Deserve membuat Context secara otomatis saat request datang:
+Deserve membuat Context otomatis ketika request tiba:
 
-```typescript
-// 1. Import tipe Context
+```typescript twoslash
 import type { Context } from '@neabyte/deserve'
 
-// 2. Handler menerima ctx (Deserve membuat otomatis per request)
+// Deserve membangun ctx tiap request
 export function GET(ctx: Context): Response {
   return ctx.send.json({ message: 'Hello' })
 }
@@ -33,84 +36,93 @@ export function GET(ctx: Context): Response {
 
 Context membungkus beberapa bagian kunci:
 
-1. **Original Request** - Diakses via `ctx.request`
-2. **Parsed URL** - Digunakan internal untuk query params
-3. **Route Parameters** - Diekstrak dari dynamic routes
-4. **Response Headers** - Diatur sebelum mengirim response
+1. **Request Asli** - akses lewat `ctx.request`
+2. **URL Terurai** - dipakai internal untuk query param
+3. **Parameter Rute** - diekstrak dari rute dinamis
+4. **Header Response** - diatur sebelum mengirim response
 
-## Lazy Parsing
+## Parsing Malas
 
-Context menggunakan lazy parsing untuk performa: data (query, body, cookie, header) hanya di-parse saat Anda memanggil method yang menggunakannya, lalu hasilnya di-cache untuk pemanggilan berikutnya.
+Context mengurai dengan malas demi performa, jadi data query, body, cookie, dan header dibaca hanya saat method yang cocok berjalan, dan hasilnya di-cache untuk panggilan berikutnya. Membaca body bersifat async, jadi handler yang me-await-nya menjadi `async` dan mengembalikan `Promise<Response>`:
 
-```typescript
-export function GET(ctx: Context): Response {
-  // 1. Query belum di-parse sampai ctx.query() dipanggil
+```typescript twoslash
+import type { Context } from '@neabyte/deserve'
+// ---cut---
+export async function GET(ctx: Context): Promise<Response> {
+  // Query diurai pada baca pertama
   const query = ctx.query()
-  // 2. Hasil di-cache; panggilan berikutnya pakai cache
+  // Panggilan ulang pakai cache
 
-  // 3. Body di-parse pada akses pertama (berdasarkan Content-Type)
+  // Body diurai berdasarkan Content-Type
   const body = await ctx.body()
 
-  // 4. Kirim gabungan query + body
-  return ctx.send.json({ query, body })
+  // Kembalikan query dan body bersama
+  return ctx.send.json({
+    query,
+    body
+  })
 }
 ```
 
 ## Akses Data Request
 
-Akses data request melalui method Context:
+Data request dijangkau lewat method Context, di mana query, params, header, dan cookie bersifat sinkron sementara pembaca body bersifat async:
 
-- **Query Parameters** - `ctx.query()`, `ctx.queries()`
-- **Route Parameters** - `ctx.param()`, `ctx.params()`
-- **Headers** - `ctx.header()`, `ctx.headers`
-- **Cookies** - `ctx.cookie()`
-- **Body** - `ctx.body()`, `ctx.json()`, `ctx.formData()`, `ctx.text()`, `ctx.arrayBuffer()`, `ctx.blob()`
-- **Informasi URL** - `ctx.url`, `ctx.pathname`
+- **Parameter Query** - `ctx.query()`, `ctx.queries()`
+- **Parameter Rute** - `ctx.param()`, `ctx.params()`
+- **Header** - `ctx.header()`, `ctx.headers`
+- **Cookie** - `ctx.cookie()`
+- **Body (async)** - `await ctx.body()`, `await ctx.json()`, `await ctx.formData()`, `await ctx.text()`, `await ctx.arrayBuffer()`, `await ctx.blob()`
+- **Info URL** - `ctx.url`, `ctx.pathname`
+- **IP Klien** - `ctx.ip`, `ctx.directIp`
 
-## Utility Response
+## Utilitas Response
 
-Kirim response menggunakan `ctx.send`:
+Kirim response memakai `ctx.send`, dengan satu method per jenis response:
 
-- `ctx.send.json()` - Response JSON
-- `ctx.send.text()` - Plain text
-- `ctx.send.html()` - Konten HTML
-- `ctx.send.file()` - Unduhan file
-- `ctx.send.data()` - Unduhan data in-memory
-- `ctx.send.stream()` - Response stream (ReadableStream)
-- `ctx.send.redirect()` - Redirect
-- `ctx.send.custom()` - Response custom
-- `ctx.handleError()` - Error handling
+- [`ctx.send.json()`](/id/response/json) - response JSON
+- [`ctx.send.text()`](/id/response/text) - teks polos
+- [`ctx.send.html()`](/id/response/html) - konten HTML
+- [`ctx.send.file()`](/id/response/file) - unduhan berkas
+- [`ctx.send.data()`](/id/response/data) - unduhan data dalam memori
+- [`ctx.send.stream()`](/id/response/stream) - response stream (ReadableStream)
+- [`ctx.send.redirect()`](/id/response/redirect) - pengalihan
+- [`ctx.send.custom()`](/id/response/custom) - response khusus
+- `ctx.handleError()` - alihkan kegagalan lewat [penanganan error](/id/error-handling/object-details)
 
-Anda juga dapat menggunakan `ctx.redirect()` secara langsung sebagai method convenience:
+Pintasan `ctx.redirect()` memetakan langsung ke `ctx.send.redirect()`:
 
-```typescript
+```typescript twoslash
+import type { Context } from '@neabyte/deserve'
+// ---cut---
 export function GET(ctx: Context): Response {
-  // 1. Redirect 301 ke path baru (shorthand untuk ctx.send.redirect)
+  // Pintasan untuk ctx.send.redirect
   return ctx.redirect('/new-location', 301)
 }
 ```
 
-## Response Headers
+## Header Response
 
-Atur response header sebelum mengirim:
+Atur header response sebelum mengirim:
 
-```typescript
+```typescript twoslash
+import type { Context } from '@neabyte/deserve'
+// ---cut---
 export function GET(ctx: Context): Response {
-  // 1. Atur header satu per satu
   ctx.setHeader('X-Custom', 'value')
   ctx.setHeader('Cache-Control', 'no-cache')
-  // 2. Kirim response (header ikut terkirim)
   return ctx.send.json({ data: 'test' })
 }
 ```
 
-### Mengatur Banyak Header Sekaligus
+### Mengatur Banyak Header
 
-Gunakan `setHeaders()` untuk mengatur multiple headers sekaligus:
+`setHeaders()` menerapkan beberapa header sekaligus:
 
-```typescript
+```typescript twoslash
+import type { Context } from '@neabyte/deserve'
+// ---cut---
 export function GET(ctx: Context): Response {
-  // 1. Atur banyak header sekaligus (object)
   ctx.setHeaders({
     'X-Custom': 'value',
     'Cache-Control': 'no-cache',
@@ -120,83 +132,150 @@ export function GET(ctx: Context): Response {
 }
 ```
 
-### Membaca Header Response
+### URL dan Pathname
 
-Akses semua response headers yang telah diatur:
+Detail URL dibaca langsung dari Context:
 
-```typescript
+- `ctx.url` - string URL lengkap
+- `ctx.pathname` - bagian pathname dari URL, seperti `/api/users/123`
+
+```typescript twoslash
+import type { Context } from '@neabyte/deserve'
+// ---cut---
 export function GET(ctx: Context): Response {
-  // 1. Set header
-  ctx.setHeader('X-Custom', 'value')
-  ctx.setHeader('Cache-Control', 'no-cache')
-  // 2. Baca map header yang sudah diatur
-  const headers = ctx.responseHeadersMap
-  return ctx.send.json({ data: 'test' })
+  const fullUrl = ctx.url // 'http://localhost:8000/api/users/123?sort=name'
+  const path = ctx.pathname // '/api/users/123'
+  return ctx.send.json({
+    path,
+    fullUrl
+  })
 }
 ```
 
-### URL Dan Pathname
+### IP Klien
 
-Dapatkan informasi URL langsung:
+IP klien dibaca dari Context, dan kedua nilai bernilai `undefined` ketika peer tidak diketahui:
 
-- `ctx.url` - String URL lengkap
-- `ctx.pathname` - Bagian pathname dari URL (contoh: `/api/users/123`)
+- `ctx.ip` - IP klien yang diresolusi, menghormati [`trustProxy`](/id/getting-started/server-configuration#resolusi-ip-klien)
+- `ctx.directIp` - peer TCP langsung, abaikan header forwarded
 
-```typescript
+```typescript twoslash
+import type { Context } from '@neabyte/deserve'
+// ---cut---
 export function GET(ctx: Context): Response {
-  // 1. URL lengkap (termasuk query string)
-  const fullUrl = ctx.url
-  // 2. Hanya pathname (tanpa origin + query)
-  const path = ctx.pathname
-  return ctx.send.json({ path, fullUrl })
+  const client = ctx.ip // IP pengunjung asli
+  const peer = ctx.directIp // IP koneksi langsung
+  return ctx.send.json({
+    client,
+    peer
+  })
 }
 ```
+
+## Berbagi State
+
+Context membawa state lingkup-request supaya middleware dan handler bisa mengoper nilai sepanjang rantai. `ctx.state` adalah objek polos yang dibagikan untuk seluruh request:
+
+```typescript twoslash
+import type { Context } from '@neabyte/deserve'
+import { Router } from '@neabyte/deserve'
+
+const router = new Router()
+// ---cut---
+router.use(async (ctx, next) => {
+  // Lampirkan nilai untuk handler berikutnya
+  ctx.state.requestId = crypto.randomUUID()
+  return await next()
+})
+
+export function GET(ctx: Context): Response {
+  // Baca apa yang disimpan middleware
+  return ctx.send.json({ id: ctx.state.requestId })
+}
+```
+
+Untuk akses bertipe, `setState` dan `getState` memakai sebuah kunci dan tipe nilai:
+
+```typescript twoslash
+import type { Context } from '@neabyte/deserve'
+declare const ctx: Context
+// ---cut---
+// Simpan nilai bertipe
+ctx.setState<string>('userId' as never, '123')
+
+// Baca kembali dengan tipe yang sama
+const userId = ctx.getState<string>('userId' as never)
+```
+
+`as never` pada kunci disengaja, bukan akal-akalan untuk disalin buta. Kunci state adalah tipe bermerek, jadi framework bisa mencadangkan beberapa nama untuk perakitannya sendiri dan menolaknya saat kompilasi. String polos tidak membawa merek itu, dan `as never` itulah yang memberi tahu sistem tipe bahwa string ini adalah kunci yang valid. Tipe nilai tetap nyata dan terperiksa, jadi `getState<string>(...)` tetap mengembalikan `string | undefined`.
+
+Beberapa kunci dicadangkan untuk perakitan framework dan hanya-baca lewat `getState`. Memanggil `setState` pada salah satunya melempar error 500. Kunci yang dicadangkan adalah `view`, `worker`, `session`, `setSession`, dan `clearSession`. [Worker pool](/id/core-concepts/worker-pool) dan [middleware session](/id/middleware/session) membaca handle-nya dengan cara ini.
+
+## Merender Template
+
+Ketika router punya `viewsDir`, Context bisa merender template DVE langsung:
+
+```typescript twoslash
+import type { Context } from '@neabyte/deserve'
+// ---cut---
+export async function GET(ctx: Context): Promise<Response> {
+  // Render template ke response HTML
+  return await ctx.render('home.dve', { title: 'Welcome' })
+}
+```
+
+`ctx.streamRender()` men-stream keluaran yang sama untuk halaman besar. Keduanya melempar ketika tidak ada `viewsDir` yang dikonfigurasi. Lihat [Sintaks Template](/id/rendering/syntax) untuk tata bahasa template dan [Streaming Rendering](/id/rendering/streaming) untuk jalur streaming.
 
 ## Penanganan Error
 
-Tangani error secara konsisten menggunakan `ctx.handleError()`:
+`ctx.handleError()` membangun response error dan bersifat async, jadi handler yang memanggilnya menjadi `async` dan me-await hasilnya:
 
-```typescript
-export function GET(ctx: Context): Response {
+```typescript twoslash
+import type { Context } from '@neabyte/deserve'
+declare const isAuthorized: boolean
+// ---cut---
+export async function GET(ctx: Context): Promise<Response> {
   try {
-    // 1. Cek auth; jika gagal, trigger error handler (router.catch atau default)
     if (!isAuthorized) {
-      return ctx.handleError(401, new Error('Unauthorized'))
+      return await ctx.handleError(401, new Error('Unauthorized'))
     }
     return ctx.send.json({ data: 'success' })
   } catch (error) {
-    // 2. Tangkap error lain → kirim ke error handler
-    return ctx.handleError(500, error as Error)
+    return await ctx.handleError(500, error as Error)
   }
 }
 ```
 
-### Cara Kerja handleError
+### Cara Kerja
 
 `ctx.handleError()` menghormati error handler global yang diatur dengan `router.catch()`:
 
-- **Jika `router.catch()` didefinisikan** - Menggunakan error handler kustom Anda
-- **Jika tidak ada error handler** - Mengembalikan response sederhana dengan status code
+- **Ketika `router.catch()` didefinisikan** - error handler khusus berjalan
+- **Ketika tidak ada error handler** - response sederhana membawa status code
 
-### Penggunaan Di Middleware
+### Pakai di Middleware
 
-Middleware dapat menggunakan `ctx.handleError()` untuk memicu error handling:
+Middleware bisa memanggil `ctx.handleError()` untuk memicu penanganan error:
 
-```typescript
-// 1. Di middleware, validasi request
+```typescript twoslash
+import { Router } from '@neabyte/deserve'
+
+const router = new Router()
+declare const isValid: boolean
+// ---cut---
 router.use(async (ctx, next) => {
   if (!isValid) {
-    // 2. Trigger error handling (router.catch dipanggil jika ada)
-    return ctx.handleError(401, new Error('Unauthorized'))
+    // Ini dialihkan lewat router.catch() saat didefinisikan
+    return await ctx.handleError(401, new Error('Unauthorized'))
   }
   return await next()
 })
 ```
 
-## Lifecycle Context
+## Siklus Hidup Context
 
-1. **Request datang** - Deserve membuat Context dengan Request dan URL
-2. **Route matching** - Route parameters diekstrak dan ditambahkan ke Context
-3. **Eksekusi middleware** - Context dilewatkan melalui middleware chain
-4. **Route handler** - Handler Anda menerima Context
-5. **Response dikirim** - Method Context digunakan untuk membangun Response
+1. **Request tiba** - Deserve membuat Context dengan Request dan URL
+2. **Pencocokan rute** - parameter rute diekstrak dan ditambahkan ke Context
+3. **Eksekusi middleware** - Context melewati rantai middleware
+4. **Route handler** - handler menerima Context
+5. **Response dikirim** - method Context membangun Response
