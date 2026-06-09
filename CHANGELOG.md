@@ -6,6 +6,23 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [0.12.2] - 2026-06-09
+
+### Added
+
+- A single runtime import primitive (`API.importRouteModule`) now loads a route module from an absolute file path, turning the path into a `file://` URL, optionally appending a cache-busting query for hot reload, and returning the loaded module, so every route load flows through one primitive that stays easy to reason about
+
+### Changed
+
+- The native dynamic `import()` now resolves through a runtime indirection, so the specifier is handed over only at runtime and stays opaque to publish-time static analysis. The route module still resolves by its real `file://` URL with no import map, so the published package leaves the path untouched while the runtime behaviour stays the same
+- Route discovery and hot-reload no longer build the `file://` URL inline or pull in `node:url` directly. Each call now goes through the shared primitive, with the reload path opting into cache busting, so the duplicated URL building is gone while the behaviour stays the same
+
+### Fixed
+
+- Loading a consumer's route files used to leave the publisher trying to analyze an import path that only exists on the installing machine, which risked the published specifier being rewritten into something that cannot resolve. Every route import now flows through the runtime primitive, so the path resolves the same way at runtime and the publisher leaves it untouched
+
+---
+
 ## [0.12.1] - 2026-06-09
 
 ### Fixed
@@ -562,7 +579,8 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
-[Unreleased]: https://github.com/NeaByteLab/Deserve/compare/v0.12.1...HEAD
+[Unreleased]: https://github.com/NeaByteLab/Deserve/compare/v0.12.2...HEAD
+[0.12.2]: https://github.com/NeaByteLab/Deserve/compare/v0.12.1...v0.12.2
 [0.12.1]: https://github.com/NeaByteLab/Deserve/compare/v0.12.0...v0.12.1
 [0.12.0]: https://github.com/NeaByteLab/Deserve/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/NeaByteLab/Deserve/compare/v0.10.0...v0.11.0
