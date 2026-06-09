@@ -9,6 +9,7 @@ jobs:
   deno-publish:
     name: Deno (JSR)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
       id-token: write
