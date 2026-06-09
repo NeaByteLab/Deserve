@@ -1,0 +1,26 @@
+name: 🚀 Feature Request
+description: Suggest an idea, feature, or enhancement
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for sharing an idea. It helps shape where Deserve goes next.
+
+        A quick note before you start: Deserve stays small on purpose. Not every idea fits the philosophy of fewer moving parts and zero dependencies, so the strongest proposals explain the problem first, then the feature. Even an idea that does not land is worth raising.
+  - type: textarea
+    attributes:
+      label: What problem are you trying to solve?
+      description: Describe the pain point or use case behind the request, not just the solution.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: What is the feature you are proposing?
+      description: A clear description of what you would like to happen.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Additional context
+      description: Alternatives you considered, examples from other tools, or anything else worth knowing.

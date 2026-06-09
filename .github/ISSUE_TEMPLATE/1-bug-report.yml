@@ -1,0 +1,45 @@
+name: 🐛 Bug Report
+description: Report an issue that should be fixed
+labels: [triage]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for taking the time to report a bug. It helps make Deserve better.
+
+        If something is unclear rather than broken, the [documentation](https://docs-deserve.neabyte.com) may already cover it.
+
+        Please include as much detail as you can, a small reproduction goes a long way.
+  - type: input
+    attributes:
+      label: What version of Deserve are you using?
+      placeholder: 0.12.0
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: What version of Deno are you running?
+      description: Deserve runs on the Deno runtime, so the Deno version matters.
+      placeholder: 2.7.0
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: What operating system are you on?
+      placeholder: macOS 15, Ubuntu 24.04, Windows 11, etc.
+  - type: textarea
+    attributes:
+      label: What steps can reproduce the bug?
+      description: Explain the bug and provide a small code snippet that reproduces it.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: What is the expected behavior?
+  - type: textarea
+    attributes:
+      label: What do you see instead?
+  - type: textarea
+    attributes:
+      label: Additional information
+      description: Anything else you think would help us understand the issue?

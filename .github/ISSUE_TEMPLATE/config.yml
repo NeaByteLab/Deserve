@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Documentation
+    url: https://docs-deserve.neabyte.com
+    about: Read the full documentation before opening an issue, the answer may already be there.
+  - name: Sponsor
+    url: https://github.com/sponsors/NeaByteLab
+    about: Deserve is built and maintained in the open, and sponsoring helps keep it moving.
