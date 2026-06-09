@@ -1,4 +1,6 @@
+import type * as Types from '@interfaces/index.ts'
 import { Immutable } from '@neabyte/utils-core'
+import nodeUrl from 'node:url'
 
 /** Pinned Response constructor */
 const SafeResponse = globalThis.Response
@@ -22,6 +24,10 @@ const safeJsonParse = globalThis.JSON.parse
 const safeJsonStringify = globalThis.JSON.stringify
 /** Pinned SubtleCrypto instance */
 const safeSubtle = globalThis.crypto.subtle
+/** Runtime native dynamic-import resolver */
+const runtimeImport = new Function('specifier', 'return import(specifier)') as (
+  specifier: string
+) => Promise<Types.RouteModule>
 
 /**
  * Pinned runtime built-ins for Deserve.
@@ -46,6 +52,19 @@ export class API {
   static readonly TextDecoder = SafeTextDecoder
   /** Pinned SubtleCrypto instance */
   static readonly subtle = safeSubtle
+
+  /**
+   * Load route module from file path.
+   * @description Imports by file URL with optional cache-busting query.
+   * @param fullPath - Absolute filesystem path to the route module
+   * @param cacheBust - When true, appends timestamp to force re-import
+   * @returns Loaded route module
+   */
+  static importRouteModule(fullPath: string, cacheBust = false): Promise<Types.RouteModule> {
+    const baseUrl = nodeUrl.pathToFileURL(fullPath).href
+    const importUrl = cacheBust ? `${baseUrl}?t=${Date.now()}` : baseUrl
+    return runtimeImport(importUrl)
+  }
 
   /**
    * Parse JSON text with pinned parser.

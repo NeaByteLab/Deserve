@@ -3,7 +3,6 @@ import * as Core from '@core/index.ts'
 import * as Rendering from '@rendering/index.ts'
 import * as Routing from '@routing/index.ts'
 import { FastRouter } from '@neabyte/fast-router'
-import nodeUrl from 'node:url'
 
 /**
  * Core request handler: middleware, routing, static.
@@ -387,8 +386,7 @@ export class Handler {
     }
     this.removeRoute(routePattern)
     try {
-      const importUrl = `${nodeUrl.pathToFileURL(fullPath).href}?t=${Date.now()}`
-      const fileModule = (await import(importUrl)) as Types.RouteModule
+      const fileModule = await Core.API.importRouteModule(fullPath, true)
       Routing.Scanner.validateModule(fileModule, routePath, Core.Constant.httpMethods)
       Routing.Scanner.registerHandlers(
         this.routerInstance,

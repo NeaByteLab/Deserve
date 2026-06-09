@@ -1,7 +1,6 @@
 import type * as Types from '@interfaces/index.ts'
 import * as Core from '@core/index.ts'
 import type { FastRouter } from '@neabyte/fast-router'
-import nodeUrl from 'node:url'
 
 /**
  * File-based route discovery and pattern creation.
@@ -70,7 +69,7 @@ export class Scanner {
             continue
           }
           try {
-            const fileModule = await import(nodeUrl.pathToFileURL(fullPath).href)
+            const fileModule = await Core.API.importRouteModule(fullPath)
             const routePattern = Scanner.createPattern(routePath, extensions)
             if (routePattern) {
               Scanner.validateModule(fileModule, routePath, methods)
