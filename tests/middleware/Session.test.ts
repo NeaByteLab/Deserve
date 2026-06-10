@@ -8,6 +8,23 @@ function createTestContext(url = 'http://localhost/', requestInit?: RequestInit)
   return new Core.Context(request, new URL(url), {})
 }
 
+function createCapturingContext(
+  events: Array<{ kind: string; metadata: Record<string, unknown> }>,
+  requestInit?: RequestInit
+): Core.Context {
+  const url = 'http://localhost/'
+  const request = new Request(url, requestInit)
+  return new Core.Context(
+    request,
+    new URL(url),
+    {},
+    undefined,
+    undefined,
+    undefined,
+    (event) => events.push(event as { kind: string; metadata: Record<string, unknown> })
+  )
+}
+
 const testSecret = '*****************************!!!'
 
 Deno.test('session URL-encoded cookie value is decoded before parsing', async () => {
@@ -128,6 +145,75 @@ Deno.test('session default cookie options include SameSite and HttpOnly', async 
   assertEquals(setCookie.includes('HttpOnly'), true)
   assertEquals(setCookie.includes('Secure'), true)
   assertEquals(setCookie.includes('Path=/'), true)
+})
+
+Deno.test('session does not emit session:invalid for a valid cookie', async () => {
+  const events: Array<{ kind: string; metadata: Record<string, unknown> }> = []
+  const minter = Middleware.Mware.session({ cookieSecret: testSecret })
+  const minted = createTestContext('http://localhost/')
+  await minter(minted, async () => {
+    const setSession = minted.getState(Handler.stateKeys.setSession) as (
+      data: Record<string, unknown>
+    ) => Promise<void>
+    await setSession({ user: 'a' })
+    return new Response()
+  })
+  const setCookie = minted[Core.InternalContext].responseCookies.at(-1) ?? ''
+  const cookieValue = setCookie.match(/session=([^;]+)/)?.[1] ?? ''
+  const reader = Middleware.Mware.session({ cookieSecret: testSecret })
+  const ctx = createCapturingContext(events, {
+    headers: new Headers({ Cookie: `session=${cookieValue}` })
+  })
+  await reader(ctx, async () => new Response())
+  assertEquals((ctx.getState(Handler.stateKeys.session) as Record<string, unknown>)?.['user'], 'a')
+  assertEquals(events.filter((e) => e.kind === 'session:invalid').length, 0)
+})
+
+Deno.test('session does not emit session:invalid when no cookie is present', async () => {
+  const events: Array<{ kind: string; metadata: Record<string, unknown> }> = []
+  const middleware = Middleware.Mware.session({ cookieSecret: testSecret })
+  const ctx = createCapturingContext(events)
+  await middleware(ctx, async () => new Response())
+  assertEquals(events.filter((e) => e.kind === 'session:invalid').length, 0)
+})
+
+Deno.test('session emits session:invalid with reason expired for a stale cookie', async () => {
+  const events: Array<{ kind: string; metadata: Record<string, unknown> }> = []
+  const minter = Middleware.Mware.session({ cookieSecret: testSecret })
+  const minted = createTestContext('http://localhost/')
+  await minter(minted, async () => {
+    const setSession = minted.getState(Handler.stateKeys.setSession) as (
+      data: Record<string, unknown>
+    ) => Promise<void>
+    await setSession({ user: 'a' })
+    return new Response()
+  })
+  const setCookie = minted[Core.InternalContext].responseCookies.at(-1) ?? ''
+  const cookieValue = setCookie.match(/session=([^;]+)/)?.[1] ?? ''
+  await new Promise((r) => setTimeout(r, 2200))
+  const reader = Middleware.Mware.session({ cookieSecret: testSecret, maxAge: 1 })
+  const ctx = createCapturingContext(events, {
+    headers: new Headers({ Cookie: `session=${cookieValue}` })
+  })
+  await reader(ctx, async () => new Response())
+  assertEquals(ctx.getState(Handler.stateKeys.session), null)
+  const invalid = events.filter((e) => e.kind === 'session:invalid')
+  assertEquals(invalid.length, 1)
+  assertEquals(invalid[0]?.metadata['reason'], 'expired')
+})
+
+Deno.test('session emits session:invalid with reason tampered for a forged signature', async () => {
+  const events: Array<{ kind: string; metadata: Record<string, unknown> }> = []
+  const middleware = Middleware.Mware.session({ cookieSecret: testSecret })
+  const ctx = createCapturingContext(events, {
+    headers: new Headers({ Cookie: 'session=eyJ1c2VyIjoiYSJ9.dGFtcGVyZWRzaWduYXR1cmU' })
+  })
+  await middleware(ctx, async () => new Response())
+  assertEquals(ctx.getState(Handler.stateKeys.session), null)
+  const invalid = events.filter((e) => e.kind === 'session:invalid')
+  assertEquals(invalid.length, 1)
+  assertEquals(invalid[0]?.metadata['reason'], 'tampered')
+  assertEquals(invalid[0]?.metadata['cookieName'], 'session')
 })
 
 Deno.test('session invalid or malformed cookie yields null', async () => {
