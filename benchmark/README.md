@@ -88,9 +88,11 @@ npx autocannon http://localhost:8000/test -c 500 -p 10 -d 30
 
 - **OS**: macOS 26.5
 - **Machine**: Apple M3 Pro, 18 GB RAM
+- **Framework**: Deserve (0.12.2)
+- **Runtime**: Deno 2.8.2 (V8 14.9.207.2, TypeScript 6.0.3)
 - **Config**: 500 connections, pipelining 10, duration 30s
 
-## Results — Deno 2.8.2 (Latest)
+## Results — Deno 2.8.2
 
 2 runs each, non-worker server, same machine and config.
 
@@ -111,34 +113,6 @@ Takeaway: `/test-cpu` blocks the event loop on the main thread, see [worker mode
 | `/test-view-each-meta` | 8,522   | 8,530   | 8,526         | 580.44 ms     | 256k        |
 | `/test-view-include`   | 103,633 | 106,489 | 105,061       | 47.09 ms      | 3.15M       |
 | `/test-view-expr`      | 79,089  | 79,556  | 79,322        | 62.49 ms      | 2.38M       |
-
-## Results — Deno 2.7.7
-
-### JSON + CPU (Non-worker)
-
-| Route       | Test 1  | Test 2  | Test 3  | Req/Sec (avg) | Latency (avg) | Total (avg) |
-| ----------- | ------- | ------- | ------- | ------------- | ------------- | ----------- |
-| `/test`     | 175,343 | 170,567 | 164,515 | 170,142       | 29 ms         | 5,109k      |
-| `/test-cpu` | 25,009  | 24,949  | 24,927  | 24,962        | 199 ms        | 754k        |
-
-### JSON + CPU (Worker-enabled)
-
-| Route          | Test 1  | Test 2  | Test 3  | Req/Sec (avg) | Latency (avg) | Total (avg) |
-| -------------- | ------- | ------- | ------- | ------------- | ------------- | ----------- |
-| `/test`        | 174,259 | 178,487 | 170,834 | 174,527       | 28 ms         | 5.24M       |
-| `/test-cpu`    | 25,133  | 24,833  | 24,773  | 24,912        | 199 ms        | 752k        |
-| `/test-worker` | 69,265  | 69,063  | 68,810  | 69,046        | 72 ms         | 2076k       |
-
-Takeaway: `/test-cpu` blocks the event loop, while `/test-worker` moves the same work off-thread.
-
-### Views (DVE Rendering Baseline)
-
-| Route                  | Test 1  | Test 2  | Test 3  | Req/Sec (avg) | Latency (avg) | Total (avg) |
-| ---------------------- | ------- | ------- | ------- | ------------- | ------------- | ----------- |
-| `/test-view`           | 129,063 | 124,978 | 120,516 | 124,852       | 39.77 ms      | 3.75M       |
-| `/test-view-each-meta` | 10,406  | 10,381  | 10,073  | 10,287        | 482.13 ms     | 313k        |
-| `/test-view-include`   | 112,115 | 109,558 | 101,886 | 107,853       | 46.02 ms      | 3.24M       |
-| `/test-view-expr`      | 96,328  | 94,207  | 82,094  | 90,876        | 54.84 ms      | 2.73M       |
 
 ## Observability Cost (Logging On vs Off)
 
