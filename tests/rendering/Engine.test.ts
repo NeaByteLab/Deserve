@@ -80,6 +80,17 @@ Deno.test('Engine#render completes a healthy template within the default budget'
   assertEquals(html.trim(), '1,2,3,')
 })
 
+Deno.test('Engine#render does not emit view:error for a successful render', async () => {
+  const viewsDir = fileURLToPath(import.meta.resolve('@tests/fixtures/views/')).replace(
+    /[\\/]$/,
+    ''
+  )
+  const events: Types.EventBase[] = []
+  const engine = new Rendering.Engine({ viewsDir, emit: (event) => events.push(event) })
+  await engine.render('hello.dve', { name: 'OK' })
+  assertEquals(events.filter((event) => event.kind === 'view:error').length, 0)
+})
+
 Deno.test('Engine#render each does not resolve item prototype members', async () => {
   const viewsDir = fileURLToPath(import.meta.resolve('@tests/fixtures/views/')).replace(
     /[\\/]$/,
@@ -150,6 +161,20 @@ Deno.test('Engine#render each with null data renders nothing', async () => {
   assertEquals(html.trim(), '')
 })
 
+Deno.test('Engine#render emits a single view:error for a failure inside an included template', async () => {
+  const viewsDir = fileURLToPath(import.meta.resolve('@tests/fixtures/views/')).replace(
+    /[\\/]$/,
+    ''
+  )
+  const events: Types.EventBase[] = []
+  const engine = new Rendering.Engine({ viewsDir, emit: (event) => events.push(event) })
+  await assertRejects(() => engine.render('include-broken.dve', { payload: () => 'x' }), Error)
+  const viewErrors = events.filter((event) => event.kind === 'view:error')
+  assertEquals(viewErrors.length, 1)
+  const meta = (viewErrors[0] as { metadata: { path: string } }).metadata
+  assertEquals(meta.path, 'include-broken.dve')
+})
+
 Deno.test('Engine#render emits view:compiled only once across cached renders', async () => {
   const viewsDir = fileURLToPath(import.meta.resolve('@tests/fixtures/views/')).replace(
     /[\\/]$/,
@@ -179,6 +204,35 @@ Deno.test('Engine#render emits view:compiled then view:rendered with timing', as
   assertEquals(rendered?.metadata.path, 'hello.dve')
   assertEquals(typeof rendered?.metadata.durationMs, 'number')
   assertEquals((rendered?.metadata.durationMs ?? -1) >= 0, true)
+})
+
+Deno.test('Engine#render emits view:error when expression evaluation fails at render time', async () => {
+  const viewsDir = fileURLToPath(import.meta.resolve('@tests/fixtures/views/')).replace(
+    /[\\/]$/,
+    ''
+  )
+  const events: Types.EventBase[] = []
+  const engine = new Rendering.Engine({ viewsDir, emit: (event) => events.push(event) })
+  await assertRejects(() => engine.render('attack-call.dve', { payload: () => 'x' }), Error)
+  const viewErrors = events.filter((event) => event.kind === 'view:error')
+  assertEquals(viewErrors.length, 1)
+  const meta = (viewErrors[0] as { metadata: { path: string; error: Error } }).metadata
+  assertEquals(meta.path, 'attack-call.dve')
+})
+
+Deno.test('Engine#render emits view:error with the template path when compilation fails', async () => {
+  const viewsDir = fileURLToPath(import.meta.resolve('@tests/fixtures/views/')).replace(
+    /[\\/]$/,
+    ''
+  )
+  const events: Types.EventBase[] = []
+  const engine = new Rendering.Engine({ viewsDir, emit: (event) => events.push(event) })
+  await assertRejects(() => engine.render('attack-unclosed-block.dve', { ok: true }), Error)
+  const viewErrors = events.filter((event) => event.kind === 'view:error')
+  assertEquals(viewErrors.length, 1)
+  const meta = (viewErrors[0] as { metadata: { path: string; error: Error } }).metadata
+  assertEquals(meta.path, 'attack-unclosed-block.dve')
+  assertEquals(meta.error instanceof Error, true)
 })
 
 Deno.test('Engine#render escapes variable by default', async () => {
