@@ -6,6 +6,30 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [Unreleased]
+
+### Added
+
+- Four worker-pool lifecycle events now stream through the observability bus: a task that overruns its deadline surfaces as `worker:timeout` carrying the offending slot index, the configured timeout, and the raw error; a worker that dies mid-task surfaces as `worker:crash` carrying the slot index and the raw error; a slot that is freshly replaced after a fault surfaces as `worker:respawn` carrying the slot index; and a task turned away under load surfaces as `worker:rejected` carrying why it was refused along with the current and maximum queue depth, so an operator can watch slot health, attribute a stall to a specific worker, and see backpressure the moment it begins
+- The worker pool now bounds how many accepted-but-unsettled tasks it will hold at once, defaulting to the worker count multiplied by a fixed factor and overridable per pool. Once that ceiling is reached a new dispatch is turned away immediately rather than queued, so a flood of work can no longer pile up without limit and starve the runtime
+- The worker pool now also refuses a dispatch when the chosen slot already has enough work ahead of it that the projected wait, measured as the slot's pending count times the per-task deadline, would exceed a configurable ceiling. A task that would otherwise sit behind a long backlog is turned away fast instead of waiting indefinitely, and the refusal records whether it was the overall depth or the projected wait that triggered it
+
+### Changed
+
+- A task timing out or a worker crashing used to be reclaimed and replaced silently, leaving the only outward sign a masked 500 on that request with no way to tell a slow handler apart from a dead worker. Each of these moments now announces itself through the same event channel as every other lifecycle signal, so a timeout, a crash, the recovery that follows, and a task refused under load are all observable rather than invisible
+- The worker pool now carries an optional emitter handed down from the request layer, threaded through pool creation and into each task dispatch, so a fault knows which slot it came from and can report itself without the pool reaching back into the framework
+- A task with no explicit deadline used to be allowed a long grace period before its slot was reclaimed, so a single stuck dispatch could hold capacity for an uncomfortably long stretch. The default deadline is now far shorter, so an unresponsive task gives its slot back and gets replaced much sooner
+- The worker pool now keeps both a global count of accepted-but-unsettled tasks and a per-slot count, incrementing each on the way in and clearing each on the way out, so when a dispatch settles, times out, or crashes the seat it occupied is released and both the overall saturation check and the per-slot wait projection see true live load rather than a stale count
+
+### Public API
+
+- `WorkerPoolOptions` gains an optional `emit` field accepting a lifecycle event emitter, wired automatically when a router builds its worker pool so the new worker events reach `router.on()` with no extra setup
+- `WorkerPoolOptions` gains an optional `maxQueueDepth` field bounding how many pending tasks the pool will hold before turning new work away, defaulting to the worker count times a fixed factor when left unset
+- `WorkerPoolOptions` gains an optional `maxQueueWaitMs` field capping the projected wait a single slot may accumulate before a dispatch is refused, defaulting to a fixed duration when left unset
+- `worker:timeout`, `worker:crash`, `worker:respawn`, and `worker:rejected` added to the observability `Event` union, the first two carrying the raw `Error` alongside the slot index and the timeout duration where relevant, and the last carrying a `reason` of either depth or projected wait alongside the current and maximum queue depth
+
+---
+
 ## [0.12.2] - 2026-06-09
 
 ### Added
