@@ -70,6 +70,16 @@ Deno.test('Engine#render caches compiled template', async () => {
   assertEquals(second.trim(), 'Hello B.')
 })
 
+Deno.test('Engine#render completes a healthy template within the default budget', async () => {
+  const viewsDir = fileURLToPath(import.meta.resolve('@tests/fixtures/views/')).replace(
+    /[\\/]$/,
+    ''
+  )
+  const engine = new Rendering.Engine({ viewsDir })
+  const html = await engine.render('each.dve', { items: [1, 2, 3] })
+  assertEquals(html.trim(), '1,2,3,')
+})
+
 Deno.test('Engine#render each does not resolve item prototype members', async () => {
   const viewsDir = fileURLToPath(import.meta.resolve('@tests/fixtures/views/')).replace(
     /[\\/]$/,
@@ -181,6 +191,20 @@ Deno.test('Engine#render escapes variable by default', async () => {
   assertEquals(html.trim(), '&lt;script&gt;')
 })
 
+Deno.test('Engine#render honors a raised iteration budget for a larger render', async () => {
+  const viewsDir = fileURLToPath(import.meta.resolve('@tests/fixtures/views/')).replace(
+    /[\\/]$/,
+    ''
+  )
+  const engine = new Rendering.Engine({ viewsDir, maxRenderIterations: 100_000 })
+  const groups = Array.from({ length: 20 }, (_, g) => ({
+    name: `g${g}`,
+    items: Array.from({ length: 20 }, (_, i) => i)
+  }))
+  const html = await engine.render('each-nested.dve', { groups })
+  assertEquals(html.includes('g0-0,'), true)
+})
+
 Deno.test('Engine#render if/else chooses correct branch', async () => {
   const viewsDir = fileURLToPath(import.meta.resolve('@tests/fixtures/views/')).replace(
     /[\\/]$/,
@@ -262,6 +286,37 @@ Deno.test('Engine#render rejects unclosed block', async () => {
     () => engine.render('attack-unclosed-block.dve', { ok: true }),
     Error,
     'Unclosed {{#if}} block in DVE template'
+  )
+})
+
+Deno.test('Engine#render rejects when nested loops exceed the total iteration budget', async () => {
+  const viewsDir = fileURLToPath(import.meta.resolve('@tests/fixtures/views/')).replace(
+    /[\\/]$/,
+    ''
+  )
+  const engine = new Rendering.Engine({ viewsDir, maxRenderIterations: 50 })
+  const groups = Array.from({ length: 10 }, (_, g) => ({
+    name: `g${g}`,
+    items: Array.from({ length: 10 }, (_, i) => i)
+  }))
+  await assertRejects(
+    () => engine.render('each-nested.dve', { groups }),
+    Deno.errors.InvalidData,
+    'total iterations'
+  )
+})
+
+Deno.test('Engine#render rejects when output grows past the output-size budget', async () => {
+  const viewsDir = fileURLToPath(import.meta.resolve('@tests/fixtures/views/')).replace(
+    /[\\/]$/,
+    ''
+  )
+  const engine = new Rendering.Engine({ viewsDir, maxOutputSize: 100 })
+  const items = Array.from({ length: 1000 }, (_, i) => i)
+  await assertRejects(
+    () => engine.render('each.dve', { items }),
+    Deno.errors.InvalidData,
+    'output characters'
   )
 })
 
