@@ -26,9 +26,9 @@ export class CSRF {
       const origin = ctx.header('origin')
       const secFetchSite = ctx.header('sec-fetch-site')
       const isOriginValid = origin !== undefined &&
-        CSRF.matches(origin, allowedOrigin, ctx)
+        CSRF.matches(origin, allowedOrigin, ctx, 'origin')
       const isSecFetchValid = secFetchSite !== undefined &&
-        CSRF.matches(secFetchSite, secFetchRule, ctx)
+        CSRF.matches(secFetchSite, secFetchRule, ctx, 'secFetchSite')
       if (isOriginValid || isSecFetchValid) {
         return await next()
       }
@@ -45,17 +45,25 @@ export class CSRF {
    * @param value - Incoming header value
    * @param rule - Allowed string, list, or predicate
    * @param ctx - Request context instance
+   * @param ruleLabel - Rule identifier for error events
    * @returns True when the value is allowed
    */
   private static matches(
     value: string,
     rule: string | readonly string[] | Types.CsrfRulePredicate,
-    ctx: CoreTypes.Context
+    ctx: CoreTypes.Context,
+    ruleLabel: 'origin' | 'secFetchSite'
   ): boolean {
     if (typeof rule === 'function') {
       try {
         return rule(value, ctx) === true
-      } catch {
+      } catch (ruleError) {
+        ctx[Core.InternalContext].emitEvent(
+          Core.Observability.internalEvent('csrf:rule-error', {
+            rule: ruleLabel,
+            error: ruleError instanceof Error ? ruleError : new Error(String(ruleError))
+          })
+        )
         return false
       }
     }
