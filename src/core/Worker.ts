@@ -14,16 +14,26 @@ export class Worker {
       this.cause = cause
     }
   }
+  /** Optional lifecycle event emitter */
+  private readonly emit: Types.EventEmit | undefined
   /** Module URL for spawning workers */
   private readonly scriptUrl: string | URL
   /** Per-task dispatch timeout in ms */
   private readonly taskTimeoutMs: number
+  /** Maximum pending tasks before fast-rejecting */
+  private readonly maxQueueDepth: number
+  /** Maximum projected queue wait in ms */
+  private readonly maxQueueWaitMs: number
+  /** Count of accepted-but-not-settled tasks */
+  private pendingCount = 0
   /** Round-robin index for next worker */
   private nextIndex = 0
   /** Pooled worker instances */
   private workers: globalThis.Worker[] = []
   /** Per-worker serialization tail promises */
   private workerTails: Promise<void>[] = []
+  /** Per-worker count of pending tasks */
+  private slotPending: number[] = []
 
   /**
    * Construct pool with given workers.
@@ -31,16 +41,26 @@ export class Worker {
    * @param workers - Pre-created Deno worker instances
    * @param scriptUrl - Module URL for respawning crashed workers
    * @param taskTimeoutMs - Per-task timeout in milliseconds
+   * @param maxQueueDepth - Maximum pending tasks before fast-rejecting
+   * @param maxQueueWaitMs - Maximum projected queue wait before fast-rejecting
+   * @param emit - Optional lifecycle event emitter
    */
   private constructor(
     workers: globalThis.Worker[],
     scriptUrl: string | URL,
-    taskTimeoutMs: number
+    taskTimeoutMs: number,
+    maxQueueDepth: number,
+    maxQueueWaitMs: number,
+    emit?: Types.EventEmit
   ) {
+    this.emit = emit
     this.workers = workers
     this.scriptUrl = scriptUrl
     this.taskTimeoutMs = taskTimeoutMs
+    this.maxQueueDepth = maxQueueDepth
+    this.maxQueueWaitMs = maxQueueWaitMs
     this.workerTails = workers.map(() => Promise.resolve())
+    this.slotPending = workers.map(() => 0)
   }
 
   /**
@@ -61,11 +81,30 @@ export class Worker {
       'Worker taskTimeoutMs',
       'milliseconds'
     )
+    const maxQueueDepth = Math.floor(
+      Core.Handler.assertPositiveFinite(
+        options.maxQueueDepth ?? workerCount * Core.Constant.defaultQueueFactor,
+        'Worker maxQueueDepth',
+        'tasks'
+      )
+    )
+    const maxQueueWaitMs = Core.Handler.assertPositiveFinite(
+      options.maxQueueWaitMs ?? Core.Constant.defaultQueueWaitMs,
+      'Worker maxQueueWaitMs',
+      'milliseconds'
+    )
     const workerList = Array.from(
       { length: workerCount },
       () => new Core.API.Worker(options.scriptURL, { type: 'module' })
     )
-    return new Worker(workerList, options.scriptURL, taskTimeoutMs)
+    return new Worker(
+      workerList,
+      options.scriptURL,
+      taskTimeoutMs,
+      maxQueueDepth,
+      maxQueueWaitMs,
+      options.emit
+    )
   }
 
   /**
@@ -81,11 +120,42 @@ export class Worker {
     if (this.workers.length === 0) {
       return Promise.reject(new Deno.errors.BadResource('Worker pool has no available workers'))
     }
+    if (this.pendingCount >= this.maxQueueDepth) {
+      this.emit?.(
+        Core.Observability.internalEvent('worker:rejected', {
+          reason: 'queue-depth',
+          queueDepth: this.pendingCount,
+          maxQueueDepth: this.maxQueueDepth
+        })
+      )
+      return Promise.reject(
+        new Deno.errors.Busy(
+          `Worker pool queue is full (${this.pendingCount}/${this.maxQueueDepth})`
+        )
+      )
+    }
     const workerIndex = this.nextIndex
     this.nextIndex = (this.nextIndex + 1) % this.workers.length
     if (!this.workers[workerIndex]) {
       return Promise.reject(new Deno.errors.BadResource('Worker pool worker at index is missing'))
     }
+    const projectedWaitMs = (this.slotPending[workerIndex] ?? 0) * this.taskTimeoutMs
+    if (projectedWaitMs > this.maxQueueWaitMs) {
+      this.emit?.(
+        Core.Observability.internalEvent('worker:rejected', {
+          reason: 'queue-wait',
+          queueDepth: this.pendingCount,
+          maxQueueDepth: this.maxQueueDepth
+        })
+      )
+      return Promise.reject(
+        new Deno.errors.Busy(
+          `Worker pool slot busy: projected wait ${projectedWaitMs}ms exceeds ${this.maxQueueWaitMs}ms`
+        )
+      )
+    }
+    this.pendingCount++
+    this.slotPending[workerIndex] = (this.slotPending[workerIndex] ?? 0) + 1
     const priorTail = this.workerTails[workerIndex] ?? Promise.resolve()
     let releaseTail: () => void = () => {}
     const nextTail = new Promise<void>((resolve) => {
@@ -95,17 +165,23 @@ export class Worker {
     const resultPromise = priorTail
       .then(() => {
         const currentWorker = this.workers[workerIndex]!
-        return Worker.dispatch<T>(currentWorker, payload, this.taskTimeoutMs).catch(
-          (dispatchError) => {
-            if (dispatchError instanceof Worker.workerCrash) {
-              this.respawnWorker(workerIndex, currentWorker)
-              throw dispatchError.cause
-            }
-            throw dispatchError
+        return Worker.dispatch<T>(
+          currentWorker,
+          payload,
+          this.taskTimeoutMs,
+          workerIndex,
+          this.emit
+        ).catch((dispatchError) => {
+          if (dispatchError instanceof Worker.workerCrash) {
+            this.respawnWorker(workerIndex, currentWorker)
+            throw dispatchError.cause
           }
-        )
+          throw dispatchError
+        })
       })
       .finally(() => {
+        this.pendingCount--
+        this.slotPending[workerIndex] = Math.max(0, (this.slotPending[workerIndex] ?? 1) - 1)
         if (this.workerTails[workerIndex] === nextTail) {
           this.workerTails[workerIndex] = Promise.resolve()
         }
@@ -121,6 +197,7 @@ export class Worker {
     }
     this.workers = []
     this.workerTails = []
+    this.slotPending = []
   }
 
   /**
@@ -130,12 +207,16 @@ export class Worker {
    * @param worker - Target worker instance
    * @param payload - Serializable payload
    * @param taskTimeoutMs - Per-task timeout in milliseconds
+   * @param workerIndex - Pool slot index for event metadata
+   * @param emit - Optional lifecycle event emitter
    * @returns Promise resolving to worker result
    */
   private static dispatch<T>(
     worker: globalThis.Worker,
     payload: unknown,
-    taskTimeoutMs: number
+    taskTimeoutMs: number,
+    workerIndex: number,
+    emit?: Types.EventEmit
   ): Promise<T> {
     return new Promise<T>((resolve, reject) => {
       const cleanup = () => {
@@ -159,19 +240,23 @@ export class Worker {
       const onError = (event: ErrorEvent) => {
         event.preventDefault()
         cleanup()
-        reject(
-          new Worker.workerCrash(
-            new Deno.errors.BadResource('Worker task failed before responding')
-          )
-        )
+        const crashError = new Deno.errors.BadResource('Worker task failed before responding')
+        emit?.(Core.Observability.internalEvent('worker:crash', { workerIndex, error: crashError }))
+        reject(new Worker.workerCrash(crashError))
       }
       const timeoutTimer = setTimeout(() => {
         cleanup()
-        reject(
-          new Worker.workerCrash(
-            new Deno.errors.TimedOut(`Worker task exceeded ${taskTimeoutMs}ms timeout`)
-          )
+        const timeoutError = new Deno.errors.TimedOut(
+          `Worker task exceeded ${taskTimeoutMs}ms timeout`
         )
+        emit?.(
+          Core.Observability.internalEvent('worker:timeout', {
+            timeoutMs: taskTimeoutMs,
+            workerIndex,
+            error: timeoutError
+          })
+        )
+        reject(new Worker.workerCrash(timeoutError))
       }, taskTimeoutMs)
       worker.addEventListener('message', onMessage)
       worker.addEventListener('error', onError)
@@ -206,5 +291,6 @@ export class Worker {
       void 0
     }
     this.workers[workerIndex] = new Core.API.Worker(this.scriptUrl, { type: 'module' })
+    this.emit?.(Core.Observability.internalEvent('worker:respawn', { workerIndex }))
   }
 }
