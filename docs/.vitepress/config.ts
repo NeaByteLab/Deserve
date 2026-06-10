@@ -248,7 +248,8 @@ export default withMermaid(
                   { text: 'Streaming Data', link: '/recipes/streaming-data' },
                   { text: 'Object Storage', link: '/recipes/object-storage' },
                   { text: 'Graceful Shutdown', link: '/recipes/graceful-shutdown' },
-                  { text: 'Production Deploy', link: '/recipes/production-deploy' }
+                  { text: 'Production Deploy', link: '/recipes/production-deploy' },
+                  { text: 'Audit Compliance', link: '/recipes/audit-compliance' }
                 ]
               }
             ]
@@ -438,7 +439,8 @@ export default withMermaid(
                   { text: 'Streaming Data', link: '/id/recipes/streaming-data' },
                   { text: 'Object Storage', link: '/id/recipes/object-storage' },
                   { text: 'Graceful Shutdown', link: '/id/recipes/graceful-shutdown' },
-                  { text: 'Production Deploy', link: '/id/recipes/production-deploy' }
+                  { text: 'Production Deploy', link: '/id/recipes/production-deploy' },
+                  { text: 'Audit Kepatuhan', link: '/id/recipes/audit-compliance' }
                 ]
               }
             ]
