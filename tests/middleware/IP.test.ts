@@ -187,6 +187,17 @@ Deno.test('ip whitelist allows an IPv4-mapped IPv6 client (no false deny)', asyn
   assertEquals(await run(mw, '::ffff:127.0.0.1'), 200)
 })
 
+Deno.test('ip whitelist cannot be entered by spoofed XFF from an untrusted peer', async () => {
+  const tester = Core.IpResolver.compile(['loopback'])
+  const resolved = Core.IpResolver.resolve(
+    '198.51.100.7',
+    new Headers({ 'x-forwarded-for': '203.0.113.42' }),
+    tester
+  )
+  const mw = Middleware.Mware.ip({ whitelist: ['203.0.113.42'] })
+  assertEquals(await run(mw, resolved), 403)
+})
+
 Deno.test('ip whitelist denies an unlisted IPv4', async () => {
   const mw = Middleware.Mware.ip({ whitelist: ['127.0.0.1'] })
   assertEquals(await run(mw, '10.0.0.5'), 403)
