@@ -66,9 +66,9 @@ View events come from the [DVE rendering engine](/rendering/).
 | Kind                | Metadata                                            |
 | ------------------- | --------------------------------------------------- |
 | `request:complete`  | `method`, `statusCode`, `url`, `durationMs`, metrics |
-| `request:error`     | same as `request:complete`, plus `error`            |
+| `request:error`     | same as `request:complete`, plus an optional `error` |
 
-`request:complete` fires for every finished request. `request:error` fires in addition whenever the status is `400` or higher. Both carry optional OpenTelemetry-aligned metrics when known: `route`, `serverAddress`, `serverPort`, `userAgent`, `requestSize`, `responseSize`, and `ip`.
+`request:complete` fires for every finished request. `request:error` fires in addition whenever the status is `400` or higher, and carries `error` only when a framework error produced the failure. Both carry optional OpenTelemetry-aligned metrics when known: `route`, `serverAddress`, `serverPort`, `userAgent`, `requestSize`, `responseSize`, and `ip`.
 
 Turn these into a log in [Request Logging](/middleware/observability/logging).
 
@@ -78,4 +78,4 @@ Turn these into a log in [Request Logging](/middleware/observability/logging).
 | --------------- | -------------------------------------------------------------------- |
 | `process:error` | `error`, `origin` (`unhandledrejection`, `uncaughterror`, `process:exit`) |
 
-A serving router traps unhandled rejections, uncaught errors, and attempts to terminate the process. Each fault becomes a `process:error` event rather than crashing the server, so a single failure never takes the process down. A blocked termination call carries `origin: 'process:exit'` and names the call, for example `Blocked Deno.exit(0) - process termination is not permitted from application code`. See [Process Protection](/getting-started/server-configuration#process-protection) for the reasoning, and capture these in [Error Reporting](/middleware/observability/errors).
+A serving router traps unhandled rejections, uncaught errors, and attempts to terminate the process. Each fault becomes a `process:error` event rather than crashing the server, so a single failure never takes the process down. A blocked termination call carries `origin: 'process:exit'` and names the call, for example `Blocked Deno.exit(0) — process termination is not permitted from application code`. See [Process Protection](/getting-started/server-configuration#process-protection) for the reasoning, and capture these in [Error Reporting](/middleware/observability/errors).

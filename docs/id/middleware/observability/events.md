@@ -66,9 +66,9 @@ Event view datang dari [mesin rendering DVE](/id/rendering/).
 | Kind                | Metadata                                            |
 | ------------------- | --------------------------------------------------- |
 | `request:complete`  | `method`, `statusCode`, `url`, `durationMs`, metrik  |
-| `request:error`     | sama dengan `request:complete`, plus `error`        |
+| `request:error`     | sama dengan `request:complete`, plus `error` opsional |
 
-`request:complete` menyala untuk setiap request yang selesai. `request:error` menyala tambahan setiap kali status `400` atau lebih tinggi. Keduanya membawa metrik selaras-OpenTelemetry opsional saat diketahui: `route`, `serverAddress`, `serverPort`, `userAgent`, `requestSize`, `responseSize`, dan `ip`.
+`request:complete` menyala untuk setiap request yang selesai. `request:error` menyala tambahan setiap kali status `400` atau lebih tinggi, dan membawa `error` hanya saat kegagalan dipicu oleh error framework. Keduanya membawa metrik selaras-OpenTelemetry opsional saat diketahui: `route`, `serverAddress`, `serverPort`, `userAgent`, `requestSize`, `responseSize`, dan `ip`.
 
 Ubah ini menjadi log di [Request Logging](/id/middleware/observability/logging).
 
@@ -78,4 +78,4 @@ Ubah ini menjadi log di [Request Logging](/id/middleware/observability/logging).
 | --------------- | -------------------------------------------------------------------- |
 | `process:error` | `error`, `origin` (`unhandledrejection`, `uncaughterror`, `process:exit`) |
 
-Router yang sedang melayani menjebak unhandled rejection, uncaught error, dan upaya menghentikan proses. Setiap kesalahan menjadi event `process:error` alih-alih membuat server crash, jadi satu kegagalan tidak pernah menjatuhkan proses. Panggilan terminasi yang diblokir membawa `origin: 'process:exit'` dan menyebut panggilannya, contohnya `Blocked Deno.exit(0) - process termination is not permitted from application code`. Lihat [Proteksi Proses](/id/getting-started/server-configuration#proteksi-proses) untuk alasannya, dan tangkap ini di [Pelaporan Error](/id/middleware/observability/errors).
+Router yang sedang melayani menjebak unhandled rejection, uncaught error, dan upaya menghentikan proses. Setiap kesalahan menjadi event `process:error` alih-alih membuat server crash, jadi satu kegagalan tidak pernah menjatuhkan proses. Panggilan terminasi yang diblokir membawa `origin: 'process:exit'` dan menyebut panggilannya, contohnya `Blocked Deno.exit(0) — process termination is not permitted from application code`. Lihat [Proteksi Proses](/id/getting-started/server-configuration#proteksi-proses) untuk alasannya, dan tangkap ini di [Pelaporan Error](/id/middleware/observability/errors).
