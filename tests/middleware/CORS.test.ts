@@ -218,6 +218,62 @@ Deno.test('cors credentials=true with specific origin sets Allow-Credentials', a
   }
 })
 
+Deno.test('cors does not allow an origin that differs only by letter case', async () => {
+  const middleware = Middleware.Mware.cors({ origin: ['https://app.example.com'] })
+  const ctx = createTestContext('http://localhost/', {
+    method: 'GET',
+    headers: new Headers({ Origin: 'https://APP.example.com' })
+  })
+  const next = async (): Promise<Response> => new Response('ok')
+  await middleware(ctx, next)
+  assertEquals(
+    ctx[Core.InternalContext].responseHeadersMap['Access-Control-Allow-Origin'],
+    undefined
+  )
+})
+
+Deno.test('cors does not allow an origin that only shares an allowed prefix', async () => {
+  const middleware = Middleware.Mware.cors({ origin: ['https://app.example.com'] })
+  const ctx = createTestContext('http://localhost/', {
+    method: 'GET',
+    headers: new Headers({ Origin: 'https://evilapp.example.com' })
+  })
+  const next = async (): Promise<Response> => new Response('ok')
+  await middleware(ctx, next)
+  assertEquals(
+    ctx[Core.InternalContext].responseHeadersMap['Access-Control-Allow-Origin'],
+    undefined
+  )
+})
+
+Deno.test('cors does not allow an origin that only shares an allowed suffix', async () => {
+  const middleware = Middleware.Mware.cors({ origin: ['https://app.example.com'] })
+  const ctx = createTestContext('http://localhost/', {
+    method: 'GET',
+    headers: new Headers({ Origin: 'https://app.example.com.evil.com' })
+  })
+  const next = async (): Promise<Response> => new Response('ok')
+  await middleware(ctx, next)
+  assertEquals(
+    ctx[Core.InternalContext].responseHeadersMap['Access-Control-Allow-Origin'],
+    undefined
+  )
+})
+
+Deno.test('cors does not allow the literal null origin unless explicitly listed', async () => {
+  const middleware = Middleware.Mware.cors({ origin: ['https://app.example.com'] })
+  const ctx = createTestContext('http://localhost/', {
+    method: 'GET',
+    headers: new Headers({ Origin: 'null' })
+  })
+  const next = async (): Promise<Response> => new Response('ok')
+  await middleware(ctx, next)
+  assertEquals(
+    ctx[Core.InternalContext].responseHeadersMap['Access-Control-Allow-Origin'],
+    undefined
+  )
+})
+
 Deno.test('cors does not set Vary when origin is wildcard', async () => {
   const middleware = Middleware.Mware.cors({ origin: '*' })
   const ctx = createTestContext('http://localhost/', {
