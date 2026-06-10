@@ -80,7 +80,7 @@ export class IpResolver {
 
   /**
    * Build the forwarded address chain.
-   * @description Merges X-Forwarded-For and RFC 7239 Forwarded entries.
+   * @description Merges X-Forwarded-For and Forwarded header entries.
    * @param headers - Request headers
    * @returns Ordered client-to-proxy IP chain
    */

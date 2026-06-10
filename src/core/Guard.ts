@@ -86,7 +86,7 @@ export class Guard {
    * @param target - Object owning the method (Deno or node process)
    * @param name - Method name to interpose
    * @param label - Human-readable name for the blocked capability
-   * @param shouldBlock - Optional guard; when omitted every call is blocked
+   * @param shouldBlock - Optional guard, when omitted every call is blocked
    */
   private static interposeMethod(
     target: Record<string, unknown>,

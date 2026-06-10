@@ -171,7 +171,7 @@ export class Response {
   }
 
   /**
-   * Build RFC 6266 Content-Disposition value.
+   * Build Content-Disposition header value.
    * @description Sanitizes filename, emits ASCII fallback and UTF-8 parameter.
    * @param filename - Raw filename string
    * @returns Safe attachment header value

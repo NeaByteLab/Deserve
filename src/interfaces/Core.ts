@@ -289,7 +289,7 @@ export type StateKey<T> = string & { readonly __stateValue: T }
 
 /**
  * Carrier of an HTTP status code.
- * @description Single atom for status-bearing values; widen via S.
+ * @description Single atom for status-bearing values, widen via S.
  * @template S - Confidence of the statusCode value
  */
 export type StatusCarrier<S = number> = { readonly statusCode: S }

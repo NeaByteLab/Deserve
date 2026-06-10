@@ -415,7 +415,7 @@ export class Context {
    * @description Delegates to Headers built-in so invalid input fails fast.
    * @param key - Header name
    * @param value - Header value
-   * @throws {Types.StatusError} When name or value is not RFC 7230 compliant
+   * @throws {Types.StatusError} When name or value is not standards compliant
    */
   private static assertValidHeader(key: string, value: string): void {
     try {
@@ -427,7 +427,7 @@ export class Context {
 
   /**
    * Collect string entries into a null-proto record.
-   * @description First occurrence wins; prototype-pollution safe via Object.hasOwn.
+   * @description First occurrence wins, prototype-pollution safe via Object.hasOwn.
    * @param entries - Iterable of key/value string pairs
    * @returns Null-prototype record of first-seen values
    */

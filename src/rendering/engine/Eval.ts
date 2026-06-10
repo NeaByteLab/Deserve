@@ -94,7 +94,7 @@ export class Eval {
 
   /**
    * Resolve identifier to keyword or scope.
-   * @description Keywords return literals; names read own scope properties.
+   * @description Keywords return literals, names read own scope properties.
    * @param identName - Identifier name
    * @param scope - Scope data for identifiers
    * @returns Resolved value

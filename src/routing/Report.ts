@@ -73,7 +73,7 @@ export class Report {
 
   /**
    * Derive optional OTel-aligned request/response metrics.
-   * @description Forwards only values known for certain; omits the rest.
+   * @description Forwards only values known for certain, omits the rest.
    * @param req - Incoming request
    * @param response - Final response sent to the client
    * @param holder - Per-request holder carrying the matched route pattern

@@ -371,7 +371,7 @@ export class Handler {
 
   /**
    * Subscribe to lifecycle and error events.
-   * @description Listener receives every Deserve event; filter via event.type.
+   * @description Listener receives every Deserve event, filter via event.type.
    * @param listener - Callback invoked for each event
    * @returns Unsubscribe function
    */
