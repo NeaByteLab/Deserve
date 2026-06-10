@@ -157,6 +157,39 @@ Deno.test('websocket maps a malformed handshake to 400, not 500', async () => {
   assertEquals(res?.status, 400)
 })
 
+Deno.test('websocket rejects a missing Origin under a wildcard policy', async () => {
+  const middleware = Middleware.Mware.websocket({ listener: '/ws', allowedOrigins: '*' })
+  const ctx = createTestContext('http://localhost/ws', {
+    headers: new Headers({ Upgrade: 'websocket' })
+  })
+  let nextCalled = false
+  const next = (): Promise<Response> => {
+    nextCalled = true
+    return Promise.resolve(new Response('ok'))
+  }
+  const res = await middleware(ctx, next)
+  assertEquals(nextCalled, false)
+  assertEquals(res?.status, 403)
+})
+
+Deno.test('websocket rejects a missing Origin when an allowlist is configured', async () => {
+  const middleware = Middleware.Mware.websocket({
+    listener: '/ws',
+    allowedOrigins: ['https://app.example.com']
+  })
+  const ctx = createTestContext('http://localhost/ws', {
+    headers: new Headers({ Upgrade: 'websocket' })
+  })
+  let nextCalled = false
+  const next = (): Promise<Response> => {
+    nextCalled = true
+    return Promise.resolve(new Response('ok'))
+  }
+  const res = await middleware(ctx, next)
+  assertEquals(nextCalled, false)
+  assertEquals(res?.status, 403)
+})
+
 Deno.test('websocket rejects cross-origin handshake by default', async () => {
   const middleware = Middleware.Mware.websocket({ listener: '/ws' })
   const ctx = createTestContext('http://localhost/ws', {
