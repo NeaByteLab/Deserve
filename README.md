@@ -66,7 +66,7 @@ export function GET(ctx: Context): Response {
 
 - [Quick Start (Docs)](https://docs-deserve.neabyte.com/en/getting-started/quick-start)
 - [File-Based Routing](https://docs-deserve.neabyte.com/en/core-concepts/file-based-routing)
-- [Example Implementation](example/README.md)
+- [Example Implementation](https://docs-deserve.neabyte.com/examples)
 
 ## Build & Test
 
