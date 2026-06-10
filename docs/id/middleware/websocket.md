@@ -52,14 +52,14 @@ Tanpa `listener`, middleware meneruskan setiap request dan tidak pernah mengupgr
 
 ### `allowedOrigins`
 
-Kontrol origin handshake mana yang diterima, yang menjaga dari pembajakan WebSocket lintas situs:
+Kontrol origin handshake mana yang diterima, yang mencegah pembajakan WebSocket lintas situs:
 
 ```typescript
 allowedOrigins: '*' // Terima origin apa pun
 allowedOrigins: ['https://example.com', 'https://app.example.com'] // Allowlist
 ```
 
-Saat `allowedOrigins` dibiarkan undefined, hanya handshake same-origin yang diterima. Origin yang ditolak mengembalikan **403 Forbidden**.
+Saat `allowedOrigins` dibiarkan undefined, hanya handshake same-origin yang diterima, dan handshake tanpa header `Origin` diloloskan karena tidak ada kebijakan yang disetel. Begitu allowlist atau `'*'` dikonfigurasi, `Origin` yang hilang langsung ditolak dan upgrade dibatalkan, yang menutup celah di mana header yang sekadar dihilangkan bisa lolos dari kebijakan. Origin yang ditolak mengembalikan **403 Forbidden**.
 
 ### `onConnect`
 
@@ -84,9 +84,13 @@ onMessage: (socket: WebSocket, event: MessageEvent, ctx: Context) => {
   console.log('Received:', event.data)
   try {
     const data = JSON.parse(event.data as string)
-    socket.send(JSON.stringify({ echo: data }))
+    socket.send(JSON.stringify({
+      echo: data
+    }))
   } catch {
-    socket.send(JSON.stringify({ error: 'Invalid JSON' }))
+    socket.send(JSON.stringify({
+      error: 'Invalid JSON'
+    }))
   }
 }
 ```
@@ -116,7 +120,9 @@ onError: (socket: WebSocket, event: Event, ctx: Context) => {
 ```typescript twoslash
 import { Mware, Router } from '@neabyte/deserve'
 
-const router = new Router({ routesDir: './routes' })
+const router = new Router({
+  routesDir: './routes'
+})
 
 router.use(
   Mware.websocket({
@@ -220,7 +226,7 @@ onConnect: (socket, event, ctx) => {
 Handshake yang ditolak diarahkan lewat error handler alih-alih melempar saat setup:
 
 - **Origin tidak diizinkan** mengembalikan **403** dengan pesan `WebSocket handshake rejected because the Origin is not allowed`.
-- **Upgrade salah bentuk** mengembalikan **400** dengan pesan `WebSocket handshake is malformed because ...`.
+- **Upgrade tidak valid** mengembalikan **400** dengan pesan `WebSocket handshake is malformed because ...`.
 
 Untuk membentuk response ini, daftarkan satu handler dengan [`router.catch()`](/id/error-handling/object-details), atau andalkan [perilaku default](/id/error-handling/default-behavior).
 
@@ -234,8 +240,12 @@ import { Mware, Router } from '@neabyte/deserve'
 const router = new Router()
 
 // CORS menangani HTTP, WebSocket menangani upgrade
-router.use(Mware.cors({ origin: '*' }))
-router.use(Mware.websocket({ listener: '/ws' }))
+router.use(Mware.cors({
+  origin: '*'
+}))
+router.use(Mware.websocket({
+  listener: '/ws'
+}))
 
 await router.serve(8000)
 ```

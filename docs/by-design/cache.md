@@ -34,13 +34,19 @@ export async function GET(ctx: Context): Promise<Response> {
   // Serve the cached value when present
   const hit = cache.get(key)
   if (hit !== undefined) {
-    return ctx.send.json({ source: 'cache', data: hit })
+    return ctx.send.json({
+      source: 'cache',
+      data: hit
+    })
   }
 
   // Build it once, then store for next time
   const data = await buildExpensiveData()
   cache.set(key, data)
-  return ctx.send.json({ source: 'fresh', data })
+  return ctx.send.json({
+    source: 'fresh',
+    data
+  })
 }
 
 declare function buildExpensiveData(): Promise<unknown>
@@ -63,13 +69,22 @@ export function GET(ctx: Context): Response {
 
   // Fresh entry wins, expired one is dropped
   if (entry && Date.now() < entry.expiresAt) {
-    return ctx.send.json({ source: 'cache', data: entry.value })
+    return ctx.send.json({
+      source: 'cache',
+      data: entry.value
+    })
   }
 
   // Recompute and stamp a new expiry
   const value = { time: Date.now() }
-  cache.set(key, { value, expiresAt: Date.now() + ttlMs })
-  return ctx.send.json({ source: 'fresh', data: value })
+  cache.set(key, {
+    value,
+    expiresAt: Date.now() + ttlMs
+  })
+  return ctx.send.json({
+    source: 'fresh',
+    data: value
+  })
 }
 ```
 

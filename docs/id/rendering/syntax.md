@@ -119,7 +119,7 @@ Demi menjaga template aman dan dapat ditebak, mesin menolak apa pun di luar subs
 
 ## Keluaran Mentah
 
-Nilai di-escape HTML secara default, dan kurung tiga memilih keluar untuk markup tepercaya saja:
+Nilai di-escape HTML secara default, dan kurung tiga melewati escape itu untuk markup tepercaya saja:
 
 ```html
 <!-- Default: HTML escaped (safe from XSS) -->

@@ -10,7 +10,7 @@ Deserve membawa [Basic Auth](/id/middleware/basic-auth) tapi tidak ada middlewar
 
 Bearer hanyalah sebuah amplop. Header [`Authorization: Bearer <token>`](https://datatracker.ietf.org/doc/html/rfc6750) membawa token, dan apa yang dianggap token valid berubah seiring ekosistem. Satu layanan memverifikasi tanda tangan [JWT](https://datatracker.ietf.org/doc/html/rfc7519), lain mengambil kunci publik berputar dari endpoint [JWKS](https://datatracker.ietf.org/doc/html/rfc7517), lain memanggil API introspeksi untuk token buram, dan algoritma penanda bisa RS256, ES256, atau HS256.
 
-Menanam salah satu pilihan itu akan mengunci setiap proyek ke satu skema. Ketika spesifikasi bergerak atau sebuah tim memutar kunci dengan cara berbeda, jawaban bawaan itu berubah jadi kandang ketimbang bantuan. Jadi keputusannya adalah membiarkan verifikasi terbuka dan membiarkan developer membawa skema yang dibutuhkan kasusnya.
+Menanam salah satu pilihan itu akan mengunci setiap proyek ke satu skema. Ketika spesifikasi bergerak atau sebuah tim memutar kunci dengan cara berbeda, jawaban bawaan itu berubah jadi belenggu ketimbang bantuan. Jadi keputusannya adalah membiarkan verifikasi terbuka dan membiarkan developer membawa skema yang dibutuhkan kasusnya.
 
 ## Kenapa Basic Auth Dibawa Tapi Bearer Tidak
 
@@ -23,7 +23,7 @@ Bearer sebaliknya. Format token, tanda tangan, dan sumber kepercayaan semuanya b
 Penjaga token adalah komposisi kecil di atas bagian yang sudah ada:
 
 - **Baca header** - [`ctx.header('authorization')`](/id/core-concepts/context-object#akses-data-request) mengembalikan nilai `Authorization` mentah.
-- **Jalan lebih awal** - [middleware global](/id/middleware/global) berjalan sebelum route handler dan bisa menghentikan request dengan mengembalikan `Response`.
+- **Berjalan lebih awal** - [middleware global](/id/middleware/global) berjalan sebelum route handler dan bisa menghentikan request dengan mengembalikan `Response`.
 - **Tolak bersih** - [`ctx.handleError(401, ...)`](/id/core-concepts/context-object#penanganan-error) mengarah lewat [`router.catch()`](/id/error-handling/object-details) saat satu diatur.
 - **Bawa hasilnya** - [`ctx.state`](/id/core-concepts/context-object#berbagi-state) menyerahkan identitas terdekode ke handler di hilir.
 
@@ -102,7 +102,16 @@ const bearer = WrapMware('Bearer', async (ctx: Context, next) => {
 
 // Terapkan penjaga dan bentuk error
 router.use(bearer)
-router.catch((ctx, err) => ctx.send.json({ error: err.error?.message }, { status: 401 }))
+router.catch((ctx, err) => {
+  return ctx.send.json(
+    {
+      error: err.error?.message
+    },
+    {
+      status: 401
+    }
+  )
+})
 ```
 
 Ini pola pembungkusan yang sama dipakai [Basic Auth](/id/middleware/basic-auth) secara internal, kini membawa pengecekan token alih-alih perbandingan kredensial.

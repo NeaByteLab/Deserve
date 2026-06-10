@@ -4,7 +4,7 @@ description: "Daftarkan middleware global yang berjalan untuk setiap request den
 
 # Global Middleware
 
-Middleware global dieksekusi untuk setiap request sebelum route handler, menyediakan fungsionalitas lintas-potong seperti autentikasi, logging, dan CORS.
+Middleware global dieksekusi untuk setiap request sebelum route handler, menyediakan fungsi lintas-rute seperti autentikasi, logging, dan CORS.
 
 Setiap pemanggilan `router.use(fn)` menambahkan entry dengan path kosong, jadi cocok untuk setiap request dan berjalan persis dalam urutan pendaftarannya, sebelum route matching terjadi.
 
@@ -73,12 +73,22 @@ declare function isValidToken(token: string): boolean
 router.use(async (ctx, next) => {
   const authHeader = ctx.header('authorization')
   if (!authHeader) {
-    return ctx.send.text('Unauthorized', { status: 401 })
+    return ctx.send.text(
+      'Unauthorized',
+      {
+        status: 401
+      }
+    )
   }
   // Validasi token di sini...
   const token = authHeader.replace('Bearer ', '')
   if (!isValidToken(token)) {
-    return ctx.send.text('Invalid token', { status: 401 })
+    return ctx.send.text(
+      'Invalid token',
+      {
+        status: 401
+      }
+    )
   }
   return await next()
 })
@@ -103,7 +113,16 @@ const myAuth = WrapMware('Auth', async (ctx, next) => {
 
 // Terapkan middleware dan error handler
 router.use(myAuth)
-router.catch((ctx, err) => ctx.send.json({ error: err.error?.message }, { status: 500 }))
+router.catch((ctx, err) => {
+  return ctx.send.json(
+    {
+      error: err.error?.message
+    },
+    {
+      status: 500
+    }
+  )
+})
 
 await router.serve(8000)
 ```
@@ -130,7 +149,12 @@ router.use('/api', async (ctx, next) => {
 // Jaga path /admin dengan cek auth
 router.use('/admin', async (ctx, next) => {
   if (!isAuthenticated(ctx)) {
-    return ctx.send.text('Unauthorized', { status: 401 })
+    return ctx.send.text(
+      'Unauthorized',
+      {
+        status: 401
+      }
+    )
   }
   return await next()
 })

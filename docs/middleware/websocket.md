@@ -59,7 +59,7 @@ allowedOrigins: '*' // Accept any origin
 allowedOrigins: ['https://example.com', 'https://app.example.com'] // Allowlist
 ```
 
-When `allowedOrigins` is left undefined, only same-origin handshakes are accepted. A rejected origin returns **403 Forbidden**.
+When `allowedOrigins` is left undefined, only same-origin handshakes are accepted, and a handshake with no `Origin` header is waved through since no policy is set. The moment an allowlist or `'*'` is configured, a missing `Origin` fails closed and the upgrade is refused, which closes a gap where a header simply omitted could slip past the policy. A rejected origin returns **403 Forbidden**.
 
 ### `onConnect`
 
@@ -84,9 +84,13 @@ onMessage: (socket: WebSocket, event: MessageEvent, ctx: Context) => {
   console.log('Received:', event.data)
   try {
     const data = JSON.parse(event.data as string)
-    socket.send(JSON.stringify({ echo: data }))
+    socket.send(JSON.stringify({
+      echo: data
+    }))
   } catch {
-    socket.send(JSON.stringify({ error: 'Invalid JSON' }))
+    socket.send(JSON.stringify({
+      error: 'Invalid JSON'
+    }))
   }
 }
 ```
@@ -116,7 +120,9 @@ onError: (socket: WebSocket, event: Event, ctx: Context) => {
 ```typescript twoslash
 import { Mware, Router } from '@neabyte/deserve'
 
-const router = new Router({ routesDir: './routes' })
+const router = new Router({
+  routesDir: './routes'
+})
 
 router.use(
   Mware.websocket({
@@ -234,8 +240,12 @@ import { Mware, Router } from '@neabyte/deserve'
 const router = new Router()
 
 // CORS handles HTTP, WebSocket handles upgrades
-router.use(Mware.cors({ origin: '*' }))
-router.use(Mware.websocket({ listener: '/ws' }))
+router.use(Mware.cors({
+  origin: '*'
+}))
+router.use(Mware.websocket({
+  listener: '/ws'
+}))
 
 await router.serve(8000)
 ```

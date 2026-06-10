@@ -33,7 +33,9 @@ For correlating logs, the [lifecycle events](/middleware/observability/overview)
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
-const router = new Router({ routesDir: './routes' })
+const router = new Router({
+  routesDir: './routes'
+})
 // ---cut---
 router.on((event) => {
   // Correlate by real IP and time

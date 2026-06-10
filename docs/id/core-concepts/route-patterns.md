@@ -25,16 +25,16 @@ Deserve mengubah path berkas menjadi pola rute, dan **FastRouter** mencocokkanny
 Ketika request tiba, mesin mencari metode dan pathname, lalu menerapkan beberapa aturan tetap:
 
 - **Path persis, metode persis** - handler yang cocok berjalan dengan param-nya terisi
-- **HEAD jatuh ke GET** - sebuah `HEAD` tanpa handler memakai ulang handler `GET`
+- **HEAD mengikuti GET** - sebuah `HEAD` tanpa handler memakai ulang handler `GET`
 - **Metode salah** - path dikenal tanpa handler untuk metode itu mengembalikan **405** dengan header `Allow` yang mendaftar metode yang memang ada
 - **Path tidak dikenal** - tanpa kecocokan mengembalikan **404** lewat [error handler](/id/error-handling/object-details)
-- **Input kebesaran** - URL melewati `maxUrlLength` atau param melewati `maxParamLength` mengembalikan **414**, keduanya bisa disetel di [Konfigurasi Server](/id/getting-started/server-configuration)
+- **Input terlalu besar** - URL melewati `maxUrlLength` atau param melewati `maxParamLength` mengembalikan **414**, keduanya bisa disetel di [Konfigurasi Server](/id/getting-started/server-configuration)
 
 Param di-percent-decode sekali sebelum handler membacanya, jadi `ctx.param('id')` mengembalikan nilai yang sudah didekode.
 
 ## Parameter Dinamis
 
-Folder atau berkas `[param]` menjadi slot bernama `:param` di pola. Tiap kurung di path berubah menjadi satu parameter, dan bersarang tinggal menambah lebih banyak:
+Folder atau berkas `[param]` menjadi slot bernama `:param` di pola. Tiap kurung di path berubah menjadi satu parameter, dan struktur bersarang tinggal menambah parameter:
 
 | Path berkas                                        | Pola                                       | Param                        |
 | -------------------------------------------------- | ------------------------------------------ | ---------------------------- |
@@ -92,8 +92,17 @@ import type { Context } from '@neabyte/deserve'
 export function GET(ctx: Context): Response {
   const id = ctx.param('id')
   if (!id || !/^\d+$/.test(id)) {
-    return ctx.send.json({ error: 'Invalid user ID' }, { status: 400 })
+    return ctx.send.json(
+      {
+        error: 'Invalid user ID'
+      },
+      {
+        status: 400
+      }
+    )
   }
-  return ctx.send.json({ userId: parseInt(id) })
+  return ctx.send.json({
+    userId: parseInt(id)
+  })
 }
 ```

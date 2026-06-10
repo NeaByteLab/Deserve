@@ -29,17 +29,23 @@ import type { Context } from '@neabyte/deserve'
 // ---cut---
 // Baca satu item lewat id
 export function GET(ctx: Context): Response {
-  return ctx.send.json({ id: ctx.param('id') })
+  return ctx.send.json({
+    id: ctx.param('id')
+  })
 }
 
 // Ganti item-nya
 export function PUT(ctx: Context): Response {
-  return ctx.send.json({ updated: true })
+  return ctx.send.json({
+    updated: true
+  })
 }
 
 // Hapus item-nya
 export function DELETE(ctx: Context): Response {
-  return ctx.send.json({ deleted: true })
+  return ctx.send.json({
+    deleted: true
+  })
 }
 ```
 
@@ -47,13 +53,23 @@ Klien menargetkan masing-masing dengan mengirim metode yang cocok. Lihat [file-b
 
 ```typescript twoslash
 // Tiap panggilan mengenai handler-nya sendiri
-await fetch('/items/42', { method: 'PUT' })
-await fetch('/items/42', { method: 'DELETE' })
+await fetch(
+  '/items/42',
+  {
+    method: 'PUT'
+  }
+)
+await fetch(
+  '/items/42',
+  {
+    method: 'DELETE'
+  }
+)
 ```
 
-Membangun stateless atau stateful adalah gerakan yang sama, tinggal jatuhkan filenya. Sebuah endpoint REST stateless adalah handler yang membaca request dan membalas, sementara alur stateful menambah [middleware session](/id/middleware/session) dan membaca data per-pengguna dari [`ctx.state`](/id/core-concepts/context-object#berbagi-state). Metodenya tetap asli di kedua jalur, tanpa apa pun untuk disamarkan saat masuk.
+Membangun stateless atau stateful adalah gerakan yang sama, tinggal tambahkan filenya. Sebuah endpoint REST stateless adalah handler yang membaca request dan membalas, sementara alur stateful menambah [middleware session](/id/middleware/session) dan membaca data per-pengguna dari [`ctx.state`](/id/core-concepts/context-object#berbagi-state). Metodenya tetap asli di kedua jalur, tanpa apa pun untuk disamarkan saat masuk.
 
-Sebuah API REST atau RESTful penuh jatuh dari ini tanpa kabel tambahan. Verb-nya sudah sejajar dengan aksinya, `GET` untuk membaca, `POST` untuk membuat, `PUT` dan `PATCH` untuk memperbarui, `DELETE` untuk menghapus, jadi sebuah resource hanyalah file rute dengan handler itu. Perilakunya terbaca sama di setiap endpoint, yang membuat seluruh API terasa mulus.
+Sebuah API REST atau RESTful penuh muncul dari sini tanpa konfigurasi tambahan. Verb-nya sudah sejajar dengan aksinya, `GET` untuk membaca, `POST` untuk membuat, `PUT` dan `PATCH` untuk memperbarui, `DELETE` untuk menghapus, jadi sebuah resource hanyalah file rute dengan handler itu. Perilakunya terbaca sama di setiap endpoint, yang membuat seluruh API terasa mulus.
 
 ## Yang Sudah Ditangani Deserve
 

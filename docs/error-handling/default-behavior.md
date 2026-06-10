@@ -15,7 +15,9 @@ Without a call to `router.catch()`, Deserve handles every error with a default r
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
-const router = new Router({ routesDir: './routes' })
+const router = new Router({
+  routesDir: './routes'
+})
 
 // No router.catch, defaults take over
 
@@ -114,7 +116,12 @@ import { Router } from '@neabyte/deserve'
 const router = new Router()
 // ---cut---
 // Serve static files at /static
-router.static('/static', { path: './public' })
+router.static(
+  '/static',
+  {
+    path: './public'
+  }
+)
 
 // Missing file (GET /static/missing.jpg):
 //   Status 404, JSON or HTML per Accept

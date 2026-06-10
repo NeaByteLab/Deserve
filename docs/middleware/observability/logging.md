@@ -15,7 +15,9 @@ Listen for `request:complete` and print one line per request:
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
-const router = new Router({ routesDir: './routes' })
+const router = new Router({
+  routesDir: './routes'
+})
 
 // One log line per finished request
 router.on((event) => {
@@ -40,7 +42,9 @@ Emit JSON when a log pipeline expects structured records:
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
-const router = new Router({ routesDir: './routes' })
+const router = new Router({
+  routesDir: './routes'
+})
 // ---cut---
 router.on((event) => {
   if (event.kind === 'request:complete') {
@@ -62,7 +66,9 @@ Filter by duration to surface only slow traffic:
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
-const router = new Router({ routesDir: './routes' })
+const router = new Router({
+  routesDir: './routes'
+})
 // ---cut---
 router.on((event) => {
   // Flag requests slower than 500ms

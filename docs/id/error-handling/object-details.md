@@ -13,7 +13,9 @@ Tangani error dengan method `router.catch()`:
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
-const router = new Router({ routesDir: './routes' })
+const router = new Router({
+  routesDir: './routes'
+})
 
 // Tangkap error dari rute mana pun
 router.catch((ctx, error) => {
@@ -97,7 +99,14 @@ const router = new Router()
 router.catch((ctx, error) => {
   if (error.statusCode === 500) {
     console.error('Server error:', error.error)
-    return ctx.send.json({ error: 'Internal server error' }, { status: 500 })
+    return ctx.send.json(
+      {
+        error: 'Internal server error'
+      },
+      {
+        status: 500
+      }
+    )
   }
   return null
 })
@@ -114,9 +123,18 @@ export async function POST(ctx: Context): Promise<Response> {
   try {
     const data = await ctx.body()
     // Proses data...
-    return ctx.send.json({ success: true })
+    return ctx.send.json({
+      success: true
+    })
   } catch (error) {
-    return ctx.send.json({ error: 'Failed to process request' }, { status: 500 })
+    return ctx.send.json(
+      {
+        error: 'Failed to process request'
+      },
+      {
+        status: 500
+      }
+    )
   }
 }
 ```
@@ -131,9 +149,18 @@ import type { Context, DataRecord } from '@neabyte/deserve'
 export async function POST(ctx: Context): Promise<Response> {
   const data = await ctx.body() as DataRecord
   if (!data.email) {
-    return ctx.send.json({ error: 'Email is required' }, { status: 400 })
+    return ctx.send.json(
+      {
+        error: 'Email is required'
+      },
+      {
+        status: 400
+      }
+    )
   }
   // Proses data valid...
-  return ctx.send.json({ success: true })
+  return ctx.send.json({
+    success: true
+  })
 }
 ```

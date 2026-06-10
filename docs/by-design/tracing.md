@@ -41,7 +41,9 @@ This listener turns each finished request into a span-shaped record and hands it
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
-const router = new Router({ routesDir: './routes' })
+const router = new Router({
+  routesDir: './routes'
+})
 declare function exportSpan(span: Record<string, unknown>): void
 // ---cut---
 router.on((event) => {

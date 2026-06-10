@@ -4,7 +4,7 @@ description: "Pola menata aplikasi Deserve yang lebih besar dengan scoping middl
 
 # Dibangun untuk Tim
 
-Deserve menjaga struktur aplikasi tetap jelas, jadi sebuah tim membaca pohon folder dan langsung tahu API-nya. Tidak ada tabel rute pusat untuk dipelajari dan tidak ada perakitan khusus framework untuk dikuasai lebih dulu. Ini mengikuti [filosofi](/id/core-concepts/philosophy#keyakinan-inti) bahwa struktur file adalah struktur API, yang menjaga basis kode mudah dirawat oleh tim.
+Deserve menjaga struktur aplikasi tetap jelas, jadi sebuah tim membaca pohon folder dan langsung tahu API-nya. Tidak ada tabel rute pusat untuk dipelajari dan tidak ada konfigurasi khusus framework untuk dikuasai lebih dulu. Ini mengikuti [filosofi](/id/core-concepts/philosophy#keyakinan-inti) bahwa struktur file adalah struktur API, yang menjaga basis kode mudah dirawat oleh tim.
 
 ## Folder Adalah Peta
 
@@ -72,7 +72,7 @@ Reviewer membaca `POST` dan tahu verb-nya, membaca `ctx.body()` dan tahu input-n
 
 ## Aturan Bersama di Satu Tempat
 
-Urusan lintas-potong tinggal di satu titik alih-alih tersebar di seluruh handler. Satu developer bisa memegang auth, yang lain memegang logging, dan tidak ada yang perlu menyentuh berkas rute orang lain:
+Urusan yang berlaku lintas rute tinggal di satu titik alih-alih tersebar di seluruh handler. Satu developer bisa memegang auth, yang lain memegang logging, dan tidak ada yang perlu menyentuh berkas rute orang lain:
 
 ```typescript twoslash
 // main.ts
@@ -105,14 +105,18 @@ Handler tetap fokus pada tugasnya sendiri, sementara perilaku bersama diterapkan
 
 ## Banyak Tangan, Satu Proses
 
-Tim yang lebih besar sering memecah aplikasi menjadi beberapa service. Deserve menjalankan beberapa router dalam satu proses, jadi satu orang bisa mengerjakan API sementara yang lain mengerjakan auth tanpa deployment terpisah atau lem jaringan di antara keduanya:
+Tim yang lebih besar sering memecah aplikasi menjadi beberapa service. Deserve menjalankan beberapa router dalam satu proses, jadi satu orang bisa mengerjakan API sementara yang lain mengerjakan auth tanpa deployment terpisah atau lapisan jaringan di antara keduanya:
 
 ```typescript twoslash
 // main.ts
 import { Router } from '@neabyte/deserve'
 
-const api = new Router({ routesDir: './services/api/routes' })
-const auth = new Router({ routesDir: './services/auth/routes' })
+const api = new Router({
+  routesDir: './services/api/routes'
+})
+const auth = new Router({
+  routesDir: './services/auth/routes'
+})
 
 // Tiap service punya folder dan port
 await Promise.all([
@@ -123,7 +127,7 @@ await Promise.all([
 
 Tiap service punya folder, port, dan file watcher sendiri, jadi tim bergerak paralel tanpa saling mengganggu. Pola lengkapnya, termasuk kode bersama dan error handler bersama, ada di [Multi-Service](/id/core-concepts/multi-service).
 
-![Banyak tangan, satu proses: satu proses Deno menjalankan router API milik dev A di port 3001 dan router Auth milik dev B di port 3002, masing-masing dengan routesDir dan file watcher sendiri, jadi kedua developer bekerja paralel tanpa deployment terpisah atau lem jaringan](/diagrams/team-many-hands.png)
+![Banyak tangan, satu proses: satu proses Deno menjalankan router API milik dev A di port 3001 dan router Auth milik dev B di port 3002, masing-masing dengan routesDir dan file watcher sendiri, jadi kedua developer bekerja paralel tanpa deployment terpisah atau lapisan jaringan](/diagrams/team-many-hands.png)
 
 ## Langkah Berikutnya
 

@@ -17,7 +17,9 @@ This middleware-style hook sits beside the router and watches everything that ha
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
-const router = new Router({ routesDir: './routes' })
+const router = new Router({
+  routesDir: './routes'
+})
 
 // Receive every lifecycle and error event
 const off = router.on((event) => {

@@ -40,7 +40,7 @@ export async function POST(ctx: Context): Promise<Response> {
 }
 ```
 
-Memanggil `ctx.body()` mencapai parser yang sama, karena ia membaca header `Content-Type` dan mengarahkan baik `multipart/form-data` maupun `application/x-www-form-urlencoded` ke `FormData`. Memilih `ctx.formData()` membuat niat jelas di titik panggilan.
+Memanggil `ctx.body()` mencapai parser yang sama, karena pembaca itu membaca header `Content-Type` dan mengarahkan baik `multipart/form-data` maupun `application/x-www-form-urlencoded` ke `FormData`. Memilih `ctx.formData()` membuat niat jelas di titik panggilan.
 
 ## Memastikan File Tiba
 
@@ -133,11 +133,11 @@ export async function POST(ctx: Context): Promise<Response> {
 }
 ```
 
-Pembaca kedua seperti `ctx.json()` pada request ini akan melempar error alih-alih mengembalikan data kosong, karena body sudah habis. Payload multipart yang rusak juga tidak pernah membuat pipeline crash, karena parser memetakan body rusak ke respons **400**. Setiap pembaca dan tipe kembaliannya ada di [referensi penanganan request](/id/core-concepts/request-handling#referensi-method).
+Pembaca kedua seperti `ctx.json()` pada request ini akan melempar error alih-alih mengembalikan data kosong, karena body sudah habis. Payload multipart yang rusak juga tidak pernah membuat pipeline crash, karena parser memetakan body rusak ke **400** yang mengalir lewat [penanganan error terpusat](/id/error-handling/object-details). Setiap pembaca dan tipe kembaliannya ada di [referensi penanganan request](/id/core-concepts/request-handling#referensi-method).
 
 ## Membatasi Ukuran Upload
 
-`FormData` tidak membatasi berapa banyak bytes yang dikirim klien, jadi rute upload berpasangan dengan [middleware body limit](/id/middleware/body-limit) untuk menolak payload kebesaran dengan **413** sebelum memenuhi memori. `Content-Length` yang diketahui melebihi batas ditolak sebelum body dibaca, sementara stream chunked dipotong begitu bytes berlebih tiba:
+`FormData` tidak membatasi berapa banyak bytes yang dikirim klien, jadi rute upload berpasangan dengan [middleware body limit](/id/middleware/body-limit) untuk menolak payload yang terlalu besar dengan **413** sebelum memenuhi memori. `Content-Length` yang diketahui melebihi batas ditolak sebelum body dibaca, sementara stream chunked dipotong begitu bytes berlebih tiba:
 
 ```typescript twoslash
 import { Mware, Router } from '@neabyte/deserve'
@@ -176,7 +176,7 @@ router.static('/uploads', {
 
 Untuk unduhan sekali pakai yang digerakkan handler alih-alih prefix statis, [`ctx.send.file()`](/id/response/file) mengalirkan satu file langsung dari disk dengan `Content-Disposition` yang tepat terpasang.
 
-## Putaran Penuh
+## Alur Lengkap
 
 Dua file membawa seluruh alur. Entri `main.ts` membatasi ukuran di router dan memaparkan folder tersimpan, sementara file rute di `routes/api/upload.ts` memvalidasi field, menyimpan bytes, dan melaporkan URL publik kembali. Deserve menyatukannya lewat [routing berbasis file](/id/core-concepts/file-based-routing), jadi file rute tidak pernah di-import dengan tangan.
 

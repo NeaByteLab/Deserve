@@ -1,12 +1,12 @@
 ---
-description: "Batasi ukuran body request masuk untuk menjaga dari payload kebesaran."
+description: "Batasi ukuran body request masuk untuk mencegah payload yang terlalu besar."
 ---
 
 # Middleware Body Limit
 
 > **Referensi**: [RFC 7230 HTTP/1.1 Message Syntax and Routing](https://datatracker.ietf.org/doc/html/rfc7230#section-3.3.1)
 
-Middleware Body Limit memberlakukan ukuran maksimum body request. Ketika body ada, stream body selalu dibungkus dengan limiter sehingga ukurannya diberlakukan terlepas dari header, yang menjaga payload besar dari membebani server.
+Middleware Body Limit memberlakukan ukuran maksimum body request. Ketika body ada, stream body selalu dibungkus dengan limiter sehingga ukurannya diberlakukan terlepas dari header, yang mencegah payload besar membebani server.
 
 ## Penggunaan Dasar
 
@@ -37,13 +37,19 @@ import { Mware, Router } from '@neabyte/deserve'
 const router = new Router()
 // ---cut---
 // Batas 1MB untuk rute umum
-router.use(Mware.bodyLimit({ limit: 1024 * 1024 }))
+router.use(Mware.bodyLimit({
+  limit: 1024 * 1024
+}))
 
 // Batas 5MB untuk rute upload
-router.use('/uploads', Mware.bodyLimit({ limit: 5 * 1024 * 1024 }))
+router.use('/uploads', Mware.bodyLimit({
+  limit: 5 * 1024 * 1024
+}))
 
 // Batas 10MB untuk rute API
-router.use('/api', Mware.bodyLimit({ limit: 10 * 1024 * 1024 }))
+router.use('/api', Mware.bodyLimit({
+  limit: 10 * 1024 * 1024
+}))
 ```
 
 ## Opsi Konfigurasi
@@ -81,18 +87,26 @@ Ketika request punya body, middleware membungkus stream body dengan limiter byte
 ```typescript twoslash
 import { Mware, Router } from '@neabyte/deserve'
 
-const router = new Router({ routesDir: './routes' })
+const router = new Router({
+  routesDir: './routes'
+})
 
 // Batas global 1MB
-router.use(Mware.bodyLimit({ limit: 1024 * 1024 }))
+router.use(Mware.bodyLimit({
+  limit: 1024 * 1024
+}))
 
 // Batas lebih besar untuk upload dan API
-router.use('/uploads', Mware.bodyLimit({ limit: 5 * 1024 * 1024 }))
-router.use('/api', Mware.bodyLimit({ limit: 10 * 1024 * 1024 }))
+router.use('/uploads', Mware.bodyLimit({
+  limit: 5 * 1024 * 1024
+}))
+router.use('/api', Mware.bodyLimit({
+  limit: 10 * 1024 * 1024
+}))
 
 await router.serve(8000)
 ```
 
 ## Penanganan Error
 
-Ketika batas terlampaui, middleware mengembalikan pesan `Request body exceeds <limit> bytes limit` dengan **status code 413**. `Content-Length` yang diketahui di atas batas ditolak sebelum body dibaca, sementara stream chunked atau kebesaran ditolak begitu byte tambahan tiba. Untuk membentuk response itu, daftarkan satu handler dengan [`router.catch()`](/id/error-handling/object-details), atau andalkan [perilaku default](/id/error-handling/default-behavior).
+Ketika batas terlampaui, middleware mengembalikan pesan `Request body exceeds <limit> bytes limit` dengan **status code 413**. `Content-Length` yang diketahui di atas batas ditolak sebelum body dibaca, sementara stream chunked atau yang terlalu besar ditolak begitu byte tambahan tiba. Untuk membentuk response itu, daftarkan satu handler dengan [`router.catch()`](/id/error-handling/object-details), atau andalkan [perilaku default](/id/error-handling/default-behavior).

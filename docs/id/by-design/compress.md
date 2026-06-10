@@ -15,7 +15,7 @@ Dua lapisan sudah menanganinya:
 - **Runtime** - [`Deno.serve`](/id/getting-started/server-configuration) mengompresi body response sendiri, sejalan dengan [bangun di atas platform](/id/core-concepts/philosophy#bangun-di-atas-platform).
 - **Network edge** - kebanyakan aplikasi produksi berada di belakang proxy seperti [Cloudflare](https://developers.cloudflare.com/speed/optimization/content/compression/) atau [nginx](https://docs.nginx.com/nginx/admin-guide/web-server/compression/), di mana kompresi adalah tugas lapisan jaringan, bukan aplikasi.
 
-Jadi middleware kompresi baru berguna hanya di localhost telanjang tanpa proxy di depan, dan bahkan di sana runtime sudah menanganinya.
+Jadi middleware kompresi baru berguna hanya di localhost polos tanpa proxy di depan, dan bahkan di sana runtime sudah menanganinya.
 
 ## Yang Deno Lakukan Sendiri
 
@@ -27,7 +27,7 @@ Jadi middleware kompresi baru berguna hanya di localhost telanjang tanpa proxy d
 
 Ketika mengompresi, runtime mengatur `Content-Encoding` ke skema yang dipilih dan menyesuaikan header `Vary` supaya cache memakai encoding sebagai kunci. Tidak ada di handler yang perlu meminta ini.
 
-Sebuah response dibiarkan tanpa kompresi ketika salah satu dari ini hadir, yang merupakan runtime sengaja menyingkir:
+Sebuah response dibiarkan tanpa kompresi ketika salah satu dari ini hadir, yang menandakan runtime sengaja mundur:
 
 - Header `Content-Encoding`, berarti body sudah ter-encode.
 - Header `Content-Range`, berarti ada request rentang.
@@ -42,11 +42,13 @@ import type { Context } from '@neabyte/deserve'
 // ---cut---
 export function GET(ctx: Context): Response {
   // Kirim polos, runtime kompresi bila bisa
-  return ctx.send.json({ message: 'compressed by the runtime' })
+  return ctx.send.json({
+    message: 'compressed by the runtime'
+  })
 }
 ```
 
-## Mengeluarkan Satu Response
+## Mengecualikan Satu Response
 
 Untuk menjaga satu response tetap tanpa kompresi, atur header yang diperlakukan runtime sebagai sinyal berhenti. Sebuah `Cache-Control: no-transform` memberi tahu runtime dan proxy hilir untuk tidak menyentuh body.
 
@@ -56,7 +58,9 @@ import type { Context } from '@neabyte/deserve'
 export function GET(ctx: Context): Response {
   // Larang lapisan apa pun menulis ulang body
   ctx.setHeader('Cache-Control', 'no-transform')
-  return ctx.send.json({ message: 'sent verbatim' })
+  return ctx.send.json({
+    message: 'sent verbatim'
+  })
 }
 ```
 

@@ -175,7 +175,9 @@ router.use(
 ```typescript twoslash
 import { Mware, Router } from '@neabyte/deserve'
 
-const router = new Router({ routesDir: './routes' })
+const router = new Router({
+  routesDir: './routes'
+})
 
 // CORS produksi dengan opsi lengkap
 router.use(

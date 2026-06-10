@@ -58,7 +58,11 @@ export async function GET(ctx: Context): Promise<Response> {
   const stream = await view!.streamRender('report', reportData)
   return ctx.send.stream(
     stream,
-    { headers: { 'Cache-Control': 'no-cache' } },
+    {
+      headers: {
+        'Cache-Control': 'no-cache'
+      }
+    },
     'text/html; charset=utf-8'
   )
 }

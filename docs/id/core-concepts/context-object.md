@@ -10,7 +10,7 @@ Objek `Context` membungkus `Request` native dan menyediakan method nyaman untuk 
 
 Context adalah pembungkus di sekitar objek `Request` native Deno, dan setiap request masuk dibungkus dalam satu Context yang mengalir dari middleware ke route handler. Bekerja lewat Context alih-alih `Request` mentah membawa:
 
-- **Parsing malas** - data diurai hanya saat sebuah method membacanya
+- **Parsing tertunda** - data diurai hanya saat sebuah method membacanya
 - **Method nyaman** - API sederhana untuk operasi umum
 - **Utilitas response** - method bawaan untuk mengirim response
 - **Manajemen header** - perubahan header response yang mudah
@@ -28,7 +28,9 @@ import type { Context } from '@neabyte/deserve'
 
 // Deserve membangun ctx tiap request
 export function GET(ctx: Context): Response {
-  return ctx.send.json({ message: 'Hello' })
+  return ctx.send.json({
+    message: 'Hello'
+  })
 }
 ```
 
@@ -41,9 +43,9 @@ Context membungkus beberapa bagian kunci:
 3. **Parameter Rute** - diekstrak dari rute dinamis
 4. **Header Response** - diatur sebelum mengirim response
 
-## Parsing Malas
+## Parsing Tertunda
 
-Context mengurai dengan malas demi performa, jadi data query, body, cookie, dan header dibaca hanya saat method yang cocok berjalan, dan hasilnya di-cache untuk panggilan berikutnya. Membaca body bersifat async, jadi handler yang me-await-nya menjadi `async` dan mengembalikan `Promise<Response>`:
+Context menunda parsing demi performa, jadi data query, body, cookie, dan header dibaca hanya saat method yang cocok berjalan, dan hasilnya di-cache untuk panggilan berikutnya. Membaca body bersifat async, jadi handler yang me-await-nya menjadi `async` dan mengembalikan `Promise<Response>`:
 
 ```typescript twoslash
 import type { Context } from '@neabyte/deserve'
@@ -111,7 +113,9 @@ import type { Context } from '@neabyte/deserve'
 export function GET(ctx: Context): Response {
   ctx.setHeader('X-Custom', 'value')
   ctx.setHeader('Cache-Control', 'no-cache')
-  return ctx.send.json({ data: 'test' })
+  return ctx.send.json({
+    data: 'test'
+  })
 }
 ```
 
@@ -128,7 +132,9 @@ export function GET(ctx: Context): Response {
     'Cache-Control': 'no-cache',
     'X-Request-ID': 'abc123'
   })
-  return ctx.send.json({ data: 'test' })
+  return ctx.send.json({
+    data: 'test'
+  })
 }
 ```
 
@@ -190,7 +196,9 @@ router.use(async (ctx, next) => {
 
 export function GET(ctx: Context): Response {
   // Baca apa yang disimpan middleware
-  return ctx.send.json({ id: ctx.state.requestId })
+  return ctx.send.json({
+    id: ctx.state.requestId
+  })
 }
 ```
 
@@ -207,9 +215,9 @@ ctx.setState<string>('userId' as never, '123')
 const userId = ctx.getState<string>('userId' as never)
 ```
 
-`as never` pada kunci disengaja, bukan akal-akalan untuk disalin buta. Kunci state adalah tipe bermerek, jadi framework bisa mencadangkan beberapa nama untuk perakitannya sendiri dan menolaknya saat kompilasi. String polos tidak membawa merek itu, dan `as never` itulah yang memberi tahu sistem tipe bahwa string ini adalah kunci yang valid. Tipe nilai tetap nyata dan terperiksa, jadi `getState<string>(...)` tetap mengembalikan `string | undefined`.
+`as never` pada kunci disengaja, bukan trik untuk disalin begitu saja. Kunci state adalah tipe bermerek, jadi framework bisa mencadangkan beberapa nama untuk kebutuhan internalnya sendiri dan menolaknya saat kompilasi. String polos tidak membawa merek itu, dan `as never` itulah yang memberi tahu sistem tipe bahwa string ini adalah kunci yang valid. Tipe nilai tetap nyata dan terperiksa, jadi `getState<string>(...)` tetap mengembalikan `string | undefined`.
 
-Beberapa kunci dicadangkan untuk perakitan framework dan hanya-baca lewat `getState`. Memanggil `setState` pada salah satunya melempar error 500. Kunci yang dicadangkan adalah `view`, `worker`, `session`, `setSession`, dan `clearSession`. [Worker pool](/id/core-concepts/worker-pool) dan [middleware session](/id/middleware/session) membaca handle-nya dengan cara ini.
+Beberapa kunci dicadangkan untuk kebutuhan internal framework dan hanya bisa dibaca lewat `getState`. Memanggil `setState` pada salah satunya melempar error 500. Kunci yang dicadangkan adalah `view`, `worker`, `session`, `setSession`, dan `clearSession`. [Worker pool](/id/core-concepts/worker-pool) dan [middleware session](/id/middleware/session) membaca handle-nya dengan cara ini.
 
 ## Merender Template
 
@@ -220,7 +228,12 @@ import type { Context } from '@neabyte/deserve'
 // ---cut---
 export async function GET(ctx: Context): Promise<Response> {
   // Render template ke response HTML
-  return await ctx.render('home.dve', { title: 'Welcome' })
+  return await ctx.render(
+    'home.dve',
+    {
+      title: 'Welcome'
+    }
+  )
 }
 ```
 
@@ -239,7 +252,9 @@ export async function GET(ctx: Context): Promise<Response> {
     if (!isAuthorized) {
       return await ctx.handleError(401, new Error('Unauthorized'))
     }
-    return ctx.send.json({ data: 'success' })
+    return ctx.send.json({
+      data: 'success'
+    })
   } catch (error) {
     return await ctx.handleError(500, error as Error)
   }

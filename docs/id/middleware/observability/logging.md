@@ -15,7 +15,9 @@ Dengarkan `request:complete` dan cetak satu baris per request:
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
-const router = new Router({ routesDir: './routes' })
+const router = new Router({
+  routesDir: './routes'
+})
 
 // Satu baris log per request selesai
 router.on((event) => {
@@ -40,7 +42,9 @@ Pancarkan JSON ketika pipeline log mengharapkan rekaman terstruktur:
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
-const router = new Router({ routesDir: './routes' })
+const router = new Router({
+  routesDir: './routes'
+})
 // ---cut---
 router.on((event) => {
   if (event.kind === 'request:complete') {
@@ -62,7 +66,9 @@ Saring berdasarkan durasi untuk memunculkan hanya lalu lintas lambat:
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
-const router = new Router({ routesDir: './routes' })
+const router = new Router({
+  routesDir: './routes'
+})
 // ---cut---
 router.on((event) => {
   // Tandai request lebih lambat dari 500ms

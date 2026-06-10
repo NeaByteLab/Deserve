@@ -92,8 +92,17 @@ import type { Context } from '@neabyte/deserve'
 export function GET(ctx: Context): Response {
   const id = ctx.param('id')
   if (!id || !/^\d+$/.test(id)) {
-    return ctx.send.json({ error: 'Invalid user ID' }, { status: 400 })
+    return ctx.send.json(
+      {
+        error: 'Invalid user ID'
+      },
+      {
+        status: 400
+      }
+    )
   }
-  return ctx.send.json({ userId: parseInt(id) })
+  return ctx.send.json({
+    userId: parseInt(id)
+  })
 }
 ```

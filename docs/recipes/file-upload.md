@@ -133,7 +133,7 @@ export async function POST(ctx: Context): Promise<Response> {
 }
 ```
 
-A second reader such as `ctx.json()` on this request would throw instead of returning empty data, since the body is already gone. A malformed multipart payload never crashes the pipeline either, since the parser maps a broken body to a **400** response. Every reader and its return type lives in the [request handling reference](/core-concepts/request-handling#method-reference).
+A second reader such as `ctx.json()` on this request would throw instead of returning empty data, since the body is already gone. A malformed multipart payload never crashes the pipeline either, since the parser maps a broken body to a **400** that flows through the [centralized error handler](/error-handling/object-details). Every reader and its return type lives in the [request handling reference](/core-concepts/request-handling#method-reference).
 
 ## Capping Upload Size
 

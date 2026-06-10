@@ -75,12 +75,22 @@ declare function isValidToken(token: string): boolean
 router.use(async (ctx, next) => {
   const authHeader = ctx.header('authorization')
   if (!authHeader) {
-    return ctx.send.text('Unauthorized', { status: 401 })
+    return ctx.send.text(
+      'Unauthorized',
+      {
+        status: 401
+      }
+    )
   }
   // Validate token here...
   const token = authHeader.replace('Bearer ', '')
   if (!isValidToken(token)) {
-    return ctx.send.text('Invalid token', { status: 401 })
+    return ctx.send.text(
+      'Invalid token',
+      {
+        status: 401
+      }
+    )
   }
   return await next()
 })
@@ -105,7 +115,16 @@ const myAuth = WrapMware('Auth', async (ctx, next) => {
 
 // Apply middleware and the error handler
 router.use(myAuth)
-router.catch((ctx, err) => ctx.send.json({ error: err.error?.message }, { status: 500 }))
+router.catch((ctx, err) => {
+  return ctx.send.json(
+    {
+      error: err.error?.message
+    },
+    {
+      status: 500
+    }
+  )
+})
 
 await router.serve(8000)
 ```
@@ -132,7 +151,12 @@ router.use('/api', async (ctx, next) => {
 // Guard /admin paths with an auth check
 router.use('/admin', async (ctx, next) => {
   if (!isAuthenticated(ctx)) {
-    return ctx.send.text('Unauthorized', { status: 401 })
+    return ctx.send.text(
+      'Unauthorized',
+      {
+        status: 401
+      }
+    )
   }
   return await next()
 })

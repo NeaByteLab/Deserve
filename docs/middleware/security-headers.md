@@ -196,7 +196,9 @@ xPoweredBy: 'Custom' // Add a custom value
 ```typescript twoslash
 import { Mware, Router } from '@neabyte/deserve'
 
-const router = new Router({ routesDir: './routes' })
+const router = new Router({
+  routesDir: './routes'
+})
 
 // Apply a broad set of headers
 router.use(

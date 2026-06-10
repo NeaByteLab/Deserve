@@ -28,7 +28,9 @@ import type { Context } from '@neabyte/deserve'
 
 // Deserve builds ctx for each request
 export function GET(ctx: Context): Response {
-  return ctx.send.json({ message: 'Hello' })
+  return ctx.send.json({
+    message: 'Hello'
+  })
 }
 ```
 
@@ -111,7 +113,9 @@ import type { Context } from '@neabyte/deserve'
 export function GET(ctx: Context): Response {
   ctx.setHeader('X-Custom', 'value')
   ctx.setHeader('Cache-Control', 'no-cache')
-  return ctx.send.json({ data: 'test' })
+  return ctx.send.json({
+    data: 'test'
+  })
 }
 ```
 
@@ -128,7 +132,9 @@ export function GET(ctx: Context): Response {
     'Cache-Control': 'no-cache',
     'X-Request-ID': 'abc123'
   })
-  return ctx.send.json({ data: 'test' })
+  return ctx.send.json({
+    data: 'test'
+  })
 }
 ```
 
@@ -190,7 +196,9 @@ router.use(async (ctx, next) => {
 
 export function GET(ctx: Context): Response {
   // Read what middleware stored
-  return ctx.send.json({ id: ctx.state.requestId })
+  return ctx.send.json({
+    id: ctx.state.requestId
+  })
 }
 ```
 
@@ -220,7 +228,12 @@ import type { Context } from '@neabyte/deserve'
 // ---cut---
 export async function GET(ctx: Context): Promise<Response> {
   // Render a template to an HTML response
-  return await ctx.render('home.dve', { title: 'Welcome' })
+  return await ctx.render(
+    'home.dve',
+    {
+      title: 'Welcome'
+    }
+  )
 }
 ```
 
@@ -239,7 +252,9 @@ export async function GET(ctx: Context): Promise<Response> {
     if (!isAuthorized) {
       return await ctx.handleError(401, new Error('Unauthorized'))
     }
-    return ctx.send.json({ data: 'success' })
+    return ctx.send.json({
+      data: 'success'
+    })
   } catch (error) {
     return await ctx.handleError(500, error as Error)
   }

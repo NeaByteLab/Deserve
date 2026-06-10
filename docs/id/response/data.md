@@ -37,7 +37,9 @@ import type { Context } from '@neabyte/deserve'
 // ---cut---
 export function GET(ctx: Context): Response {
   // Argumen keempat mengatur content type
-  const jsonData = JSON.stringify({ data: 'value' })
+  const jsonData = JSON.stringify({
+    data: 'value'
+  })
   return ctx.send.data(
     jsonData,
     'data.json',
@@ -47,7 +49,7 @@ export function GET(ctx: Context): Response {
 }
 ```
 
-## Generasi File Dinamis
+## Pembuatan File Dinamis
 
 ```typescript twoslash
 import type { Context } from '@neabyte/deserve'

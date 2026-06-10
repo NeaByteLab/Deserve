@@ -59,7 +59,9 @@ export function GET(ctx: Context): Response {
   // Argumen kedua status, ketiga tipe
   return ctx.send.stream(stream, {
     status: 200,
-    headers: { 'X-Custom': 'value' }
+    headers: {
+      'X-Custom': 'value'
+    }
   }, 'application/x-ndjson')
 }
 ```

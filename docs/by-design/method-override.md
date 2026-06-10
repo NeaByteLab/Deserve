@@ -29,17 +29,23 @@ import type { Context } from '@neabyte/deserve'
 // ---cut---
 // Read one item by id
 export function GET(ctx: Context): Response {
-  return ctx.send.json({ id: ctx.param('id') })
+  return ctx.send.json({
+    id: ctx.param('id')
+  })
 }
 
 // Replace the item
 export function PUT(ctx: Context): Response {
-  return ctx.send.json({ updated: true })
+  return ctx.send.json({
+    updated: true
+  })
 }
 
 // Remove the item
 export function DELETE(ctx: Context): Response {
-  return ctx.send.json({ deleted: true })
+  return ctx.send.json({
+    deleted: true
+  })
 }
 ```
 
@@ -47,8 +53,18 @@ The client targets each one by sending the matching method. See [file-based rout
 
 ```typescript twoslash
 // Each call hits its own handler
-await fetch('/items/42', { method: 'PUT' })
-await fetch('/items/42', { method: 'DELETE' })
+await fetch(
+  '/items/42',
+  {
+    method: 'PUT'
+  }
+)
+await fetch(
+  '/items/42',
+  {
+    method: 'DELETE'
+  }
+)
 ```
 
 Building stateless or stateful is the same move, just drop the files. A stateless REST endpoint is a handler that reads the request and replies, while a stateful flow adds the [session middleware](/middleware/session) and reads per-user data from [`ctx.state`](/core-concepts/context-object#sharing-state). The method stays real either way, with nothing to disguise on the way in.

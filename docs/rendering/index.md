@@ -73,9 +73,23 @@ export async function GET(ctx: Context): Promise<Response> {
   } catch (error) {
     const message = error instanceof Error ? error.message : ''
     if (message.includes('not found in views directory')) {
-      return ctx.send.json({ error: 'Template missing' }, { status: 404 })
+      return ctx.send.json(
+        {
+          error: 'Template missing'
+        },
+        {
+          status: 404
+        }
+      )
     }
-    return ctx.send.json({ error: 'Render failed' }, { status: 500 })
+    return ctx.send.json(
+      {
+        error: 'Render failed'
+      },
+      {
+        status: 500
+      }
+    )
   }
 }
 ```

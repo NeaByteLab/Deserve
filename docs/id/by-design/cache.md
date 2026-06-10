@@ -20,7 +20,7 @@ Garbage collection adalah tugas runtime, sejalan dengan [bangun di atas platform
 
 ## Menyimpan Data di Memori
 
-Ketika sebuah nilai memang perlu tinggal di server, sebuah `Map` polos yang dideklarasi di scope modul adalah seluruh polanya. Ia dibuat sekali dan dibagi ke setiap request ke modul itu.
+Ketika sebuah nilai memang perlu tinggal di server, sebuah `Map` polos yang dideklarasi di scope modul adalah seluruh polanya. Store ini dibuat sekali dan dibagi ke setiap request ke modul itu.
 
 ```typescript twoslash
 import type { Context } from '@neabyte/deserve'
@@ -34,13 +34,19 @@ export async function GET(ctx: Context): Promise<Response> {
   // Sajikan nilai cache ketika ada
   const hit = cache.get(key)
   if (hit !== undefined) {
-    return ctx.send.json({ source: 'cache', data: hit })
+    return ctx.send.json({
+      source: 'cache',
+      data: hit
+    })
   }
 
   // Bangun sekali, lalu simpan untuk lain kali
   const data = await buildExpensiveData()
   cache.set(key, data)
-  return ctx.send.json({ source: 'fresh', data })
+  return ctx.send.json({
+    source: 'fresh',
+    data
+  })
 }
 
 declare function buildExpensiveData(): Promise<unknown>
@@ -63,13 +69,22 @@ export function GET(ctx: Context): Response {
 
   // Entri segar menang, yang lama dibuang
   if (entry && Date.now() < entry.expiresAt) {
-    return ctx.send.json({ source: 'cache', data: entry.value })
+    return ctx.send.json({
+      source: 'cache',
+      data: entry.value
+    })
   }
 
   // Hitung ulang dan cap kedaluwarsa baru
   const value = { time: Date.now() }
-  cache.set(key, { value, expiresAt: Date.now() + ttlMs })
-  return ctx.send.json({ source: 'fresh', data: value })
+  cache.set(key, {
+    value,
+    expiresAt: Date.now() + ttlMs
+  })
+  return ctx.send.json({
+    source: 'fresh',
+    data: value
+  })
 }
 ```
 

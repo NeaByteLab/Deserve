@@ -210,8 +210,18 @@ import { Router } from '@neabyte/deserve'
 
 const router = new Router()
 // ---cut---
-router.static('/', { path: './public' })
-router.static('/admin', { path: './admin/dist' })
+router.static(
+  '/',
+  {
+    path: './public'
+  }
+)
+router.static(
+  '/admin',
+  {
+    path: './admin/dist'
+  }
+)
 ```
 
 ### File Tidak Ditemukan

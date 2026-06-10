@@ -19,7 +19,9 @@ Setiap event `request:complete` membawa `durationMs`, waktu terukur untuk seluru
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
-const router = new Router({ routesDir: './routes' })
+const router = new Router({
+  routesDir: './routes'
+})
 // ---cut---
 router.on((event) => {
   // Baca durasi request terukur
@@ -53,4 +55,4 @@ export async function GET(ctx: Context): Promise<Response> {
 declare function loadData(): Promise<unknown>
 ```
 
-Header menamai tahap yang penting untuk rute ini, yang lebih berguna ketimbang angka selimut yang harus ditebak framework. Untuk melacak sebuah request lintas layanan alih-alih mengukur satu tahap, lihat [Distributed Tracing](/id/by-design/tracing).
+Header menamai tahap yang penting untuk rute ini, yang lebih berguna ketimbang angka pukul rata yang harus ditebak framework. Untuk melacak sebuah request lintas layanan alih-alih mengukur satu tahap, lihat [Distributed Tracing](/id/by-design/tracing).

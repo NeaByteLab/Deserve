@@ -53,7 +53,9 @@ import type { Context } from '@neabyte/deserve'
 
 // Tiap export memetakan ke metodenya
 export function GET(ctx: Context): Response {
-  return ctx.send.json({ users: [] })
+  return ctx.send.json({
+    users: []
+  })
 }
 
 export async function POST(ctx: Context): Promise<Response> {
@@ -68,16 +70,16 @@ export async function POST(ctx: Context): Promise<Response> {
 // export function [method](ctx: Context): Response { ... }
 ```
 
-### 5. URL Sensitif Huruf Besar Kecil
+### 5. URL Membedakan Huruf Besar dan Kecil
 
-URL sensitif huruf besar kecil mengikuti standar HTTP:
+URL membedakan huruf besar dan kecil mengikuti standar HTTP:
 
 - `/Users/John` ≠ `/users/john`
 - `/API/v1` ≠ `/api/v1`
 
 ### 6. Karakter Nama Berkas yang Valid
 
-Berkas bisa berisi aturan tertentu:
+Nama berkas boleh memakai karakter berikut:
 
 - `a-z`, `A-Z`, `0-9` - Karakter alfanumerik
 - `_` - Garis bawah (jangan jadi awalan segmen path - lihat di bawah)

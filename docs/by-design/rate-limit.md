@@ -46,7 +46,10 @@ router.use(async (ctx, next) => {
 
   // Fresh window when missing or expired
   if (!entry || now > entry.resetAt) {
-    hits.set(key, { count: 1, resetAt: now + windowMs })
+    hits.set(key, {
+      count: 1,
+      resetAt: now + windowMs
+    })
     return await next()
   }
 
@@ -57,7 +60,12 @@ router.use(async (ctx, next) => {
   if (entry.count > maxRequests) {
     const retryAfter = Math.ceil((entry.resetAt - now) / 1000)
     ctx.setHeader('Retry-After', String(retryAfter))
-    return ctx.send.text('Too Many Requests', { status: 429 })
+    return ctx.send.text(
+      'Too Many Requests',
+      {
+        status: 429
+      }
+    )
   }
 
   // Still under the cap, continue
@@ -89,7 +97,10 @@ router.use(async (ctx, next) => {
 
   // Start a fresh window when needed
   if (!entry || now > entry.resetAt) {
-    entry = { count: 0, resetAt: now + windowMs }
+    entry = {
+      count: 0,
+      resetAt: now + windowMs
+    }
     hits.set(key, entry)
   }
 
@@ -105,7 +116,14 @@ router.use(async (ctx, next) => {
 
   // Block once the cap is passed
   if (entry.count > maxRequests) {
-    return ctx.send.json({ error: 'Too Many Requests' }, { status: 429 })
+    return ctx.send.json(
+      {
+        error: 'Too Many Requests'
+      },
+      {
+        status: 429
+      }
+    )
   }
 
   return await next()
@@ -127,7 +145,14 @@ declare function isOverLimit(key: string): boolean
 router.use('/auth', async (ctx, next) => {
   const key = ctx.ip ?? 'unknown'
   if (isOverLimit(key)) {
-    return ctx.send.json({ error: 'Slow down' }, { status: 429 })
+    return ctx.send.json(
+      {
+        error: 'Slow down'
+      },
+      {
+        status: 429
+      }
+    )
   }
   return await next()
 })

@@ -40,7 +40,14 @@ export async function GET(ctx: Context): Promise<Response> {
     return await ctx.send.file('./uploads/document.pdf')
   } catch (error) {
     // File hilang melempar, balas 404
-    return ctx.send.json({ error: 'File not found' }, { status: 404 })
+    return ctx.send.json(
+      {
+        error: 'File not found'
+      },
+      {
+        status: 404
+      }
+    )
   }
 }
 ```

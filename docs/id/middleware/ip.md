@@ -1,5 +1,5 @@
 ---
-description: "Batasi akses berdasarkan alamat IP memakai aturan whitelist dan blacklist dengan dukungan CIDR."
+description: 'Batasi akses berdasarkan alamat IP memakai aturan whitelist dan blacklist dengan dukungan CIDR.'
 ---
 
 # Middleware Pembatasan IP
@@ -18,10 +18,7 @@ const router = new Router()
 // Izinkan hanya alamat terdaftar
 router.use(
   Mware.ip({
-    whitelist: [
-      '127.0.0.1',
-      '192.168.1.0/24'
-    ]
+    whitelist: ['127.0.0.1', '192.168.1.0/24']
   })
 )
 
@@ -40,10 +37,7 @@ const router = new Router()
 // Tolak alamat terdaftar, izinkan lainnya
 router.use(
   Mware.ip({
-    blacklist: [
-      '203.0.113.5',
-      '198.51.100.0/24'
-    ]
+    blacklist: ['203.0.113.5', '198.51.100.0/24']
   })
 )
 ```
@@ -65,12 +59,12 @@ Setiap entri di `whitelist` atau `blacklist` bisa berupa salah satu dari ini:
 '*'
 ```
 
-Aturan yang salah bentuk melempar `Deno.errors.InvalidData` saat middleware dibuat.
+Aturan yang tidak valid melempar `Deno.errors.InvalidData` saat middleware dibuat.
 
 ## Opsi IP
 
-| Opsi        | Default | Deskripsi                              |
-| ----------- | ------- | -------------------------------------- |
+| Opsi        | Default | Deskripsi                                     |
+| ----------- | ------- | --------------------------------------------- |
 | `whitelist` | -       | Aturan IP, CIDR, atau wildcard yang diizinkan |
 | `blacklist` | -       | Aturan IP, CIDR, atau wildcard yang ditolak   |
 

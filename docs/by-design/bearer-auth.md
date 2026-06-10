@@ -102,7 +102,16 @@ const bearer = WrapMware('Bearer', async (ctx: Context, next) => {
 
 // Apply the guard and error shape
 router.use(bearer)
-router.catch((ctx, err) => ctx.send.json({ error: err.error?.message }, { status: 401 }))
+router.catch((ctx, err) => {
+  return ctx.send.json(
+    {
+      error: err.error?.message
+    },
+    {
+      status: 401
+    }
+  )
+})
 ```
 
 This is the same wrapping pattern [Basic Auth](/middleware/basic-auth) uses internally, now carrying a token check instead of a credential compare.

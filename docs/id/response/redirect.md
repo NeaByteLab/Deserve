@@ -58,7 +58,9 @@ import type { Context } from '@neabyte/deserve'
 export function GET(ctx: Context): Response {
   // Redirect 302 dengan satu header tambahan
   return ctx.send.redirect('/dashboard', 302, {
-    headers: { 'X-Redirect-Reason': 'login' }
+    headers: {
+      'X-Redirect-Reason': 'login'
+    }
   })
 }
 ```

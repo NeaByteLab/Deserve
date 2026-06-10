@@ -1,5 +1,5 @@
 ---
-description: "Terapkan header response keamanan umum dengan middleware security headers Deserve."
+description: 'Terapkan header response keamanan umum dengan middleware security headers Deserve.'
 ---
 
 # Middleware Security Headers
@@ -25,19 +25,19 @@ await router.serve(8000)
 
 Default mengatur header ini pada setiap response:
 
-| Header                              | Nilai default  |
-| ----------------------------------- | -------------- |
-| `Cross-Origin-Opener-Policy`        | `same-origin`  |
-| `Cross-Origin-Resource-Policy`      | `same-origin`  |
-| `Origin-Agent-Cluster`              | `?1`           |
-| `Referrer-Policy`                   | `no-referrer`  |
-| `X-Content-Type-Options`            | `nosniff`      |
-| `X-DNS-Prefetch-Control`            | `off`          |
-| `X-Download-Options`                | `noopen`       |
-| `X-Frame-Options`                   | `SAMEORIGIN`   |
-| `X-Permitted-Cross-Domain-Policies` | `none`         |
+| Header                              | Nilai default |
+| ----------------------------------- | ------------- |
+| `Cross-Origin-Opener-Policy`        | `same-origin` |
+| `Cross-Origin-Resource-Policy`      | `same-origin` |
+| `Origin-Agent-Cluster`              | `?1`          |
+| `Referrer-Policy`                   | `no-referrer` |
+| `X-Content-Type-Options`            | `nosniff`     |
+| `X-DNS-Prefetch-Control`            | `off`         |
+| `X-Download-Options`                | `noopen`      |
+| `X-Frame-Options`                   | `SAMEORIGIN`  |
+| `X-Permitted-Cross-Domain-Policies` | `none`        |
 
-Berikan opsi untuk menimpa default atau mengaktifkan header yang mati sampai dikonfigurasi:
+Berikan opsi untuk menimpa default atau mengaktifkan header yang tidak aktif sampai dikonfigurasi:
 
 ```typescript twoslash
 import { Mware, Router } from '@neabyte/deserve'
@@ -85,7 +85,7 @@ router.use(
 
 ## Opsi Konfigurasi
 
-Setiap opsi header punya tiga bentuk. Nilai string mengatur header ke nilai itu. `false` menghilangkan header, bahkan yang punya default aman. Membiarkan opsi `undefined` mempertahankan default-nya ketika ada, atau melewatinya jika tidak. Empat header tanpa default - `contentSecurityPolicy`, `crossOriginEmbedderPolicy`, `strictTransportSecurity`, dan `xPoweredBy` - mati sampai sebuah nilai diberikan.
+Setiap opsi header punya tiga bentuk. Nilai string mengatur header ke nilai itu. `false` menghilangkan header, bahkan yang punya default aman. Membiarkan opsi `undefined` mempertahankan default-nya ketika ada, atau melewatinya jika tidak. Empat header tanpa default - `contentSecurityPolicy`, `crossOriginEmbedderPolicy`, `strictTransportSecurity`, dan `xPoweredBy` - tidak aktif sampai sebuah nilai diberikan.
 
 ### `contentSecurityPolicy`
 
@@ -196,7 +196,9 @@ xPoweredBy: 'Custom' // Tambah nilai khusus
 ```typescript twoslash
 import { Mware, Router } from '@neabyte/deserve'
 
-const router = new Router({ routesDir: './routes' })
+const router = new Router({
+  routesDir: './routes'
+})
 
 // Terapkan set header yang luas
 router.use(

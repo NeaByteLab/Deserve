@@ -37,13 +37,19 @@ import { Mware, Router } from '@neabyte/deserve'
 const router = new Router()
 // ---cut---
 // 1MB limit for general routes
-router.use(Mware.bodyLimit({ limit: 1024 * 1024 }))
+router.use(Mware.bodyLimit({
+  limit: 1024 * 1024
+}))
 
 // 5MB limit for upload routes
-router.use('/uploads', Mware.bodyLimit({ limit: 5 * 1024 * 1024 }))
+router.use('/uploads', Mware.bodyLimit({
+  limit: 5 * 1024 * 1024
+}))
 
 // 10MB limit for API routes
-router.use('/api', Mware.bodyLimit({ limit: 10 * 1024 * 1024 }))
+router.use('/api', Mware.bodyLimit({
+  limit: 10 * 1024 * 1024
+}))
 ```
 
 ## Configuration Options
@@ -81,14 +87,22 @@ When a request has a body, the middleware wraps the body stream with a byte limi
 ```typescript twoslash
 import { Mware, Router } from '@neabyte/deserve'
 
-const router = new Router({ routesDir: './routes' })
+const router = new Router({
+  routesDir: './routes'
+})
 
 // Global 1MB limit
-router.use(Mware.bodyLimit({ limit: 1024 * 1024 }))
+router.use(Mware.bodyLimit({
+  limit: 1024 * 1024
+}))
 
 // Larger limits for uploads and API
-router.use('/uploads', Mware.bodyLimit({ limit: 5 * 1024 * 1024 }))
-router.use('/api', Mware.bodyLimit({ limit: 10 * 1024 * 1024 }))
+router.use('/uploads', Mware.bodyLimit({
+  limit: 5 * 1024 * 1024
+}))
+router.use('/api', Mware.bodyLimit({
+  limit: 10 * 1024 * 1024
+}))
 
 await router.serve(8000)
 ```

@@ -18,8 +18,12 @@ One `Router` per service, one port per router, one `Promise.all` to start them a
 import { Router } from '@neabyte/deserve'
 
 // One Router per service
-const api = new Router({ routesDir: './services/api/routes' })
-const auth = new Router({ routesDir: './services/auth/routes' })
+const api = new Router({
+  routesDir: './services/api/routes'
+})
+const auth = new Router({
+  routesDir: './services/auth/routes'
+})
 const web = new Router({
   routesDir: './services/web/routes',
   viewsDir: './services/web/views'
@@ -141,7 +145,9 @@ export async function POST(ctx: Context): Promise<Response> {
     username: body?.username,
     loggedInAt: Date.now()
   })
-  return ctx.send.json({ sessionId: id })
+  return ctx.send.json({
+    sessionId: id
+  })
 }
 ```
 
@@ -155,9 +161,18 @@ export function GET(ctx: Context): Response {
   const id = ctx.header('x-session-id')
   const session = id ? sessions.get(id) : undefined
   if (!session) {
-    return ctx.send.json({ error: 'Not authenticated' }, { status: 401 })
+    return ctx.send.json(
+      {
+        error: 'Not authenticated'
+      },
+      {
+        status: 401
+      }
+    )
   }
-  return ctx.send.json({ user: session })
+  return ctx.send.json({
+    user: session
+  })
 }
 ```
 
@@ -196,7 +211,9 @@ import { emit } from '../../../../shared/bus.ts'
 export async function POST(ctx: Context): Promise<Response> {
   const user = await ctx.json()
   emit('user:created', user)
-  return ctx.send.json({ created: true })
+  return ctx.send.json({
+    created: true
+  })
 }
 ```
 
@@ -261,13 +278,23 @@ One service can have CORS and body limits, another can have security headers, an
 import { Mware, Router } from '@neabyte/deserve'
 
 // API gets CORS and a body limit
-const api = new Router({ routesDir: './services/api/routes' })
-api.use(Mware.cors({ origin: '*' }))
-api.use(Mware.bodyLimit({ limit: 5 * 1024 * 1024 }))
+const api = new Router({
+  routesDir: './services/api/routes'
+})
+api.use(Mware.cors({
+  origin: '*'
+}))
+api.use(Mware.bodyLimit({
+  limit: 5 * 1024 * 1024
+}))
 
 // Auth gets security headers
-const auth = new Router({ routesDir: './services/auth/routes' })
-auth.use(Mware.securityHeaders({ xFrameOptions: 'DENY' }))
+const auth = new Router({
+  routesDir: './services/auth/routes'
+})
+auth.use(Mware.securityHeaders({
+  xFrameOptions: 'DENY'
+}))
 
 // Web runs without middleware
 const web = new Router({
@@ -369,12 +396,16 @@ const webCache = WrapMware('WebCache', async (ctx, next) => {
 })
 
 // Wire logger, middleware, error handler
-const api = new Router({ routesDir: './services/api/routes' })
+const api = new Router({
+  routesDir: './services/api/routes'
+})
 api.use(logger('API'))
 api.use(apiAuth)
 api.catch(errorHandler('API'))
 
-const auth = new Router({ routesDir: './services/auth/routes' })
+const auth = new Router({
+  routesDir: './services/auth/routes'
+})
 auth.use(logger('Auth'))
 auth.use(authRateLimit)
 auth.catch(errorHandler('Auth'))

@@ -24,7 +24,7 @@ Bagian di bawah membahas tiap jenis input, dan [Referensi Method](#referensi-met
 
 ## Parameter Query
 
-Query string diurai saat akses pertama, lalu di-cache. Dua pembaca menutup setiap kasus, `query()` untuk satu nilai dan `queries()` untuk kunci berulang:
+Query string diurai saat akses pertama, lalu di-cache. Dua pembaca menangani setiap kasus, `query()` untuk satu nilai dan `queries()` untuk kunci berulang:
 
 ```typescript twoslash
 import type { Context } from '@neabyte/deserve'
@@ -50,7 +50,7 @@ ctx.query('tag') // 'typescript', nilai terakhir menang
 ctx.queries('tag') // ['deno', 'typescript'], semua nilai
 ```
 
-Gunakan `queries()` pada input array atau pilihan-ganda, dan `query()` di selain itu. Signature lengkap ada di [Referensi Method](#referensi-method).
+Gunakan `queries()` pada input array atau pilihan-ganda, dan `query()` untuk selainnya. Signature lengkap ada di [Referensi Method](#referensi-method).
 
 ## Parameter Rute
 
@@ -77,7 +77,7 @@ Nilai di-percent-decode sekali sebelum handler membacanya. Cara pola dicocokkan 
 
 ### `ctx.query(key?)`
 
-Mengembalikan semua parameter query sebagai objek, dan jatuh ke **nilai terakhir untuk kunci ganda**.
+Mengembalikan semua parameter query sebagai objek, dan mengembalikan **nilai terakhir untuk kunci ganda**.
 
 ```typescript twoslash
 import type { Context } from '@neabyte/deserve'
@@ -104,7 +104,7 @@ declare const ctx: Context
 // URL: /search?tags=deno&tags=typescript
 const tags = ctx.queries('tags') // ['deno', 'typescript'] ← semua nilai
 
-// query() menutup nilai tunggal atau terakhir, queries() menutup array dan pilihan-ganda
+// query() menangani nilai tunggal atau terakhir, queries() menangani array dan pilihan-ganda
 ```
 
 ### `ctx.param(key)`
@@ -143,7 +143,9 @@ import type { Context } from '@neabyte/deserve'
 // POST /api/users dengan body JSON
 export async function POST(ctx: Context): Promise<Response> {
   const body = await ctx.body() // { name: 'John', age: 30 }
-  return ctx.send.json({ created: body })
+  return ctx.send.json({
+    created: body
+  })
 }
 ```
 
@@ -157,7 +159,9 @@ import type { Context } from '@neabyte/deserve'
 // POST /api/users dengan body JSON
 export async function POST(ctx: Context): Promise<Response> {
   const body = await ctx.json() // { name: 'John', age: 30 }
-  return ctx.send.json({ created: body })
+  return ctx.send.json({
+    created: body
+  })
 }
 ```
 
@@ -201,7 +205,9 @@ import type { Context } from '@neabyte/deserve'
 export async function POST(ctx: Context): Promise<Response> {
   const buffer = await ctx.arrayBuffer() // ArrayBuffer object
   // Proses data biner...
-  return ctx.send.json({ size: buffer.byteLength })
+  return ctx.send.json({
+    size: buffer.byteLength
+  })
 }
 ```
 
@@ -225,7 +231,7 @@ export async function POST(ctx: Context): Promise<Response> {
 
 ### `ctx.header(key?)`
 
-Membaca satu header berdasarkan kunci atau setiap header sekaligus, mencocokkan kunci tanpa peduli huruf besar kecil dan menjadikannya huruf kecil.
+Membaca satu header berdasarkan kunci atau setiap header sekaligus, mencocokkan kunci tanpa membedakan huruf besar kecil dan menjadikannya huruf kecil.
 
 ```typescript twoslash
 import type { Context } from '@neabyte/deserve'

@@ -1,5 +1,5 @@
 ---
-description: "Kenapa Deserve tidak membawa OpenTelemetry SDK, dan cara event-nya yang selaras OTel memberi makan backend tracing apa pun."
+description: "Kenapa Deserve tidak membawa OpenTelemetry SDK, dan cara event-nya yang selaras OTel bisa menyuplai backend tracing apa pun."
 ---
 
 # Distributed Tracing
@@ -8,7 +8,7 @@ Deserve tidak membawa OpenTelemetry SDK, tidak ada pembuatan span otomatis, dan 
 
 ## Kenapa Tidak Dibawa
 
-Sebuah tracing SDK adalah dependensi berat dan beropini. Ia mengunci versi exporter, memiliki kebijakan sampling, dan memutuskan bagaimana pohon span dibentuk. Membundelnya akan melanggar [tanpa dependensi](/id/core-concepts/zero-dependency) dan memaksa satu vendor pada setiap proyek, padahal setiap tim sudah menjalankan backend berbeda. Satu mengirim ke [Grafana Tempo](https://grafana.com/oss/tempo/), lain ke [Jaeger](https://www.jaegertracing.io/), lain ke vendor terkelola, lain ke kolektor buatan sendiri.
+Sebuah tracing SDK adalah dependensi berat dan beropini. SDK itu mengunci versi exporter, memiliki kebijakan sampling, dan memutuskan bagaimana pohon span dibentuk. Membundelnya akan melanggar [tanpa dependensi](/id/core-concepts/zero-dependency) dan memaksa satu vendor pada setiap proyek, padahal setiap tim sudah menjalankan backend berbeda. Satu mengirim ke [Grafana Tempo](https://grafana.com/oss/tempo/), lain ke [Jaeger](https://www.jaegertracing.io/), lain ke vendor terkelola, lain ke kolektor buatan sendiri.
 
 Jadi keputusannya adalah berhenti di data, bukan di transport. Deserve memancarkan siklus hidup request lengkap lewat [event observability](/id/middleware/observability/overview), dan setiap event sudah membawa field yang dinamai mengikuti konvensi semantik OpenTelemetry. Event-nya adalah sumber kebenaran, dan meneruskannya ke backend tracing adalah langganan singkat yang dimiliki developer.
 
@@ -17,7 +17,7 @@ Jadi keputusannya adalah berhenti di data, bukan di transport. Deserve memancark
 Ketiga ini duduk di luar framework dengan sengaja:
 
 - **Auto-instrumentasi** - Deserve tidak membungkus library atau membuka span untuk panggilan keluar. Tiap request memancarkan satu event selesai, dan sebuah span dibangun darinya di listener.
-- **Propagasi konteks trace** - tak ada header `traceparent` yang dibaca atau ditulis. Sebuah handler yang butuh konteks terdistribusi membaca header lewat [`ctx.header('traceparent')`](/id/core-concepts/context-object#akses-data-request) dan menerusakannya.
+- **Propagasi konteks trace** - tak ada header `traceparent` yang dibaca atau ditulis. Sebuah handler yang butuh konteks terdistribusi membaca header lewat [`ctx.header('traceparent')`](/id/core-concepts/context-object#akses-data-request) dan meneruskannya.
 - **Hierarki span** - event-nya datar, satu per request, bukan pohon induk-anak. Span bersarang dirakit di backend, atau di listener, dari data yang disediakan event.
 
 Yang memang dibawa adalah data yang dibutuhkan sebuah span, sudah dikumpulkan dan dinamai agar cocok.
@@ -41,7 +41,9 @@ Listener ini mengubah tiap request selesai jadi rekaman berbentuk span dan menye
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
-const router = new Router({ routesDir: './routes' })
+const router = new Router({
+  routesDir: './routes'
+})
 declare function exportSpan(span: Record<string, unknown>): void
 // ---cut---
 router.on((event) => {
@@ -77,7 +79,7 @@ router.on((event) => {
 await router.serve(8000)
 ```
 
-Kunci atribut di atas adalah nama span HTTP OpenTelemetry, jadi rekaman itu jatuh langsung ke dalam pipeline tracing.
+Kunci atribut di atas adalah nama span HTTP OpenTelemetry, jadi rekaman itu masuk langsung ke pipeline tracing.
 
 ## Melanjutkan Trace yang Masuk
 

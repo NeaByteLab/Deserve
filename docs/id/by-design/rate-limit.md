@@ -17,7 +17,7 @@ Satu jawaban bawaan akan cocok dengan satu selera dan melawan setiap selera lain
 Sebuah limiter butuh empat hal, dan masing-masing sudah ada:
 
 - **Kunci per klien** - baca `ctx.ip` untuk IP pengunjung yang diresolusi, atau `ctx.header('x-api-key')` untuk API key. Lihat [IP Klien](/id/core-concepts/context-object#ip-klien).
-- **Tempat jalan lebih awal** - [middleware global](/id/middleware/global) berjalan sebelum setiap route handler dan bisa menghentikan request dengan mengembalikan `Response`.
+- **Tempat berjalan lebih awal** - [middleware global](/id/middleware/global) berjalan sebelum setiap route handler dan bisa menghentikan request dengan mengembalikan `Response`.
 - **Cara memblokir** - kembalikan `ctx.send.text(...)` atau `ctx.send.json(...)` dengan status `429` untuk mengakhiri request di situ.
 - **Cara memberitahu** - `ctx.setHeader(...)` menambah header rate limit standar supaya klien bisa mundur.
 
@@ -46,7 +46,10 @@ router.use(async (ctx, next) => {
 
   // Jendela baru saat hilang atau kedaluwarsa
   if (!entry || now > entry.resetAt) {
-    hits.set(key, { count: 1, resetAt: now + windowMs })
+    hits.set(key, {
+      count: 1,
+      resetAt: now + windowMs
+    })
     return await next()
   }
 
@@ -57,7 +60,12 @@ router.use(async (ctx, next) => {
   if (entry.count > maxRequests) {
     const retryAfter = Math.ceil((entry.resetAt - now) / 1000)
     ctx.setHeader('Retry-After', String(retryAfter))
-    return ctx.send.text('Too Many Requests', { status: 429 })
+    return ctx.send.text(
+      'Too Many Requests',
+      {
+        status: 429
+      }
+    )
   }
 
   // Masih di bawah batas, lanjut
@@ -89,7 +97,10 @@ router.use(async (ctx, next) => {
 
   // Mulai jendela baru saat diperlukan
   if (!entry || now > entry.resetAt) {
-    entry = { count: 0, resetAt: now + windowMs }
+    entry = {
+      count: 0,
+      resetAt: now + windowMs
+    }
     hits.set(key, entry)
   }
 
@@ -105,7 +116,14 @@ router.use(async (ctx, next) => {
 
   // Blokir begitu batas dilewati
   if (entry.count > maxRequests) {
-    return ctx.send.json({ error: 'Too Many Requests' }, { status: 429 })
+    return ctx.send.json(
+      {
+        error: 'Too Many Requests'
+      },
+      {
+        status: 429
+      }
+    )
   }
 
   return await next()
@@ -127,7 +145,14 @@ declare function isOverLimit(key: string): boolean
 router.use('/auth', async (ctx, next) => {
   const key = ctx.ip ?? 'unknown'
   if (isOverLimit(key)) {
-    return ctx.send.json({ error: 'Slow down' }, { status: 429 })
+    return ctx.send.json(
+      {
+        error: 'Slow down'
+      },
+      {
+        status: 429
+      }
+    )
   }
   return await next()
 })

@@ -46,7 +46,9 @@ import type { Context } from '@neabyte/deserve'
 export function GET(ctx: Context): Response {
   // Scheme the client actually used
   const proto = ctx.header('x-forwarded-proto') ?? 'http'
-  return ctx.send.json({ secure: proto === 'https' })
+  return ctx.send.json({
+    secure: proto === 'https'
+  })
 }
 ```
 

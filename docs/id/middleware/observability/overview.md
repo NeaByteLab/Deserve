@@ -17,7 +17,9 @@ Hook bergaya middleware ini duduk di samping router dan mengawasi semua yang ter
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
-const router = new Router({ routesDir: './routes' })
+const router = new Router({
+  routesDir: './routes'
+})
 
 // Terima setiap event siklus hidup dan error
 const off = router.on((event) => {

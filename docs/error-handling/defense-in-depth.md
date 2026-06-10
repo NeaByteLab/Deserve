@@ -18,10 +18,19 @@ import type { Context } from '@neabyte/deserve'
 export async function POST(ctx: Context): Promise<Response> {
   try {
     const data = await ctx.body()
-    return ctx.send.json({ success: true })
+    return ctx.send.json({
+      success: true
+    })
   } catch (error) {
     // Handle the expected failure here
-    return ctx.send.json({ error: 'Invalid body' }, { status: 400 })
+    return ctx.send.json(
+      {
+        error: 'Invalid body'
+      },
+      {
+        status: 400
+      }
+    )
   }
 }
 ```
@@ -61,7 +70,14 @@ const router = new Router()
 // ---cut---
 router.catch((ctx, error) => {
   // Shape one response for all errors
-  return ctx.send.json({ error: 'Something went wrong' }, { status: error.statusCode })
+  return ctx.send.json(
+    {
+      error: 'Something went wrong'
+    },
+    {
+      status: error.statusCode
+    }
+  )
 })
 ```
 
@@ -109,7 +125,14 @@ const router = new Router()
 // ---cut---
 // Shape the client response
 router.catch((ctx, info) => {
-  return ctx.send.json({ error: 'Something went wrong' }, { status: info.statusCode })
+  return ctx.send.json(
+    {
+      error: 'Something went wrong'
+    },
+    {
+      status: info.statusCode
+    }
+  )
 })
 
 // Record the failure for later

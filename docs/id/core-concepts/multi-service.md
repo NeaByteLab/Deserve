@@ -18,8 +18,12 @@ Satu `Router` per service, satu port per router, satu `Promise.all` untuk menjal
 import { Router } from '@neabyte/deserve'
 
 // Satu Router per service
-const api = new Router({ routesDir: './services/api/routes' })
-const auth = new Router({ routesDir: './services/auth/routes' })
+const api = new Router({
+  routesDir: './services/api/routes'
+})
+const auth = new Router({
+  routesDir: './services/auth/routes'
+})
 const web = new Router({
   routesDir: './services/web/routes',
   viewsDir: './services/web/views'
@@ -85,7 +89,7 @@ project/
 
 ## Berbagi Kode dan State
 
-Berbagi satu proses adalah tempat model multi-service membayar. Alih-alih Redis, HTTP call, atau message broker, service berbagi state lewat object biasa di memori secepat pemanggilan fungsi.
+Berbagi satu proses adalah tempat model multi-service menunjukkan nilainya. Alih-alih Redis, HTTP call, atau message broker, service berbagi state lewat object biasa di memori secepat pemanggilan fungsi.
 
 ![Service mengimpor modul shared dan berkomunikasi lewat session store, event bus, dan cache dalam proses](/diagrams/shared-code-state.png)
 
@@ -141,7 +145,9 @@ export async function POST(ctx: Context): Promise<Response> {
     username: body?.username,
     loggedInAt: Date.now()
   })
-  return ctx.send.json({ sessionId: id })
+  return ctx.send.json({
+    sessionId: id
+  })
 }
 ```
 
@@ -155,9 +161,18 @@ export function GET(ctx: Context): Response {
   const id = ctx.header('x-session-id')
   const session = id ? sessions.get(id) : undefined
   if (!session) {
-    return ctx.send.json({ error: 'Not authenticated' }, { status: 401 })
+    return ctx.send.json(
+      {
+        error: 'Not authenticated'
+      },
+      {
+        status: 401
+      }
+    )
   }
-  return ctx.send.json({ user: session })
+  return ctx.send.json({
+    user: session
+  })
 }
 ```
 
@@ -196,7 +211,9 @@ import { emit } from '../../../../shared/bus.ts'
 export async function POST(ctx: Context): Promise<Response> {
   const user = await ctx.json()
   emit('user:created', user)
-  return ctx.send.json({ created: true })
+  return ctx.send.json({
+    created: true
+  })
 }
 ```
 
@@ -245,11 +262,11 @@ export async function GET(ctx: Context): Promise<Response> {
 
 ### Trade-off-nya
 
-Shared state adalah fitur, bukan makan siang gratis. [Isolasi router](#isolasi-router) menjaga kesalahan di dalam satu service, namun `Map` bersama justru kebalikan dari isolasi secara desain, karena setiap service membaca dan menulis object yang sama. Satu service yang menulis data buruk ke store menyerahkan data buruk yang sama ke setiap pembaca lain, jadi keterikatan bergeser dari lapisan jaringan turun ke lapisan data. Kesalahan tetap terkurung, tapi data tidak. Jaga radius ledakan tetap kecil dengan membiarkan satu modul memiliki tiap store dan memvalidasi penulisan di tepinya, seperti `shared/sessions.ts` yang jadi satu-satunya pintu ke session map. Raih shared state saat kecepatan penting dan service memang seharusnya bersama, dan kembali ke [HTTP antar service](#http-antar-service) saat batas yang lebih bersih sepadan dengan lompatannya.
+Shared state adalah fitur, bukan tanpa konsekuensi. [Isolasi router](#isolasi-router) menjaga kesalahan di dalam satu service, namun `Map` bersama justru kebalikan dari isolasi secara desain, karena setiap service membaca dan menulis object yang sama. Satu service yang menulis data buruk ke store menyerahkan data buruk yang sama ke setiap pembaca lain, jadi keterikatan bergeser dari lapisan jaringan turun ke lapisan data. Kesalahan tetap terkurung, tapi data tidak. Jaga dampak kesalahan tetap kecil dengan membiarkan satu modul memiliki tiap store dan memvalidasi penulisan di tepinya, seperti `shared/sessions.ts` yang jadi satu-satunya pintu ke session map. Pakai shared state saat kecepatan penting dan service memang seharusnya bersama, dan kembali ke [HTTP antar service](#http-antar-service) saat batas yang lebih bersih sepadan dengan biaya jaringannya.
 
 ## Middleware
 
-Setiap router punya middleware stack sendiri, jadi service dikonfigurasi independen dengan middleware berbeda masing-masing, atau berbagi middleware yang sama di semua. Di sinilah model satu-proses membayar, karena satu logger, satu error handler, dan satu auth check berlaku di mana pun dibutuhkan. Mekanik mendaftarkan middleware ada di [Global Middleware](/id/middleware/global) dan [Route-specific Middleware](/id/middleware/route-specific), dan bagian ini fokus pada menerapkannya di banyak service.
+Setiap router punya middleware stack sendiri, jadi service dikonfigurasi independen dengan middleware berbeda masing-masing, atau berbagi middleware yang sama di semua. Di sinilah model satu-proses menunjukkan nilainya, karena satu logger, satu error handler, dan satu auth check berlaku di mana pun dibutuhkan. Mekanik mendaftarkan middleware ada di [Global Middleware](/id/middleware/global) dan [Route-specific Middleware](/id/middleware/route-specific), dan bagian ini fokus pada menerapkannya di banyak service.
 
 ### Konfigurasi Per Service
 
@@ -261,13 +278,23 @@ Satu service bisa punya CORS dan body limit, yang lain bisa punya security heade
 import { Mware, Router } from '@neabyte/deserve'
 
 // API mendapat CORS dan body limit
-const api = new Router({ routesDir: './services/api/routes' })
-api.use(Mware.cors({ origin: '*' }))
-api.use(Mware.bodyLimit({ limit: 5 * 1024 * 1024 }))
+const api = new Router({
+  routesDir: './services/api/routes'
+})
+api.use(Mware.cors({
+  origin: '*'
+}))
+api.use(Mware.bodyLimit({
+  limit: 5 * 1024 * 1024
+}))
 
 // Auth mendapat security headers
-const auth = new Router({ routesDir: './services/auth/routes' })
-auth.use(Mware.securityHeaders({ xFrameOptions: 'DENY' }))
+const auth = new Router({
+  routesDir: './services/auth/routes'
+})
+auth.use(Mware.securityHeaders({
+  xFrameOptions: 'DENY'
+}))
 
 // Web berjalan tanpa middleware
 const web = new Router({
@@ -369,12 +396,16 @@ const webCache = WrapMware('WebCache', async (ctx, next) => {
 })
 
 // Sambungkan logger, middleware, error handler
-const api = new Router({ routesDir: './services/api/routes' })
+const api = new Router({
+  routesDir: './services/api/routes'
+})
 api.use(logger('API'))
 api.use(apiAuth)
 api.catch(errorHandler('API'))
 
-const auth = new Router({ routesDir: './services/auth/routes' })
+const auth = new Router({
+  routesDir: './services/auth/routes'
+})
 auth.use(logger('Auth'))
 auth.use(authRateLimit)
 auth.catch(errorHandler('Auth'))
@@ -487,7 +518,7 @@ server {
 
 ## Scaling Out
 
-Ketika sebuah service tumbuh melampaui monolit, ia diekstrak ke prosesnya sendiri. Salin foldernya, tambahkan `main.ts`, dan deploy secara independen. File rute tidak berubah, karena API `Router` sama baik satu service berjalan maupun sepuluh:
+Ketika sebuah service tumbuh melampaui monolit, service itu diekstrak ke prosesnya sendiri. Salin foldernya, tambahkan `main.ts`, dan deploy secara independen. File rute tidak berubah, karena API `Router` sama baik satu service berjalan maupun sepuluh:
 
 ![Mengekstrak service dari satu proses menjadi proses API, Auth, dan Web yang terpisah](/diagrams/scaling-out.png)
 

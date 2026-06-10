@@ -24,7 +24,12 @@ import type { Context } from '@neabyte/deserve'
 // ---cut---
 export function GET(ctx: Context): Response {
   // Set the response status to 404
-  return ctx.send.custom('Not Found', { status: 404 })
+  return ctx.send.custom(
+    'Not Found',
+    {
+      status: 404
+    }
+  )
 }
 ```
 
@@ -55,7 +60,9 @@ export function GET(ctx: Context): Response {
   // Send raw bytes with a type
   const binaryData = new Uint8Array([0x48, 0x65, 0x6c, 0x6c, 0x6f])
   return ctx.send.custom(binaryData, {
-    headers: { 'Content-Type': 'application/octet-stream' }
+    headers: {
+      'Content-Type': 'application/octet-stream'
+    }
   })
 }
 ```
@@ -67,7 +74,12 @@ import type { Context } from '@neabyte/deserve'
 // ---cut---
 export function GET(ctx: Context): Response {
   // 204 sends a null body
-  return ctx.send.custom(null, { status: 204 })
+  return ctx.send.custom(
+    null,
+    {
+      status: 204
+    }
+  )
 }
 ```
 
@@ -80,7 +92,9 @@ export function GET(ctx: Context): Response {
   // XML string with an XML type
   const xml = '<?xml version="1.0"?><data><message>Hello</message></data>'
   return ctx.send.custom(xml, {
-    headers: { 'Content-Type': 'application/xml' }
+    headers: {
+      'Content-Type': 'application/xml'
+    }
   })
 }
 ```

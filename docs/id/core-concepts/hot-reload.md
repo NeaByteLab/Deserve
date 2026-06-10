@@ -31,7 +31,7 @@ Semua berkas dengan ekstensi yang didukung (`.ts`, `.js`, `.tsx`, `.jsx`, `.mjs`
 | Event             | Perilaku                                                                     |
 | ----------------- | ---------------------------------------------------------------------------- |
 | **Berkas dibuat** | Modul diimpor dan route handler didaftarkan otomatis                          |
-| **Berkas diubah** | Handler lama dilepas, modul diimpor ulang, handler baru didaftarkan          |
+| **Berkas diubah** | Modul baru diimpor dan divalidasi dulu, lalu handler lama diganti, sehingga suntingan yang rusak tetap menyisakan versi baik terakhir yang melayani |
 | **Berkas dihapus**| Pola rute dilepas dari router, request mengembalikan 404                     |
 
 ### Berkas Template
@@ -46,31 +46,21 @@ Semua berkas `.dve` di dalam `viewsDir` dipantau secara rekursif, jadi suntingan
 
 ## Isolasi Error
 
-Berkas buruk ditangkap, dicatat, dan tidak pernah membuat server atau rute lain crash. Tiap kegagalan juga muncul sebagai event observability [`route:error` atau `reload:error`](/id/middleware/observability/events#rute), jadi logging tinggal di satu tempat.
+Berkas buruk ditangkap dan tidak pernah membuat server atau rute lain crash. Karena modul baru diimpor dan divalidasi sebelum yang lama dilepas, reload yang gagal membiarkan versi baik sebelumnya tetap di tempatnya alih-alih mematikan rute. Tiap kegagalan muncul sebagai event observability [`route:error` atau `reload:error`](/id/middleware/observability/events#rute), jadi logging tinggal di satu tempat dan tidak ada yang tercetak ke konsol sendiri.
 
-![Pandangan abstrak kenapa reload tetap aman, di mana menerapkan perubahan berkas secara live bertumpu pada tiga mekanisme yang berpegangan bersama, mengisolasi tiap berkas dengan try catch agar yang buruk tak pernah membuat yang lain crash, membuang cache modul dengan query timestamp agar kode basi tak pernah mengontaminasi yang baru, dan memuat ulang secara berurutan dengan menghapus lalu mendaftar setelah debounce, yang bersama menghadirkan edit live tanpa downtime, tanpa crash, dan tanpa kontaminasi](/diagrams/hot-reload-principles.png)
+![Pandangan abstrak kenapa reload tetap aman, di mana menerapkan perubahan berkas secara live bertumpu pada tiga mekanisme yang berpegangan bersama, mengisolasi tiap berkas dengan try catch agar yang buruk tak pernah membuat yang lain crash, membuang cache modul dengan query timestamp agar kode basi tak pernah mengontaminasi yang baru, dan memuat ulang secara berurutan dengan memvalidasi modul baru lalu menukarnya masuk setelah debounce, yang bersama menghadirkan edit live tanpa downtime, tanpa crash, dan tanpa kontaminasi](/diagrams/hot-reload-principles.png)
 
-### Sintaks Salah Bentuk
+### Sintaks Tidak Valid
 
-Sintaks tidak valid menggagalkan impor dan mencatat error. Rute lain tetap tak terpengaruh:
-
-```
-[Deserve] Failed to reload route malformed.ts: The module's source code
-could not be parsed: Expected ';', '}' or <eof> at ...
-```
+Sintaks tidak valid menggagalkan impor, jadi pertukaran tak pernah terjadi dan rute baik terakhir tetap melayani. Kegagalan tiba sebagai event `reload:error` yang membawa path rute dan error parse-nya.
 
 ### Ekspor Metode HTTP Hilang
 
-Rute tanpa ekspor metode HTTP yang valid (`GET`, `POST`, dll.) ditolak dan dicatat:
-
-```
-[Deserve] Failed to reload route broken.ts: Route "broken.ts" must export
-at least one HTTP method (DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT)
-```
+Berkas tanpa ekspor metode HTTP yang valid (`GET`, `POST`, dll.) gagal validasi sebelum pertukaran, jadi rute dibiarkan utuh dan alasannya dilaporkan lewat event `reload:error` yang sama.
 
 ### Error Runtime di Handler
 
-Jika handler yang dimuat ulang melempar saat request, [penanganan error](/id/error-handling/defense-in-depth) Deserve mengembalikan response 500 yang benar. Server tetap hidup dan rute lain tak terpengaruh.
+Ketika handler yang dimuat ulang melempar saat request, [penanganan error terpusat](/id/error-handling/defense-in-depth) mengembalikan response 500 yang benar. Server tetap hidup dan rute lain tak terpengaruh.
 
 ## Debouncing
 
@@ -85,17 +75,18 @@ Beberapa perubahan berkas dalam jendela debounce digabung jadi satu operasi, men
 
 ### Memuat Ulang Rute
 
-![Urutan reload rute sebagaimana watcher menjalankannya, di mana Deno.watchFs mendeteksi perubahan lalu mendebounce 150ms, FastRouter.remove melepas pola lama, modul diimpor ulang dengan query timestamp untuk melewati cache, lalu divalidasi punya metode HTTP dan handler-nya didaftarkan sambil memancarkan route:reloaded, dan kegagalan apa pun di langkah itu malah memancarkan reload:error sehingga server tetap hidup dan rute lain tak terpengaruh](/diagrams/hot-reload-route-sequence.png)
+![Urutan reload rute sebagaimana watcher menjalankannya, di mana watcher mendeteksi perubahan lalu mendebounce 150ms, modul diimpor ulang dengan query timestamp untuk melewati cache, lalu divalidasi punya metode HTTP, dan hanya setelah keduanya lolos FastRouter.remove melepas pola lama dan handler baru didaftarkan sambil memancarkan route:reloaded, dan kegagalan saat impor atau validasi malah memancarkan reload:error sebelum pertukaran apa pun sehingga rute lama tetap melayani dan server tetap hidup](/diagrams/hot-reload-route-sequence.png)
 
-1. `Deno.watchFs` mendeteksi perubahan di `routesDir`
-2. Setelah jendela debounce, watcher meresolusi path berkas ke pola rute
-3. Pola rute lama dilepas dari router lewat `FastRouter.remove()`
-4. Modul diimpor ulang dengan query cache-busting (`?t=timestamp`) untuk melewati cache modul Deno
-5. Modul divalidasi dan handler metode HTTP baru didaftarkan
+1. Watcher mendeteksi perubahan di `routesDir` dan menunggu jendela debounce
+2. Path berkas diresolusi ke pola rute
+3. Modul diimpor ulang dengan query cache-busting (`?t=timestamp`) untuk melewati cache modul
+4. Modul divalidasi punya minimal satu ekspor metode HTTP
+5. Hanya setelah impor dan validasi lolos, pola lama dilepas dan handler baru didaftarkan, lalu event `route:reloaded` menyala
+6. Jika langkah mana pun sebelum pertukaran gagal, rute lama dibiarkan melayani dan event `reload:error` menyala sebagai gantinya
 
 ### Memuat Ulang Template
 
-1. `Deno.watchFs` mendeteksi perubahan di `viewsDir`
-2. Setelah jendela debounce, watcher membersihkan entri berkas dari `fileCache` (konten mentah) dan `compileCache` (AST terurai)
+1. Watcher mendeteksi perubahan di `viewsDir` dan menunggu jendela debounce
+2. Entri AST terkompilasi berkas yang berubah dibersihkan dari cache
 3. Set path template yang ditemukan direset
 4. Pada panggilan `render()` atau `streamRender()` berikutnya, mesin membaca ulang berkas dari disk, mengurai ulang, dan menyimpan hasilnya

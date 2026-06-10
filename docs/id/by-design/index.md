@@ -13,7 +13,7 @@ Bagian ini menjelaskan alasan di balik tiap fitur yang ditinggalkan dan menunjuk
 | Fitur                                          | Kenapa Tidak Dibawa                                                |
 | ---------------------------------------------- | ------------------------------------------------------------------ |
 | [Kompresi](/id/by-design/compress)            | Runtime dan proxy sudah mengompresi response.                      |
-| [Pretty JSON](/id/by-design/pretty-json)       | Pemformatan adalah tugas konsumen, jadi data di kabel tetap minified. |
+| [Pretty JSON](/id/by-design/pretty-json)       | Pemformatan adalah tugas konsumen, jadi data yang dikirim tetap minified. |
 | [HTTPS Redirect](/id/by-design/https-redirect) | TLS ada di edge, dan redirect paksa di aplikasi bisa berputar.     |
 | [Bearer Auth](/id/by-design/bearer-auth)       | Skema token berbeda-beda, jadi verifikasi dibiarkan terbuka.       |
 | [XSS Input Sanitizer](/id/by-design/xss)       | Escaping ada di sisi keluaran, dan view engine sudah melakukannya. |
@@ -23,6 +23,6 @@ Bagian ini menjelaskan alasan di balik tiap fitur yang ditinggalkan dan menunjuk
 | [Method Override](/id/by-design/method-override) | Setiap metode HTTP adalah rute kelas satu, jadi tak ada verb yang dipalsukan. |
 | [Locale Redirect](/id/by-design/locale-redirect) | Membaca header bahasa lalu redirect cuma beberapa baris.          |
 | [Server-Timing](/id/by-design/server-timing)   | Siklus hidup mengukur durasi, dan header-nya satu baris.           |
-| [Distributed Tracing](/id/by-design/tracing)   | Tanpa OpenTelemetry SDK, karena event selaras OTel memberi makan backend apa pun. |
+| [Distributed Tracing](/id/by-design/tracing)   | Tanpa OpenTelemetry SDK, karena event selaras OTel bisa menyuplai backend apa pun. |
 
 Setiap halaman mengikuti [filosofi](/id/core-concepts/philosophy) untuk tetap kecil karena sengaja. Meninggalkan sebuah fitur bukan bagian yang hilang, itu satu hal lebih sedikit yang bisa salah, dan primitif yang sudah ada cukup untuk membangun sisanya.

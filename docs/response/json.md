@@ -13,7 +13,9 @@ import type { Context } from '@neabyte/deserve'
 
 export function GET(ctx: Context): Response {
   // Sends application/json by default
-  return ctx.send.json({ message: 'Hello World' })
+  return ctx.send.json({
+    message: 'Hello World'
+  })
 }
 ```
 
@@ -45,7 +47,9 @@ import type { Context } from '@neabyte/deserve'
 export function GET(ctx: Context): Response {
   // Set a header before sending
   ctx.setHeader('Cache-Control', 'no-cache')
-  return ctx.send.json({ data: 'sensitive' })
+  return ctx.send.json({
+    data: 'sensitive'
+  })
 }
 ```
 

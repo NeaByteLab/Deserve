@@ -143,7 +143,9 @@ import type { Context } from '@neabyte/deserve'
 // POST /api/users with JSON body
 export async function POST(ctx: Context): Promise<Response> {
   const body = await ctx.body() // { name: 'John', age: 30 }
-  return ctx.send.json({ created: body })
+  return ctx.send.json({
+    created: body
+  })
 }
 ```
 
@@ -157,7 +159,9 @@ import type { Context } from '@neabyte/deserve'
 // POST /api/users with JSON body
 export async function POST(ctx: Context): Promise<Response> {
   const body = await ctx.json() // { name: 'John', age: 30 }
-  return ctx.send.json({ created: body })
+  return ctx.send.json({
+    created: body
+  })
 }
 ```
 
@@ -201,7 +205,9 @@ import type { Context } from '@neabyte/deserve'
 export async function POST(ctx: Context): Promise<Response> {
   const buffer = await ctx.arrayBuffer() // ArrayBuffer object
   // Process binary data...
-  return ctx.send.json({ size: buffer.byteLength })
+  return ctx.send.json({
+    size: buffer.byteLength
+  })
 }
 ```
 

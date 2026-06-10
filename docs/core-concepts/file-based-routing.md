@@ -53,7 +53,9 @@ import type { Context } from '@neabyte/deserve'
 
 // Each export maps to its method
 export function GET(ctx: Context): Response {
-  return ctx.send.json({ users: [] })
+  return ctx.send.json({
+    users: []
+  })
 }
 
 export async function POST(ctx: Context): Promise<Response> {

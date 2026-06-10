@@ -4,7 +4,7 @@ description: "Cara Deserve menangani error tak tertangkap secara default dan res
 
 # Perilaku Error Default
 
-Mekanisme penanganan error ini menangkap setiap error yang terjadi selama runtime server, yang mencakup error route handler, kegagalan middleware, skenario rute tidak ditemukan, error berkas statis, dan exception tak tertangkap lainnya selama pemrosesan request. Tanpa error handler khusus yang diatur lewat `router.catch()`, Deserve jatuh ke perilaku default ini supaya server tidak pernah crash karena error tak tertangani.
+Mekanisme penanganan error ini menangkap setiap error yang terjadi selama runtime server, yang mencakup error route handler, kegagalan middleware, skenario rute tidak ditemukan, error berkas statis, dan exception tak tertangkap lainnya selama pemrosesan request. Tanpa error handler khusus yang diatur lewat `router.catch()`, Deserve memakai perilaku default ini supaya server tidak pernah crash karena error tak tertangani.
 
 ![Saat error terjadi, request diarahkan ke custom handler jika router.catch terdefinisi, jika tidak ke default handler yang mengembalikan JSON atau HTML sesuai Accept, lalu satu response](/diagrams/default-error-behavior.png)
 
@@ -15,7 +15,9 @@ Tanpa panggilan ke `router.catch()`, Deserve menangani setiap error dengan respo
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
-const router = new Router({ routesDir: './routes' })
+const router = new Router({
+  routesDir: './routes'
+})
 
 // Tanpa router.catch, default mengambil alih
 
@@ -46,7 +48,7 @@ Juga:
 
 ## Skenario Error
 
-Penanganan error default menutup semua jenis error yang bisa terjadi selama pemrosesan request:
+Penanganan error default mencakup semua jenis error yang bisa terjadi selama pemrosesan request:
 
 ### 404 - Rute Tidak Ditemukan
 
@@ -114,7 +116,12 @@ import { Router } from '@neabyte/deserve'
 const router = new Router()
 // ---cut---
 // Layani berkas statis di /static
-router.static('/static', { path: './public' })
+router.static(
+  '/static',
+  {
+    path: './public'
+  }
+)
 
 // Berkas hilang (GET /static/missing.jpg):
 //   Status 404, JSON atau HTML per Accept

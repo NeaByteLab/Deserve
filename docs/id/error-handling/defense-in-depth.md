@@ -18,15 +18,24 @@ import type { Context } from '@neabyte/deserve'
 export async function POST(ctx: Context): Promise<Response> {
   try {
     const data = await ctx.body()
-    return ctx.send.json({ success: true })
+    return ctx.send.json({
+      success: true
+    })
   } catch (error) {
     // Tangani kegagalan yang diduga di sini
-    return ctx.send.json({ error: 'Invalid body' }, { status: 400 })
+    return ctx.send.json(
+      {
+        error: 'Invalid body'
+      },
+      {
+        status: 400
+      }
+    )
   }
 }
 ```
 
-Apa pun yang dilempar melewati titik ini jatuh ke lapisan berikutnya.
+Apa pun yang dilempar melewati titik ini diteruskan ke lapisan berikutnya.
 
 ## Lapis 2 - Middleware Berlabel
 
@@ -52,7 +61,7 @@ Lihat [Global Middleware](/id/middleware/global#membungkus-middleware-dengan-pen
 
 ## Lapis 3 - Error Handler Khusus
 
-`router.catch()` menerima setiap error yang tak tertangkap dan membentuk response klien. Ia berjalan untuk error handler, error middleware, not-found, dan error berkas statis sama saja:
+`router.catch()` menerima setiap error yang tak tertangkap dan membentuk response klien. Handler ini berjalan untuk error handler, error middleware, not-found, dan error berkas statis sama saja:
 
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
@@ -61,7 +70,14 @@ const router = new Router()
 // ---cut---
 router.catch((ctx, error) => {
   // Bentuk satu response untuk semua error
-  return ctx.send.json({ error: 'Something went wrong' }, { status: error.statusCode })
+  return ctx.send.json(
+    {
+      error: 'Something went wrong'
+    },
+    {
+      status: error.statusCode
+    }
+  )
 })
 ```
 
@@ -69,7 +85,7 @@ Handler menerima objek error dengan `statusCode`, `pathname`, `url`, `method`, d
 
 ## Lapis 4 - Handler Default
 
-Ketika tidak ada `router.catch()` yang diatur, atau handler khusus mengembalikan sesuatu selain `Response`, Deserve jatuh ke handler default. Ia menegosiasikan JSON atau HTML lewat header `Accept` dan **menyamarkan pesan asli**, jadi error yang dilempar tidak pernah membocorkan teksnya ke klien:
+Ketika tidak ada `router.catch()` yang diatur, atau handler khusus mengembalikan sesuatu selain `Response`, Deserve memakai handler default. Handler ini menegosiasikan JSON atau HTML lewat header `Accept` dan **menyamarkan pesan asli**, jadi error yang dilempar tidak pernah membocorkan teksnya ke klien:
 
 ```typescript
 // Klien mendapat pesan aman berbasis status
@@ -109,7 +125,14 @@ const router = new Router()
 // ---cut---
 // Bentuk response klien
 router.catch((ctx, info) => {
-  return ctx.send.json({ error: 'Something went wrong' }, { status: info.statusCode })
+  return ctx.send.json(
+    {
+      error: 'Something went wrong'
+    },
+    {
+      status: info.statusCode
+    }
+  )
 })
 
 // Catat kegagalan untuk nanti

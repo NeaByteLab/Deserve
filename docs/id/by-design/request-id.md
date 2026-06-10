@@ -10,11 +10,11 @@ Deserve tidak punya middleware request ID, dan alasannya soal kepercayaan. Sebua
 
 Sebuah middleware request ID mencap tiap request dengan nilai segar, biasanya dari `crypto.randomUUID()`. Tangkapannya adalah apa arti nilai itu. Sebuah ID yang dihasilkan server itu acak, jadi ia mengikat balik ke tak seorang pun dan tak membawa fakta tentang pemanggil. Sebuah `X-Request-ID` yang dipasok klien lebih buruk, karena klien bisa mengirim apa saja, mengulang nilai, atau mengaturnya ke `0xb33F....`, dan mempercayai itu sebagai identitas adalah mempercayai header yang ditulis orang asing.
 
-Jadi ID acak baik sebagai label log tapi salah sebagai sumber kebenaran. Deserve sudah mengawasi semua dari saat server menyala sampai saat sebuah request mencapai pengguna, lewat [event siklus hidup](/id/middleware/observability/overview), jadi sebuah ID sintetis terpisah seperti `0xb33F....` hanya mengulang yang sudah dilacak framework. Identitas yang bisa diandalkannya adalah yang patut diraih.
+Jadi ID acak baik sebagai label log tapi salah sebagai sumber kebenaran. Deserve sudah mengawasi semua dari saat server menyala sampai saat sebuah request mencapai pengguna, lewat [event siklus hidup](/id/middleware/observability/overview), jadi sebuah ID sintetis terpisah seperti `0xb33F....` hanya mengulang yang sudah dilacak framework. Identitas yang bisa diandalkannya adalah yang layak dipakai.
 
 ## IP Adalah Sumber Kebenaran
 
-Setiap request membawa [`ctx.ip`](/id/core-concepts/context-object#ip-klien), alamat klien yang diresolusi. Ia tak dibaca mentah dari header. Framework menelusuri rantai forwarding lewat hop tepercaya dan berhenti di hop pertama yang tak dipercayainya, jadi header palsu dari peer tak tepercaya tak pernah menang.
+Setiap request membawa [`ctx.ip`](/id/core-concepts/context-object#ip-klien), alamat klien yang diresolusi. Nilai itu tak dibaca mentah dari header. Framework menelusuri rantai forwarding lewat hop tepercaya dan berhenti di hop pertama yang tak dipercayainya, jadi header palsu dari peer tak tepercaya tak pernah menang.
 
 - **Tanpa proxy tepercaya** - `ctx.ip` adalah peer TCP langsung, dan header forwarding diabaikan sepenuhnya.
 - **Di belakang proxy tepercaya** - rantai ditelusuri kanan ke kiri lewat hop tepercaya, menghormati [`X-Forwarded-For`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Forwarded-For), header `Forwarded` [RFC 7239](https://www.rfc-editor.org/rfc/rfc7239), dan header IP-tunggal seperti `cf-connecting-ip`.
@@ -33,7 +33,9 @@ Untuk mengkorelasi log, [event siklus hidup](/id/middleware/observability/overvi
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
-const router = new Router({ routesDir: './routes' })
+const router = new Router({
+  routesDir: './routes'
+})
 // ---cut---
 router.on((event) => {
   // Korelasi dengan IP dan waktu asli
@@ -48,7 +50,7 @@ await router.serve(8000)
 
 ## Ketika Sebuah Label Memang Membantu
 
-Sebuah label berumur pendek untuk mengikat baris log dalam satu request tetap mungkin, dan ia tinggal di [`ctx.state`](/id/core-concepts/context-object#berbagi-state) seperti nilai per-request lain. Intinya memperlakukannya sebagai kemudahan, bukan identitas, karena jawaban tepercaya adalah `ctx.ip`.
+Sebuah label berumur pendek untuk mengikat baris log dalam satu request tetap mungkin, dan label itu tinggal di [`ctx.state`](/id/core-concepts/context-object#berbagi-state) seperti nilai per-request lain. Intinya memperlakukannya sebagai kemudahan, bukan identitas, karena jawaban tepercaya adalah `ctx.ip`.
 
 ```typescript twoslash
 import type { Context } from '@neabyte/deserve'

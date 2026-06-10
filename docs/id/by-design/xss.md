@@ -8,9 +8,9 @@ Deserve tidak punya middleware input sanitizer, dan itu default yang lebih aman.
 
 ## Kenapa Tidak Dibawa
 
-Sebuah input sanitizer menggosok `body`, `query`, dan `params` masuk dari HTML sebelum handler melihatnya, tugas paket seperti `xss-clean` yang kini usang. Pendekatannya lapisan yang salah, dan [OWASP](https://cheatsheetseries.owasp.org/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet.html) merekomendasikan output encoding sadar-konteks ketimbang pembersihan input pukul rata.
+Sebuah input sanitizer membersihkan `body`, `query`, dan `params` masuk dari HTML sebelum handler melihatnya, tugas paket seperti `xss-clean` yang kini usang. Pendekatannya lapisan yang salah, dan [OWASP](https://cheatsheetseries.owasp.org/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet.html) merekomendasikan output encoding sadar-konteks ketimbang pembersihan input pukul rata.
 
-Alasannya, escaping bergantung pada di mana sebuah nilai mendarat. Karakter yang sama ter-encode satu cara di dalam HTML, lain di dalam URL, dan lain di dalam JavaScript. Sebuah sanitizer di pintu belum bisa tahu itu, jadi dia entah menggosok terlalu banyak dan merusak data asli, seperti komentar berisi `<3` atau cuplikan kode, atau menggosok terlalu sedikit dan menyisakan celah. Membersihkan input sekali juga memberi rasa aman palsu, karena nilai tersimpan tetap harus di-escape di mana pun nanti ditampilkan.
+Alasannya, escaping bergantung pada di mana sebuah nilai mendarat. Karakter yang sama ter-encode satu cara di dalam HTML, lain di dalam URL, dan lain di dalam JavaScript. Sebuah sanitizer di gerbang masuk belum bisa tahu itu, jadi dia entah membersihkan terlalu banyak dan merusak data asli, seperti komentar berisi `<3` atau cuplikan kode, atau membersihkan terlalu sedikit dan menyisakan celah. Membersihkan input sekali juga memberi rasa aman palsu, karena nilai tersimpan tetap harus di-escape di mana pun nanti ditampilkan.
 
 ## Escaping Terjadi Saat Render
 
@@ -23,7 +23,7 @@ Tempat yang tepat untuk escape adalah titik keluaran, dan itu tertanam di DVE. N
 
 Karena escape jalan saat render, nilai mentah tetap utuh di penyimpanan dan di API, dan hanya tampilan HTML yang mengubahnya jadi entitas. Ini langkah `escapeHtml` yang sama dipakai framework untuk halaman error, jadi perilakunya konsisten di seluruh permukaan. Aturan lengkapnya ada di [Keluaran Mentah](/id/rendering/syntax#keluaran-mentah).
 
-## Mengeluarkan untuk Markup Tepercaya
+## Mengecualikan untuk Markup Tepercaya
 
 Beberapa nilai memang dimaksudkan jadi HTML, seperti konten dari editor tepercaya. Kurung kurawal tiga melewati escape untuk satu nilai itu, sebuah pilihan eksplisit alih-alih setelan global.
 

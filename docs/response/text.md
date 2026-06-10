@@ -24,7 +24,12 @@ import type { Context } from '@neabyte/deserve'
 // ---cut---
 export function POST(ctx: Context): Response {
   // Reply Not Implemented with 501
-  return ctx.send.text('Not Implemented', { status: 501 })
+  return ctx.send.text(
+    'Not Implemented',
+    {
+      status: 501
+    }
+  )
 }
 ```
 
@@ -35,7 +40,12 @@ import type { Context } from '@neabyte/deserve'
 // ---cut---
 export function GET(ctx: Context): Response {
   // Plain text error with status 500
-  return ctx.send.text('Internal Server Error', { status: 500 })
+  return ctx.send.text(
+    'Internal Server Error',
+    {
+      status: 500
+    }
+  )
 }
 ```
 

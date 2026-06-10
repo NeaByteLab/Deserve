@@ -4,7 +4,7 @@ description: "Batasi cakupan middleware ke prefix path supaya hanya berjalan unt
 
 # Middleware Spesifik Rute
 
-Middleware spesifik rute berlaku untuk pola rute tertentu, memungkinkan fungsionalitas tertarget seperti autentikasi untuk rute API atau logging untuk rute admin.
+Middleware spesifik rute berlaku untuk pola rute tertentu, memungkinkan fungsi yang menyasar rute tertentu seperti autentikasi untuk rute API atau logging untuk rute admin.
 
 ## Penggunaan Dasar
 
@@ -59,11 +59,21 @@ declare function isValidToken(token: string): boolean
 router.use('/api', async (ctx, next) => {
   const authHeader = ctx.header('authorization')
   if (!authHeader) {
-    return ctx.send.text('API requires authentication', { status: 401 })
+    return ctx.send.text(
+      'API requires authentication',
+      {
+        status: 401
+      }
+    )
   }
   const token = authHeader.replace('Bearer ', '')
   if (!isValidToken(token)) {
-    return ctx.send.text('Invalid token', { status: 401 })
+    return ctx.send.text(
+      'Invalid token',
+      {
+        status: 401
+      }
+    )
   }
   return await next()
 })
@@ -80,7 +90,12 @@ const router = new Router()
 router.use('/admin', async (ctx, next) => {
   const userRole = ctx.header('x-user-role')
   if (userRole !== 'admin') {
-    return ctx.send.text('Admin access required', { status: 403 })
+    return ctx.send.text(
+      'Admin access required',
+      {
+        status: 403
+      }
+    )
   }
   return await next()
 })
@@ -132,7 +147,12 @@ const router = new Router()
 router.use('/api', async (ctx, next) => {
   const authHeader = ctx.header('authorization')
   if (!authHeader) {
-    return ctx.send.text('Unauthorized', { status: 401 })
+    return ctx.send.text(
+      'Unauthorized',
+      {
+        status: 401
+      }
+    )
   }
   return await next()
 })
@@ -153,7 +173,7 @@ import { Router } from '@neabyte/deserve'
 
 const router = new Router()
 // ---cut---
-// Menutup setiap path di bawah /api
+// Mencakup setiap path di bawah /api
 router.use('/api', async (ctx, next) => {
   console.log('API request')
   return await next()
@@ -169,7 +189,12 @@ router.use('/api/users', async (ctx, next) => {
 router.use('/api/users/admin', async (ctx, next) => {
   const role = ctx.header('x-user-role')
   if (role !== 'admin') {
-    return ctx.send.text('Admin access required', { status: 403 })
+    return ctx.send.text(
+      'Admin access required',
+      {
+        status: 403
+      }
+    )
   }
   return await next()
 })

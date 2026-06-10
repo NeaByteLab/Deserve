@@ -111,8 +111,12 @@ Larger teams often split an app into services. Deserve runs several routers in a
 // main.ts
 import { Router } from '@neabyte/deserve'
 
-const api = new Router({ routesDir: './services/api/routes' })
-const auth = new Router({ routesDir: './services/auth/routes' })
+const api = new Router({
+  routesDir: './services/api/routes'
+})
+const auth = new Router({
+  routesDir: './services/auth/routes'
+})
 
 // Each service owns its folder and port
 await Promise.all([

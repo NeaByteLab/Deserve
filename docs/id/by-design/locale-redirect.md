@@ -4,11 +4,11 @@ description: "Kenapa Deserve tidak punya middleware locale redirect, karena memb
 
 # Locale Redirect
 
-Deserve tidak punya middleware locale redirect. Memilih bahasa dari request dan mengirim pengunjung ke path yang cocok adalah pembacaan singkat satu header diikuti [redirect](/id/response/redirect), jadi ia tinggal di rute yang memiliki keputusan itu.
+Deserve tidak punya middleware locale redirect. Memilih bahasa dari request dan mengirim pengunjung ke path yang cocok adalah pembacaan singkat satu header diikuti [redirect](/id/response/redirect), jadi keputusan itu tinggal di rute yang memilikinya.
 
 ## Kenapa Tidak Dibawa
 
-Sebuah locale redirect memeriksa bahasa pilihan pengunjung dan meneruskan path telanjang seperti `/` ke yang terlokalisasi seperti `/en` atau `/id`. Framework sering membawa ini sebagai middleware yang berjalan di setiap request, yang berarti satu aturan untuk seluruh aplikasi dan redirect pada path yang mungkin tak membutuhkannya.
+Sebuah locale redirect memeriksa bahasa pilihan pengunjung dan meneruskan path polos seperti `/` ke yang terlokalisasi seperti `/en` atau `/id`. Framework sering membawa ini sebagai middleware yang berjalan di setiap request, yang berarti satu aturan untuk seluruh aplikasi dan redirect pada path yang mungkin tak membutuhkannya.
 
 Pilihan bahasa adalah keputusan produk, bukan aturan transport. Locale mana yang ada, apa default-nya, dan apakah cookie menimpa petunjuk browser semuanya berbeda per aplikasi. Membiarkannya di rute menjaga keputusan itu terlihat dan mudah diubah, sejalan dengan [bangun di atas platform](/id/core-concepts/philosophy#bangun-di-atas-platform).
 

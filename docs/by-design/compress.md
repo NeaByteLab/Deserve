@@ -42,7 +42,9 @@ import type { Context } from '@neabyte/deserve'
 // ---cut---
 export function GET(ctx: Context): Response {
   // Send plain, runtime compresses when able
-  return ctx.send.json({ message: 'compressed by the runtime' })
+  return ctx.send.json({
+    message: 'compressed by the runtime'
+  })
 }
 ```
 
@@ -56,7 +58,9 @@ import type { Context } from '@neabyte/deserve'
 export function GET(ctx: Context): Response {
   // Block any layer from rewriting the body
   ctx.setHeader('Cache-Control', 'no-transform')
-  return ctx.send.json({ message: 'sent verbatim' })
+  return ctx.send.json({
+    message: 'sent verbatim'
+  })
 }
 ```
 

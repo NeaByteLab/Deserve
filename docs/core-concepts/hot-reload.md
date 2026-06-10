@@ -28,10 +28,10 @@ app.serve(3000)
 
 All files with supported extensions (`.ts`, `.js`, `.tsx`, `.jsx`, `.mjs`, `.cjs`) inside `routesDir` are watched recursively.
 
-| Event             | Behavior                                                                     |
-| ----------------- | ---------------------------------------------------------------------------- |
-| **File created**  | Module is imported and route handlers are registered automatically           |
-| **File modified** | Old handlers are removed, module is re-imported, new handlers are registered |
+| Event             | Behavior                                                                       |
+| ----------------- | ------------------------------------------------------------------------------ |
+| **File created**  | Module is imported and route handlers are registered automatically             |
+| **File modified** | New module is imported and validated first, then the old handlers are swapped out, so a broken edit leaves the last good version still serving |
 | **File deleted**  | Route pattern is removed from the router, requests return 404                |
 
 ### Template Files
@@ -46,31 +46,21 @@ All `.dve` files inside `viewsDir` are watched recursively, so [template](/rende
 
 ## Error Isolation
 
-Bad files are caught, logged, and never crash the server or other routes. Each failure also surfaces as a [`route:error` or `reload:error`](/middleware/observability/events#routes) observability event, so logging stays in one place.
+A bad file is caught and never crashes the server or the other routes. Because the new module is imported and validated before the old one is dropped, a failed reload leaves the previous working version in place rather than killing the route. Each failure surfaces as a [`route:error` or `reload:error`](/middleware/observability/events#routes) observability event, so logging stays in one place and nothing prints to the console on its own.
 
-![An abstract view of why reloading stays safe, where applying a file change live rests on three mechanisms that hold together, isolating each file with a try catch so a bad one never crashes the others, busting the module cache with a timestamp query so stale code never contaminates the new, and reloading in sequence by removing then registering after a debounce, which together deliver live edits with no downtime, no crash, and no contamination](/diagrams/hot-reload-principles.png)
+![An abstract view of why reloading stays safe, where applying a file change live rests on three mechanisms that hold together, isolating each file with a try catch so a bad one never crashes the others, busting the module cache with a timestamp query so stale code never contaminates the new, and reloading in sequence by validating the new module then swapping it in after a debounce, which together deliver live edits with no downtime, no crash, and no contamination](/diagrams/hot-reload-principles.png)
 
 ### Malformed Syntax
 
-Invalid syntax fails the import and logs the error. Other routes stay unaffected:
-
-```
-[Deserve] Failed to reload route malformed.ts: The module's source code
-could not be parsed: Expected ';', '}' or <eof> at ...
-```
+Invalid syntax fails the import, so the swap never happens and the last good route keeps serving. The failure arrives as a `reload:error` event carrying the route path and the parse error.
 
 ### Missing HTTP Method Exports
 
-Routes without a valid HTTP method export (`GET`, `POST`, etc.) are rejected and logged:
-
-```
-[Deserve] Failed to reload route broken.ts: Route "broken.ts" must export
-at least one HTTP method (DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT)
-```
+A file with no valid HTTP method export (`GET`, `POST`, etc.) fails validation before the swap, so the route is left untouched and the reason rides the same `reload:error` event.
 
 ### Runtime Errors in Handlers
 
-If a reloaded handler throws at request time, Deserve's [error handling](/error-handling/defense-in-depth) returns a proper 500 response. The server stays alive and other routes are unaffected.
+When a reloaded handler throws at request time, the [centralized error handling](/error-handling/defense-in-depth) returns a proper 500 response. The server stays alive and the other routes are unaffected.
 
 ## Debouncing
 
@@ -85,17 +75,18 @@ Multiple file changes within the debounce window are batched into a single opera
 
 ### Route Reloading
 
-![The route reload sequence as the watcher runs it, where Deno.watchFs detects a change and debounces for 150ms, FastRouter.remove drops the old pattern, the module is re-imported with a timestamp query to bypass the cache, then it is validated for an HTTP method and its handlers register while emitting route:reloaded, and any failure in that step instead emits reload:error so the server stays alive and other routes are unaffected](/diagrams/hot-reload-route-sequence.png)
+![The route reload sequence as the watcher runs it, where the watcher detects a change and debounces for 150ms, the module is re-imported with a timestamp query to bypass the cache, then it is validated for an HTTP method, and only after both pass does FastRouter.remove drop the old pattern and the new handlers register while emitting route:reloaded, and a failure at import or validate instead emits reload:error before any swap so the old route keeps serving and the server stays alive](/diagrams/hot-reload-route-sequence.png)
 
-1. `Deno.watchFs` detects a change in `routesDir`
-2. After the debounce window, the watcher resolves the file path to a route pattern
-3. The old route pattern is removed from the router via `FastRouter.remove()`
-4. The module is re-imported with a cache-busting query string (`?t=timestamp`) to bypass Deno's module cache
-5. The module is validated and new HTTP method handlers are registered
+1. The watcher detects a change in `routesDir` and waits out the debounce window
+2. The file path resolves to a route pattern
+3. The module is re-imported with a cache-busting query string (`?t=timestamp`) to bypass the module cache
+4. The module is validated for at least one HTTP method export
+5. Only after the import and validation pass, the old pattern is dropped and the new handlers register, then a `route:reloaded` event fires
+6. If any step before the swap fails, the old route is left serving and a `reload:error` event fires instead
 
 ### Template Reloading
 
-1. `Deno.watchFs` detects a change in `viewsDir`
-2. After the debounce window, the watcher clears the file's entry from `fileCache` (raw content) and `compileCache` (parsed AST)
+1. The watcher detects a change in `viewsDir` and waits out the debounce window
+2. The changed file's compiled AST entry is cleared from the cache
 3. The discovered template paths set is reset
 4. On the next `render()` or `streamRender()` call, the engine re-reads the file from disk, re-parses it, and caches the result

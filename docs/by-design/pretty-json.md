@@ -21,7 +21,10 @@ import type { Context } from '@neabyte/deserve'
 // ---cut---
 export function GET(ctx: Context): Response {
   // Compact body, no extra whitespace
-  return ctx.send.json({ id: 1, name: 'Alice' })
+  return ctx.send.json({
+    id: 1,
+    name: 'Alice'
+  })
 }
 ```
 
@@ -36,11 +39,20 @@ import type { Context } from '@neabyte/deserve'
 // ---cut---
 export function GET(ctx: Context): Response {
   // Indent on purpose for this route
-  const body = JSON.stringify({ id: 1, name: 'Alice' }, null, 2)
+  const body = JSON.stringify(
+    {
+      id: 1,
+      name: 'Alice'
+    },
+    null,
+    2
+  )
 
   // Send as text, keep JSON type
   return ctx.send.text(body, {
-    headers: { 'Content-Type': 'application/json' }
+    headers: {
+      'Content-Type': 'application/json'
+    }
   })
 }
 ```

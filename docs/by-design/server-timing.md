@@ -19,7 +19,9 @@ Every `request:complete` event carries `durationMs`, the measured time for the w
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
-const router = new Router({ routesDir: './routes' })
+const router = new Router({
+  routesDir: './routes'
+})
 // ---cut---
 router.on((event) => {
   // Read the measured request duration

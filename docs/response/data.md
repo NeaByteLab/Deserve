@@ -37,7 +37,9 @@ import type { Context } from '@neabyte/deserve'
 // ---cut---
 export function GET(ctx: Context): Response {
   // Fourth arg sets the content type
-  const jsonData = JSON.stringify({ data: 'value' })
+  const jsonData = JSON.stringify({
+    data: 'value'
+  })
   return ctx.send.data(
     jsonData,
     'data.json',

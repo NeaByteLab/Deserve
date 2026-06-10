@@ -47,7 +47,12 @@ import type { Context } from '@neabyte/deserve'
 export function GET(ctx: Context): Response {
   // Not Found page with status 404
   const html = '<html><body><h1>Not Found</h1></body></html>'
-  return ctx.send.html(html, { status: 404 })
+  return ctx.send.html(
+    html,
+    {
+      status: 404
+    }
+  )
 }
 ```
 
