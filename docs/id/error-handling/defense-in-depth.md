@@ -118,6 +118,8 @@ Ini jaring pengaman di balik semua yang lain. Lihat [Proteksi Proses](/id/gettin
 
 Membentuk response dan mencatat kegagalan adalah tugas terpisah. `router.catch()` mengontrol apa yang dilihat klien, sementara [`router.on()`](/id/middleware/observability/overview) mencatat apa yang terjadi untuk log dan metrik. Pasang keduanya untuk cakupan penuh:
 
+![Satu request gagal menyebar ke dua hook independen, di mana router.catch membentuk Response yang diterima klien dengan status dan body terkontrol, dan router.on mencatat kegagalan yang sama ke log dan metrik tanpa memengaruhi balasan](/diagrams/obs-catch-vs-on.png)
+
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
 

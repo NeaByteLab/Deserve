@@ -76,41 +76,4 @@ router.on((event) => {
 
 ## Memasangkan Dengan Penanganan Error
 
-Dua hook menangani tugas berbeda:
-
-- [`router.catch()`](/id/error-handling/object-details) membentuk response yang diterima klien.
-- `router.on()` mencatat apa yang terjadi untuk log dan metrik.
-
-Pakai `catch` untuk mengontrol balasan, dan `on` untuk mengamatinya. Pengaturan umum memasang keduanya:
-
-![Satu request gagal menyebar ke dua hook independen, di mana router.catch membentuk Response yang diterima klien dengan status dan body terkontrol, dan router.on mencatat kegagalan yang sama ke log dan metrik tanpa memengaruhi balasan](/diagrams/obs-catch-vs-on.png)
-
-```typescript twoslash
-import { Router } from '@neabyte/deserve'
-
-const router = new Router({
-  routesDir: './routes'
-})
-// ---cut---
-// Bentuk response klien
-router.catch((ctx, info) => {
-  return ctx.send.json(
-    {
-      error: 'Something went wrong'
-    },
-    {
-      status: info.statusCode
-    }
-  )
-})
-
-// Catat kegagalan untuk nanti
-router.on((event) => {
-  if (event.kind === 'request:error') {
-    const { url, error } = event.metadata as { url: string; error?: Error }
-    console.error(url, error?.message)
-  }
-})
-```
-
-Untuk response default ketika tidak ada handler diatur, lihat [Perilaku Default](/id/error-handling/default-behavior).
+Membentuk response dan mencatat kegagalan adalah dua tugas terpisah. [`router.catch()`](/id/error-handling/object-details) mengontrol apa yang dilihat klien, sementara `router.on()` mencatat apa yang terjadi untuk log dan metrik. Keduanya berjalan independen, dan cara memasang keduanya dibahas di [Pertahanan Berlapis](/id/error-handling/defense-in-depth#mencatat-di-seluruh-lapisan).

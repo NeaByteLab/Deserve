@@ -118,6 +118,8 @@ This is the safety net behind everything else. See [Process Protection](/getting
 
 Shaping a response and recording a failure are separate jobs. `router.catch()` controls what the client sees, while [`router.on()`](/middleware/observability/overview) records what happened for logs and metrics. Wire both for full coverage:
 
+![One failed request fans out to two independent hooks, where router.catch shapes the Response the client receives with a controlled status and body, and router.on records the same failure into logs and metrics without affecting the reply](/diagrams/obs-catch-vs-on.png)
+
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
 

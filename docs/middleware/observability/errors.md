@@ -76,41 +76,4 @@ router.on((event) => {
 
 ## Pairing With Error Handling
 
-Two hooks cover different jobs:
-
-- [`router.catch()`](/error-handling/object-details) shapes the response a client receives.
-- `router.on()` records what happened for logs and metrics.
-
-Use `catch` to control the reply, and `on` to observe it. A typical setup wires both:
-
-![One failed request fans out to two independent hooks, where router.catch shapes the Response the client receives with a controlled status and body, and router.on records the same failure into logs and metrics without affecting the reply](/diagrams/obs-catch-vs-on.png)
-
-```typescript twoslash
-import { Router } from '@neabyte/deserve'
-
-const router = new Router({
-  routesDir: './routes'
-})
-// ---cut---
-// Shape the client response
-router.catch((ctx, info) => {
-  return ctx.send.json(
-    {
-      error: 'Something went wrong'
-    },
-    {
-      status: info.statusCode
-    }
-  )
-})
-
-// Record the failure for later
-router.on((event) => {
-  if (event.kind === 'request:error') {
-    const { url, error } = event.metadata as { url: string; error?: Error }
-    console.error(url, error?.message)
-  }
-})
-```
-
-For the default response when no handler is set, see [Default Behavior](/error-handling/default-behavior).
+Shaping a response and recording a failure are separate jobs. [`router.catch()`](/error-handling/object-details) controls what the client sees, while `router.on()` records what happened for logs and metrics. The two run independently, and wiring both is covered in [Defense in Depth](/error-handling/defense-in-depth#recording-across-layers).
