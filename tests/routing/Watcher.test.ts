@@ -72,6 +72,60 @@ Deno.test({
 })
 
 Deno.test({
+  name: 'Watcher#watch keeps the last-good route serving when a reload drops all method exports',
+  ignore: !writeGranted,
+  fn: async () => {
+    const dir = await makeRoutesDir()
+    const handler = new Routing.Handler()
+    const events = collectEvents(handler)
+    const stop = Routing.Watcher.watch(handler, dir)
+    try {
+      await delay(50)
+      await Deno.writeTextFile(`${dir}/exports.ts`, ROUTE_SOURCE)
+      await delay(600)
+      assertEquals(events.kinds.includes('route:reloaded'), true)
+      await Deno.writeTextFile(`${dir}/exports.ts`, 'export const note = "no http methods"\n')
+      await delay(600)
+      const res = await handler.createHandler()(new Request('http://localhost/exports'))
+      assertEquals(res.status, 200)
+      assertEquals(await res.text(), 'watched')
+      assertEquals(events.kinds.includes('reload:error'), true)
+    } finally {
+      events.stop()
+      stop()
+      await Deno.remove(dir, { recursive: true })
+    }
+  }
+})
+
+Deno.test({
+  name: 'Watcher#watch keeps the last-good route serving when a reload has a syntax error',
+  ignore: !writeGranted,
+  fn: async () => {
+    const dir = await makeRoutesDir()
+    const handler = new Routing.Handler()
+    const events = collectEvents(handler)
+    const stop = Routing.Watcher.watch(handler, dir)
+    try {
+      await delay(50)
+      await Deno.writeTextFile(`${dir}/keep.ts`, ROUTE_SOURCE)
+      await delay(600)
+      assertEquals(events.kinds.includes('route:reloaded'), true)
+      await Deno.writeTextFile(`${dir}/keep.ts`, 'export function GET( {\n  return new Response(')
+      await delay(600)
+      const res = await handler.createHandler()(new Request('http://localhost/keep'))
+      assertEquals(res.status, 200)
+      assertEquals(await res.text(), 'watched')
+      assertEquals(events.kinds.includes('reload:error'), true)
+    } finally {
+      events.stop()
+      stop()
+      await Deno.remove(dir, { recursive: true })
+    }
+  }
+})
+
+Deno.test({
   name: 'Watcher#watch removes a route when its file is deleted',
   ignore: !writeGranted,
   fn: async () => {
@@ -122,6 +176,34 @@ Deno.test({
       assertEquals(events.kinds.includes('route:reloaded'), false)
     } finally {
       events.stop()
+      await Deno.remove(dir, { recursive: true })
+    }
+  }
+})
+
+Deno.test({
+  name: 'Watcher#watch swaps in the new handler after a good save follows a failed reload',
+  ignore: !writeGranted,
+  fn: async () => {
+    const dir = await makeRoutesDir()
+    const handler = new Routing.Handler()
+    const stop = Routing.Watcher.watch(handler, dir)
+    try {
+      await delay(50)
+      await Deno.writeTextFile(`${dir}/recover.ts`, ROUTE_SOURCE)
+      await delay(600)
+      await Deno.writeTextFile(`${dir}/recover.ts`, 'export function GET( {')
+      await delay(600)
+      await Deno.writeTextFile(
+        `${dir}/recover.ts`,
+        'export function GET(ctx) {\n  return ctx.send.text("v2")\n}\n'
+      )
+      await delay(600)
+      const res = await handler.createHandler()(new Request('http://localhost/recover'))
+      assertEquals(res.status, 200)
+      assertEquals(await res.text(), 'v2')
+    } finally {
+      stop()
       await Deno.remove(dir, { recursive: true })
     }
   }
