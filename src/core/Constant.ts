@@ -37,7 +37,11 @@ export class Constant {
   /** Default worker pool size */
   static readonly defaultPoolSize = 4
   /** Default worker task timeout in ms */
-  static readonly defaultWorkerTaskTimeoutMs = 30_000
+  static readonly defaultWorkerTaskTimeoutMs = 5_000
+  /** Default pending-task multiplier per worker slot */
+  static readonly defaultQueueFactor = 8
+  /** Default projected-wait deadline in ms */
+  static readonly defaultQueueWaitMs = 2_000
   /** Null-body HTTP status codes */
   static readonly nullBodyStatuses: ReadonlySet<number> = new Set([101, 204, 205, 304])
   /** Valid redirect status codes */
