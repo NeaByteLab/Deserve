@@ -1,5 +1,6 @@
 import { assertEquals } from '@std/assert'
 import * as Routing from '@routing/index.ts'
+import * as Middleware from '@middleware/index.ts'
 
 const echoWorkerUrl = import.meta.resolve('@tests/fixtures/echo_worker.ts')
 
@@ -260,4 +261,30 @@ Deno.test('Watcher#watch skips a non-existent routes directory without throwing'
   const handler = new Routing.Handler()
   Routing.Watcher.watch(handler, './does-not-exist-routes-dir-xyz')
   assertEquals(true, true)
+})
+
+Deno.test('security headers still ride a masked error response so defenses survive faults', async () => {
+  const router = new Routing.Router({ routesDir: './does-not-exist-routes-dir-sec' })
+  router.use(Middleware.Mware.securityHeaders())
+  router.use(() => {
+    throw new Error('handler boom')
+  })
+  const listening = Promise.withResolvers<number>()
+  router.on((event) => {
+    if (event.kind === 'server:listening') {
+      listening.resolve(event.metadata.port)
+    }
+  })
+  const controller = new AbortController()
+  const serving = router.serve(0, '127.0.0.1', controller.signal)
+  const port = await listening.promise
+  const response = await fetch(`http://127.0.0.1:${port}/boom`, {
+    signal: AbortSignal.timeout(5000)
+  })
+  await response.body?.cancel()
+  assertEquals(response.status, 500)
+  assertEquals(response.headers.get('x-content-type-options'), 'nosniff')
+  assertEquals(response.headers.get('x-frame-options'), 'SAMEORIGIN')
+  controller.abort()
+  await serving
 })
