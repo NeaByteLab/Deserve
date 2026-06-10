@@ -12,6 +12,10 @@ export class Engine implements Types.ViewEngine, Types.WatchableEngine {
   private readonly defaultViewsDir: string
   /** Max iterations per #each block */
   private readonly maxIterations: number
+  /** Max total #each body executions per render */
+  private readonly maxRenderIterations: number
+  /** Max total output characters per render */
+  private readonly maxOutputSize: number
   /** Compiled template cache */
   private readonly compileCache = new Map<string, Types.CompileResult>()
   /** Optional lifecycle event emitter */
@@ -27,6 +31,9 @@ export class Engine implements Types.ViewEngine, Types.WatchableEngine {
   constructor(options: Types.EngineOptions) {
     this.defaultViewsDir = options.viewsDir
     this.maxIterations = options.maxIterations ?? Core.Constant.defaultMaxIterations
+    this.maxRenderIterations = options.maxRenderIterations ??
+      Core.Constant.defaultMaxRenderIterations
+    this.maxOutputSize = options.maxOutputSize ?? Core.Constant.defaultMaxOutputSize
     this.emit = options.emit
   }
 
@@ -68,15 +75,27 @@ export class Engine implements Types.ViewEngine, Types.WatchableEngine {
    * @throws {Deno.errors.NotFound} When template path not discovered
    * @throws {Deno.errors.InvalidData} When include depth exceeded
    */
-  async render(templatePath: string, data: Types.DataRecord = {}, depth = 0): Promise<string> {
+  async render(
+    templatePath: string,
+    data: Types.DataRecord = {},
+    depth = 0,
+    budget?: Types.RenderBudget
+  ): Promise<string> {
     if (depth > Core.Constant.maxIncludeDepth) {
       throw new Deno.errors.InvalidData(
         `Template include depth exceeded ${Core.Constant.maxIncludeDepth} for "${templatePath}"`
       )
     }
     const renderStart = depth === 0 ? performance.now() : 0
+    const renderBudget = budget ?? { iterations: 0, outputSize: 0 }
     const compiled = await this.resolveTemplate(templatePath)
-    const outputHtml = await this.renderNodes(compiled.ast, data, this.defaultViewsDir, depth)
+    const outputHtml = await this.renderNodes(
+      compiled.ast,
+      data,
+      this.defaultViewsDir,
+      depth,
+      renderBudget
+    )
     if (depth === 0) {
       this.emit?.(
         Core.Observability.internalEvent('view:rendered', {
@@ -138,13 +157,15 @@ export class Engine implements Types.ViewEngine, Types.WatchableEngine {
    * @param data - Template scope data
    * @param viewsDir - Root directory for includes
    * @param depth - Current include nesting depth
+   * @param budget - Per-render cumulative resource budget
    * @returns HTML chunk string or null
    */
   private async renderChunk(
     node: Types.AstNode,
     data: Types.DataRecord,
     viewsDir: string,
-    depth: number
+    depth: number,
+    budget: Types.RenderBudget
   ): Promise<string | null> {
     if (node.type === 'text') {
       return node.value
@@ -157,12 +178,12 @@ export class Engine implements Types.ViewEngine, Types.WatchableEngine {
       return node.raw ? stringValue : EngineParts.Utils.escape(stringValue)
     }
     if (node.type === 'include') {
-      return await this.render(node.templatePath, data, depth + 1)
+      return await this.render(node.templatePath, data, depth + 1, budget)
     }
     if (node.type === 'if') {
       const lookupValue = EngineParts.Eval.evaluate(node.path, data)
       const nodes = lookupValue ? node.thenNodes : node.elseNodes
-      return await this.renderNodes(nodes, data, viewsDir, depth)
+      return await this.renderNodes(nodes, data, viewsDir, depth, budget)
     }
     if (node.type === 'each') {
       const lookupValue = EngineParts.Eval.evaluate(node.path, data)
@@ -175,6 +196,12 @@ export class Engine implements Types.ViewEngine, Types.WatchableEngine {
         )
       }
       const length = lookupValue.length
+      budget.iterations += length
+      if (budget.iterations > this.maxRenderIterations) {
+        throw new Deno.errors.InvalidData(
+          `Template render exceeded ${this.maxRenderIterations} total iterations`
+        )
+      }
       let outputHtml = ''
       for (let index = 0; index < length; index++) {
         const item = lookupValue[index]
@@ -186,7 +213,7 @@ export class Engine implements Types.ViewEngine, Types.WatchableEngine {
           '@last': index === length - 1,
           '@length': length
         }
-        outputHtml += await this.renderNodes(node.nodes, scopeData, viewsDir, depth)
+        outputHtml += await this.renderNodes(node.nodes, scopeData, viewsDir, depth, budget)
       }
       return outputHtml
     }
@@ -200,18 +227,26 @@ export class Engine implements Types.ViewEngine, Types.WatchableEngine {
    * @param data - Current scope data
    * @param viewsDir - Root directory for includes
    * @param depth - Current include nesting depth
+   * @param budget - Per-render cumulative resource budget
    * @returns Rendered HTML string
    */
   private async renderNodes(
     ast: readonly Types.AstNode[],
     data: Types.DataRecord,
     viewsDir: string,
-    depth: number
+    depth: number,
+    budget: Types.RenderBudget
   ): Promise<string> {
     let outputHtml = ''
     for (const node of ast) {
-      const chunk = await this.renderChunk(node, data, viewsDir, depth)
+      const chunk = await this.renderChunk(node, data, viewsDir, depth, budget)
       if (chunk) {
+        budget.outputSize += chunk.length
+        if (budget.outputSize > this.maxOutputSize) {
+          throw new Deno.errors.InvalidData(
+            `Template render exceeded ${this.maxOutputSize} output characters`
+          )
+        }
         outputHtml += chunk
       }
     }
@@ -234,10 +269,17 @@ export class Engine implements Types.ViewEngine, Types.WatchableEngine {
   ): Promise<void> {
     const writer = writable.getWriter()
     const renderStart = performance.now()
+    const budget: Types.RenderBudget = { iterations: 0, outputSize: 0 }
     try {
       for (const node of compiled.ast) {
-        const chunk = await this.renderChunk(node, data, this.defaultViewsDir, 0)
+        const chunk = await this.renderChunk(node, data, this.defaultViewsDir, 0, budget)
         if (chunk) {
+          budget.outputSize += chunk.length
+          if (budget.outputSize > this.maxOutputSize) {
+            throw new Deno.errors.InvalidData(
+              `Template render exceeded ${this.maxOutputSize} output characters`
+            )
+          }
           await writer.write(Core.Constant.encoder.encode(chunk))
         }
       }
