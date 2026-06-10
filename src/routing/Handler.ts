@@ -68,7 +68,10 @@ export class Handler {
     this.requestTimeoutMs = timeoutValue
     this.trustTester = Core.IpResolver.compile(options?.trustProxy)
     this.workerPool = options?.worker !== undefined
-      ? Core.Worker.createPool(options.worker)
+      ? Core.Worker.createPool({
+        ...options.worker,
+        emit: (event) => this.events.emit(event)
+      })
       : undefined
     this.viewEngine = options?.viewsDir !== undefined
       ? new Rendering.Engine({
