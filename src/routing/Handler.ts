@@ -390,10 +390,10 @@ export class Handler {
     if (!routePattern) {
       return
     }
-    this.removeRoute(routePattern)
     try {
       const fileModule = await Core.API.importRouteModule(fullPath, true)
       Routing.Scanner.validateModule(fileModule, routePath, Core.Constant.httpMethods)
+      this.removeRoute(routePattern)
       Routing.Scanner.registerHandlers(
         this.routerInstance,
         fileModule,
