@@ -4,7 +4,7 @@ description: "Performance characteristics and caching behavior of the Deserve te
 
 # Performance and Limits
 
-The DVE engine caches compiled templates and guards rendering with two limits, so large pages stay fast and a runaway template fails loudly instead of hanging the server.
+The DVE engine caches compiled templates and guards rendering with a set of limits, so large pages stay fast and a runaway template fails loudly instead of hanging the server.
 
 ## Caching
 

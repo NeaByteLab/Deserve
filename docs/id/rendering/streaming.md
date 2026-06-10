@@ -84,7 +84,7 @@ Semua fitur DVE dari [Sintaks Template](/id/rendering/syntax) bekerja dengan str
   <body>
     <header>{{header}}</header>
 
-    <!-- Each loop streams item by item -->
+    <!-- Blok each dikirim sebagai satu chunk -->
     {{#each items as item}}
     <div class="item">
       <h3>{{item.name}}</h3>
@@ -92,7 +92,7 @@ Semua fitur DVE dari [Sintaks Template](/id/rendering/syntax) bekerja dengan str
     </div>
     {{/each}}
 
-    <!-- Conditional rendering -->
+    <!-- Rendering kondisional -->
     {{#if showFooter}}
     <footer>{{footer}}</footer>
     {{/if}}
@@ -151,6 +151,10 @@ export async function GET(ctx: Context): Promise<Response> {
   })
 }
 ```
+
+## Penanganan Error
+
+Streaming punya dua jendela kegagalan. Template yang hilang atau error kompilasi terlempar sebelum response mulai, jadi hal itu mencapai [error handler terpusat](/id/error-handling/object-details) seperti render biasa dan membentuk balasan status yang normal. Kegagalan saat memproduksi chunk terjadi setelah header sudah terkirim, jadi response tidak bisa berubah lagi. Kegagalan itu muncul sebagai event [`view:error`](/id/middleware/observability/events#view) di [bus observability](/id/middleware/observability/overview) dan stream ditutup, itulah kenapa validasi berat sebaiknya dilakukan sebelum stream, bukan di dalamnya.
 
 ## Migrasi dari Render Biasa
 

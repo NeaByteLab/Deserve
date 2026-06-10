@@ -84,7 +84,7 @@ All DVE features from [Template Syntax](/rendering/syntax) work with streaming:
   <body>
     <header>{{header}}</header>
 
-    <!-- Each loop streams item by item -->
+    <!-- Each block flushes as one chunk -->
     {{#each items as item}}
     <div class="item">
       <h3>{{item.name}}</h3>
@@ -151,6 +151,10 @@ export async function GET(ctx: Context): Promise<Response> {
   })
 }
 ```
+
+## Error Handling
+
+Streaming has two failure windows. A missing template or a compile error throws before the response starts, so it reaches the [centralized error handler](/error-handling/object-details) like a regular render and shapes a normal status reply. A fault while producing chunks happens after the headers are already sent, so the response cannot change. That fault surfaces as a [`view:error`](/middleware/observability/events#views) event on the [observability bus](/middleware/observability/overview) and the stream closes, which is why heavy validation belongs before the stream rather than inside it.
 
 ## Migration from Regular Render
 

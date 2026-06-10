@@ -4,7 +4,7 @@ description: "Karakteristik performa dan perilaku caching mesin template Deserve
 
 # Performa dan Batas
 
-Mesin DVE meng-cache template terkompilasi dan mengawal rendering dengan dua batas, jadi halaman besar tetap cepat dan template yang tak terkendali gagal dengan jelas alih-alih menggantung server.
+Mesin DVE meng-cache template terkompilasi dan mengawal rendering dengan beberapa batas, jadi halaman besar tetap cepat dan template yang tak terkendali gagal dengan jelas alih-alih menggantung server.
 
 ## Caching
 
