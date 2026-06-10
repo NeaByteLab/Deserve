@@ -84,7 +84,7 @@ Hilangkan `requestTimeoutMs` untuk tanpa timeout (default).
 
 ## Batas Iterasi Template
 
-Opsi `maxIterations` membatasi iterasi per blok <code v-pre>{{#each}}</code> di template DVE, yang mencegah event loop kelaparan akibat rendering tak terbatas. Default-nya `100_000`:
+Opsi `maxIterations` membatasi iterasi per blok <code v-pre>{{#each}}</code> di template DVE, yang mencegah event loop kelaparan akibat satu perulangan tak terbatas. Default-nya `100_000`:
 
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
@@ -96,7 +96,7 @@ const router = new Router({
 await router.serve(8000)
 ```
 
-Jika template melewati batas, server membalas dengan **500 Internal Server Error**. Perilaku rendering lengkap ada di [Performa dan Batas](/id/rendering/performance#batas-iterasi). Untuk dataset besar, gunakan [`streamRender`](/id/rendering/streaming). Untuk rendering berat CPU, pertimbangkan mengalihkan ke [worker pool](/id/core-concepts/worker-pool).
+Jika template melewati batas, server membalas dengan **400 Bad Request**. Dua batas pendamping, `maxRenderIterations` untuk anggaran perulangan seluruh halaman dan `maxOutputSize` untuk total karakter keluaran, berperilaku sama dan tercantum di [Konfigurasi Rute](/id/getting-started/routes-configuration#opsi-konfigurasi). Perilaku rendering lengkap ada di [Performa dan Batas](/id/rendering/performance#batas-iterasi). Untuk dataset besar, gunakan [`streamRender`](/id/rendering/streaming). Untuk rendering berat CPU, pertimbangkan mengalihkan ke [worker pool](/id/core-concepts/worker-pool).
 
 ## Resolusi IP Klien
 
@@ -158,14 +158,14 @@ ac.abort()
 
 ### Penanganan Sinyal Proses
 
-Tanpa `AbortSignal`, router mendengarkan `SIGINT` dan `SIGTERM` sendiri (hanya `SIGINT` di Windows) dan menguras dengan baik pada salah satunya. Tidak perlu perakitan sinyal manual:
+Tanpa `AbortSignal`, router mendengarkan `SIGINT` dan `SIGTERM` sendiri (hanya `SIGINT` di Windows) dan menyelesaikan request berjalan dengan rapi pada salah satunya. Tidak perlu menyiapkan sinyal secara manual:
 
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
 const router = new Router()
 
-// SIGINT dan SIGTERM menguras otomatis
+// SIGINT dan SIGTERM menuntaskan request otomatis
 await router.serve(8000, '127.0.0.1')
 ```
 
@@ -211,10 +211,10 @@ Lihat [Pelaporan Error](/id/middleware/observability/errors) untuk pola lengkapn
 Tujuannya adalah ketersediaan. Satu jalur kode yang cacat atau jahat semestinya tidak bisa membatalkan seluruh proses dan menolak layanan ke setiap rute dan service yang ditampungnya.
 
 - **Penyalahgunaan rantai pasok** - dependensi transitif yang memanggil `process.exit()` atau `Deno.exit()`, baik karena kecelakaan maupun sebagai serangan, tidak bisa lagi membuat server crash. Ini selaras dengan [OWASP A03:2025 Software Supply Chain Failures](https://owasp.org/Top10/2025/A03_2025-Software_Supply_Chain_Failures/) dan [CWE-1395](https://cwe.mitre.org/data/definitions/1395.html).
-- **Denial of service** - memblokir terminasi-diri menghapus saklar mati ketersediaan yang mudah, terkait [CWE-400](https://cwe.mitre.org/data/definitions/400.html) dan [CWE-730](https://cwe.mitre.org/data/definitions/730.html).
-- **Kesalahan tak tertangkap** - menjebak unhandled rejection dan uncaught error menjaga satu request buruk dari mengakhiri proses, terkait [CWE-248](https://cwe.mitre.org/data/definitions/248.html).
+- **Denial of service** - memblokir terminasi-diri menghapus tombol mematikan ketersediaan yang mudah, terkait [CWE-400](https://cwe.mitre.org/data/definitions/400.html) dan [CWE-730](https://cwe.mitre.org/data/definitions/730.html).
+- **Kesalahan tak tertangkap** - menjebak unhandled rejection dan uncaught error mencegah satu request buruk mengakhiri proses, terkait [CWE-248](https://cwe.mitre.org/data/definitions/248.html).
 
-Ini pertahanan upaya-terbaik, bukan sandbox. Ia menyisip ke titik masuk terminasi yang diketahui ketimbang mengisolasi kode tak tepercaya, jadi ia mengurangi blast radius tanpa mengklaim menghentikan setiap penyalahgunaan yang mungkin. Pasangkan dengan flag izin Deno dan tinjauan dependensi untuk jaminan lebih kuat. Pendekatan berlapis terhadap kesalahan dibahas di [Pertahanan Berlapis](/id/error-handling/defense-in-depth).
+Ini pertahanan upaya-terbaik, bukan sandbox. Pertahanan ini menyisip ke titik masuk terminasi yang diketahui ketimbang mengisolasi kode tak tepercaya, jadi ia memperkecil dampak kesalahan tanpa mengklaim menghentikan setiap penyalahgunaan yang mungkin. Pasangkan dengan flag izin Deno dan tinjauan dependensi untuk jaminan lebih kuat. Pendekatan berlapis terhadap kesalahan dibahas di [Pertahanan Berlapis](/id/error-handling/defense-in-depth).
 
 ## Pengujian Konfigurasi
 

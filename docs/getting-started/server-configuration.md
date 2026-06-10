@@ -84,7 +84,7 @@ Omit `requestTimeoutMs` for no timeout (default).
 
 ## Template Iteration Limit
 
-The `maxIterations` option caps the iterations per <code v-pre>{{#each}}</code> block in DVE templates, which prevents event loop starvation from unbounded rendering. The default is `100_000`:
+The `maxIterations` option caps the iterations per <code v-pre>{{#each}}</code> block in DVE templates, which prevents event loop starvation from one unbounded loop. The default is `100_000`:
 
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
@@ -96,7 +96,7 @@ const router = new Router({
 await router.serve(8000)
 ```
 
-If a template exceeds the limit, the server responds with **500 Internal Server Error**. The full rendering behavior lives in [Performance and Limits](/rendering/performance#iteration-limit). For large datasets, use [`streamRender`](/rendering/streaming) instead. For CPU-intensive rendering, consider offloading to a [worker pool](/core-concepts/worker-pool).
+If a template exceeds the limit, the server responds with **400 Bad Request**. Two companion caps, `maxRenderIterations` for the whole-page loop budget and `maxOutputSize` for total output characters, behave the same way and are listed in [Routes Configuration](/getting-started/routes-configuration#configuration-options). The full rendering behavior lives in [Performance and Limits](/rendering/performance#iteration-limit). For large datasets, use [`streamRender`](/rendering/streaming) instead. For CPU-intensive rendering, consider offloading to a [worker pool](/core-concepts/worker-pool).
 
 ## Client IP Resolution
 

@@ -8,7 +8,7 @@ Configure the Deserve routes directory to match the project structure.
 
 ## Router Options
 
-The `Router` constructor accepts configuration options. The common ones are `routesDir` for the route folder and `requestTimeoutMs` for a request timeout. Rendering, request limits, worker pools, and a custom error builder are all configurable too. Proxy trust through `trustProxy` and the worker pool live in [Client IP Resolution](/getting-started/server-configuration#client-ip-resolution) and [Worker Pool](/core-concepts/worker-pool).
+The `Router` constructor accepts one options object. The everyday pair is `routesDir` for the route folder and `requestTimeoutMs` for a request deadline. The sections below cover route loading, request size limits, template render limits, and the two advanced hooks `errorResponseBuilder` and `staticHandler`. Two related options live on their own pages, `trustProxy` under [Client IP Resolution](/getting-started/server-configuration#client-ip-resolution) and the `worker` pool under [Worker Pool](/core-concepts/worker-pool).
 
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
@@ -53,7 +53,7 @@ const router = new Router({
 
 ### `maxIterations`
 
-Maximum iterations allowed per <code v-pre>{{#each}}</code> block in DVE templates. The cap prevents event loop starvation from unbounded rendering. The default is `100_000`, and exceeding it makes the engine throw so the server responds with **500 Internal Server Error**.
+Maximum iterations allowed per <code v-pre>{{#each}}</code> block in DVE templates. The cap prevents event loop starvation from one unbounded loop. The default is `100_000`, and exceeding it makes the engine throw so the server responds with **400 Bad Request**.
 
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
@@ -66,6 +66,34 @@ const router = new Router({
 ```
 
 For datasets larger than the limit, use [`streamRender`](/rendering/streaming) instead, and see [Performance and Limits](/rendering/performance#iteration-limit) for how the cap behaves. For CPU-intensive rendering, consider offloading to a [worker pool](/core-concepts/worker-pool).
+
+### `maxRenderIterations`
+
+Maximum total <code v-pre>{{#each}}</code> body executions across one render, summed over every loop including nested ones. Where `maxIterations` guards a single loop, this guards the whole page. The default is `1_000_000`, and exceeding it responds with **400 Bad Request**.
+
+```typescript twoslash
+import { Router } from '@neabyte/deserve'
+// ---cut---
+const router = new Router({
+  routesDir: 'routes',
+  viewsDir: './views',
+  maxRenderIterations: 500_000
+})
+```
+
+### `maxOutputSize`
+
+Maximum total output characters produced by one render. The cap stops a small template from expanding into a huge response. The default is `5_000_000`, and exceeding it responds with **400 Bad Request**.
+
+```typescript twoslash
+import { Router } from '@neabyte/deserve'
+// ---cut---
+const router = new Router({
+  routesDir: 'routes',
+  viewsDir: './views',
+  maxOutputSize: 1_000_000
+})
+```
 
 ### `maxUrlLength`
 
@@ -122,6 +150,27 @@ const router = new Router({
   }
 })
 ```
+
+### `staticHandler`
+
+Advanced option that replaces how static files are served. It receives the context, the [static options](/static-file/basic#static-file-options) for the matched route, and the URL path, then returns the `Response`. The default implementation already guards path traversal, so override it only for a custom backend such as object storage:
+
+```typescript twoslash
+import type { Context, ServeOptions } from '@neabyte/deserve'
+import { Router } from '@neabyte/deserve'
+// ---cut---
+const router = new Router({
+  routesDir: 'routes',
+  staticHandler: {
+    // Serve files from a custom backend
+    async serve(ctx: Context, options: ServeOptions, urlPath: string) {
+      return ctx.send.text(`requested ${urlPath}`)
+    }
+  }
+})
+```
+
+Register the static route itself with [`router.static()`](/static-file/basic), which this handler then fulfills.
 
 ## Supported File Extensions
 
