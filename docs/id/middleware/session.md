@@ -40,7 +40,9 @@ const session = ctx.getState<DataRecord | null>('session' as never)
 
 // Simpan data session (async)
 const setSession = ctx.getState<(data: DataRecord) => Promise<void>>('setSession' as never)
-await setSession?.({ userId: '1' })
+await setSession?.({
+  userId: '1'
+})
 
 // Hapus session
 const clearSession = ctx.getState<() => void>('clearSession' as never)
@@ -62,9 +64,18 @@ export async function POST(ctx: Context): Promise<Response> {
       userId: '1',
       username: 'admin'
     })
-    return ctx.send.json({ ok: true })
+    return ctx.send.json({
+      ok: true
+    })
   }
-  return ctx.send.json({ error: 'Invalid credentials' }, { status: 401 })
+  return ctx.send.json(
+    {
+      error: 'Invalid credentials'
+    },
+    {
+      status: 401
+    }
+  )
 }
 
 // GET: cek status login
@@ -72,7 +83,9 @@ export function GET(ctx: Context): Response {
   // Baca session dari framework state
   const session = ctx.getState<DataRecord | null>('session' as never)
   if (!session) {
-    return ctx.send.json({ loggedIn: false })
+    return ctx.send.json({
+      loggedIn: false
+    })
   }
   return ctx.send.json({
     loggedIn: true,
@@ -85,7 +98,9 @@ export function DELETE(ctx: Context): Response {
   // Buang cookie session
   const clearSession = ctx.getState<() => void>('clearSession' as never)
   clearSession?.()
-  return ctx.send.json({ ok: true })
+  return ctx.send.json({
+    ok: true
+  })
 }
 ```
 
@@ -129,7 +144,7 @@ Middleware memeriksa opsinya saat dibuat dan melempar `Deno.errors.InvalidData` 
 - `sameSite: 'None'` tanpa `secure: true`, karena browser menolak kombinasi itu
 - `maxAge` yang bukan angka positif, atau `path` kosong
 
-Setiap cookie juga membawa waktu terbit bertanda tangan, jadi middleware memperlakukan session yang lebih tua dari `maxAge` sebagai tidak ada dan membacanya kembali sebagai `null`. Cookie yang dirusak gagal pemeriksaan signature dan dibaca sebagai `null` juga, sehingga session basi atau palsu tidak dipercaya.
+Setiap cookie juga membawa waktu terbit bertanda tangan, jadi middleware memperlakukan session yang lebih tua dari `maxAge` sebagai tidak ada dan membacanya kembali sebagai `null`. Cookie yang dirusak gagal pemeriksaan signature dan dibaca sebagai `null` juga, sehingga session basi atau palsu tidak dipercaya. Setiap kali cookie gagal didekode, middleware memancarkan event [`session:invalid`](/id/middleware/observability/events#middleware) yang menyebut cookie dan apakah nilainya dirusak, kedaluwarsa, atau malformed, sementara request lanjut tanpa session terpasang.
 
 ## Batasan
 

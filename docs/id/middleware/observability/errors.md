@@ -13,7 +13,9 @@ Error muncul di bus [`router.on()`](/id/middleware/observability/overview) yang 
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
-const router = new Router({ routesDir: './routes' })
+const router = new Router({
+  routesDir: './routes'
+})
 
 // Catat setiap request gagal
 router.on((event) => {
@@ -40,7 +42,9 @@ await router.serve(8000)
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
-const router = new Router({ routesDir: './routes' })
+const router = new Router({
+  routesDir: './routes'
+})
 // ---cut---
 router.on((event) => {
   if (event.kind === 'process:error') {
@@ -51,9 +55,28 @@ router.on((event) => {
 })
 ```
 
+## Menangkap Kesalahan Subsistem
+
+Listener yang sama menangkap kesalahan dari worker pool dan middleware bawaan. Task yang timeout, worker yang crash, dispatch yang ditolak di bawah beban, cookie session yang gagal didekode, dan aturan CSRF yang melempar masing-masing tiba sebagai event-nya sendiri. Saring berdasarkan kind yang terdaftar di [Referensi Event](/id/middleware/observability/events#worker) untuk merutekannya ke tempat log:
+
+```typescript twoslash
+import { Router } from '@neabyte/deserve'
+
+const router = new Router({
+  routesDir: './routes'
+})
+// ---cut---
+router.on((event) => {
+  // Bereaksi pada kesalahan worker dan middleware
+  if (event.kind === 'worker:crash' || event.kind === 'session:invalid') {
+    console.error(event.kind, event.metadata)
+  }
+})
+```
+
 ## Memasangkan Dengan Penanganan Error
 
-Dua hook menutup tugas berbeda:
+Dua hook menangani tugas berbeda:
 
 - [`router.catch()`](/id/error-handling/object-details) membentuk response yang diterima klien.
 - `router.on()` mencatat apa yang terjadi untuk log dan metrik.
@@ -65,11 +88,20 @@ Pakai `catch` untuk mengontrol balasan, dan `on` untuk mengamatinya. Pengaturan 
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
-const router = new Router({ routesDir: './routes' })
+const router = new Router({
+  routesDir: './routes'
+})
 // ---cut---
 // Bentuk response klien
 router.catch((ctx, info) => {
-  return ctx.send.json({ error: 'Something went wrong' }, { status: info.statusCode })
+  return ctx.send.json(
+    {
+      error: 'Something went wrong'
+    },
+    {
+      status: info.statusCode
+    }
+  )
 })
 
 // Catat kegagalan untuk nanti

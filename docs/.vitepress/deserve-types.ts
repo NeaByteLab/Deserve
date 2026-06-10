@@ -459,6 +459,10 @@ export interface WebSocketOptions {
 
 /** Worker pool creation options. */
 export interface WorkerPoolOptions {
+  /** Maximum pending tasks before fast-rejecting */
+  readonly maxQueueDepth?: number
+  /** Maximum projected queue wait in ms */
+  readonly maxQueueWaitMs?: number
   /** Number of workers in pool */
   readonly poolSize?: number
   /** URL to worker script module */
@@ -571,8 +575,12 @@ export interface RouterOptions {
   readonly trustProxy?: TrustProxyConfig
   /** Directory path for template views */
   readonly viewsDir?: string
-  /** Maximum loop iterations allowed */
+  /** Maximum loop iterations per #each block */
   readonly maxIterations?: number
+  /** Maximum #each body executions per render */
+  readonly maxRenderIterations?: number
+  /** Maximum total output characters per render */
+  readonly maxOutputSize?: number
   /** Worker pool configuration options */
   readonly worker?: WorkerPoolOptions
 }
@@ -633,6 +641,18 @@ export type EventBase =
       error?: Error
     }
   >
+  | LifecycleEvent<'worker:timeout', { workerIndex: number; timeoutMs: number; error: Error }>
+  | LifecycleEvent<'worker:crash', { workerIndex: number; error: Error }>
+  | LifecycleEvent<'worker:respawn', { workerIndex: number }>
+  | LifecycleEvent<
+    'worker:rejected',
+    { reason: 'queue-depth' | 'queue-wait'; queueDepth: number; maxQueueDepth: number }
+  >
+  | LifecycleEvent<
+    'session:invalid',
+    { cookieName: string; reason: 'tampered' | 'expired' | 'malformed' }
+  >
+  | LifecycleEvent<'csrf:rule-error', { rule: 'origin' | 'secFetchSite'; error: Error }>
 
 /** Discriminant value of a lifecycle event. */
 export type EventKind = EventBase['kind']

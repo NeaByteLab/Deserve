@@ -35,7 +35,9 @@ import { Mware, Router } from '@neabyte/deserve'
 const router = new Router()
 // ---cut---
 // Satu origin tepercaya
-router.use(Mware.csrf({ origin: 'https://app.example.com' }))
+router.use(Mware.csrf({
+  origin: 'https://app.example.com'
+}))
 
 // Daftar origin tepercaya
 router.use(
@@ -99,3 +101,5 @@ type CsrfRulePredicate = (value: string, ctx: Context) => boolean
 ## Penanganan Error
 
 Ketika request diblokir, middleware mengembalikan pesan `Request blocked by CSRF protection` dengan **status code 403**. Untuk membentuk response itu, daftarkan satu handler dengan [`router.catch()`](/id/error-handling/object-details), atau andalkan [perilaku default](/id/error-handling/default-behavior).
+
+Aturan `origin` atau `secFetchSite` kustom yang melempar gagal pemeriksaannya sendiri dan jatuh aman ke penolakan, dan kesalahannya muncul sebagai event [`csrf:rule-error`](/id/middleware/observability/events#middleware) yang menyebut aturan mana yang rusak alih-alih tetap tersembunyi.

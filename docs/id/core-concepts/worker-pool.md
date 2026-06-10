@@ -67,7 +67,7 @@ self.postMessage({
 
 ### 3. Pakai di Rute
 
-Handle worker tinggal di framework state, jadi `ctx.getState` menjangkaunya dengan tipe `WorkerRunHandle`. Router yang dibuat tanpa `worker` membiarkan handle undefined, yang merupakan momen untuk mengembalikan 503:
+Handle worker tinggal di framework state, jadi `ctx.getState` menjangkaunya dengan tipe `WorkerRunHandle`. Router yang dibuat tanpa `worker` membiarkan handle undefined, dan di situlah saatnya mengembalikan 503:
 
 ```typescript twoslash
 // routes/heavy.ts
@@ -76,10 +76,21 @@ import type { Context, WorkerRunHandle } from '@neabyte/deserve'
 export async function GET(ctx: Context): Promise<Response> {
   const worker = ctx.getState<WorkerRunHandle>('worker' as never)
   if (!worker) {
-    return ctx.send.json({ error: 'Worker not enabled' }, { status: 503 })
+    return ctx.send.json(
+      {
+        error: 'Worker not enabled'
+      },
+      {
+        status: 503
+      }
+    )
   }
-  const result = await worker.run<{ done: boolean; value: number }>({ iterations: 50_000 })
-  return ctx.send.json({ value: result?.value })
+  const result = await worker.run<{ done: boolean; value: number }>({
+    iterations: 50_000
+  })
+  return ctx.send.json({
+    value: result?.value
+  })
 }
 ```
 
@@ -105,7 +116,7 @@ worker: {
 
 ### `taskTimeoutMs`
 
-Timeout per tugas dalam milidetik. Default adalah **30000**. Tugas yang berjalan lebih lama ditolak dengan error timeout dan worker dilahirkan ulang.
+Timeout per tugas dalam milidetik. Default adalah **5000**. Tugas yang berjalan lebih lama ditolak dengan error timeout, slot direklaim, dan worker dijalankan ulang. Reklaim ini muncul sebagai event [`worker:timeout`](/id/middleware/observability/events#worker) lalu [`worker:respawn`](/id/middleware/observability/events#worker).
 
 ```typescript
 worker: {
@@ -113,6 +124,31 @@ worker: {
   taskTimeoutMs: 10_000
 }
 ```
+
+### `maxQueueDepth`
+
+Maksimum tugas diterima-tapi-belum-selesai yang ditahan pool sebelum menolak pekerjaan baru. Default adalah jumlah worker dikali **8**, jadi pool 4 menahan hingga 32. Begitu batas tercapai, dispatch baru ditolak langsung alih-alih diantrekan, sehingga banjir pekerjaan tidak menumpuk tanpa batas:
+
+```typescript
+worker: {
+  scriptURL: workerScriptUrl,
+  poolSize: 4,
+  maxQueueDepth: 64
+}
+```
+
+### `maxQueueWaitMs`
+
+Maksimum proyeksi tunggu, diukur sebagai jumlah tugas pending pada slot terpilih dikali `taskTimeoutMs`, sebelum dispatch ditolak. Default adalah **2000**. Tugas yang seharusnya menunggu di belakang antrean panjang ditolak cepat alih-alih menunggu:
+
+```typescript
+worker: {
+  scriptURL: workerScriptUrl,
+  maxQueueWaitMs: 5_000
+}
+```
+
+Dispatch yang ditolak langsung gagal dan muncul sebagai event [`worker:rejected`](/id/middleware/observability/events#worker), dengan `reason` menyebut apakah `maxQueueDepth` atau `maxQueueWaitMs` yang memicunya.
 
 ## Contoh Lengkap (Worker Inline)
 
@@ -127,13 +163,21 @@ self.onmessage = (e) => {
   const n = Math.max(0, Number(data.iterations) || 50000)
   let value = 0
   for (let i = 0; i < n; i++) value += Math.sqrt(i)
-  self.postMessage({ done: true, value })
+  self.postMessage({
+    done: true,
+    value
+  })
 }
 export {}
 `
 
 const workerScriptUrl = URL.createObjectURL(
-  new Blob([workerCode], { type: 'application/javascript' })
+  new Blob(
+    [workerCode],
+    {
+      type: 'application/javascript'
+    }
+  )
 )
 
 const router = new Router({
@@ -151,10 +195,11 @@ await router.serve(8000)
 
 - **Tanpa pool:** Router yang dibuat tanpa `worker` membiarkan `ctx.getState('worker' as never)` undefined. Kembalikan 503 atau pesan jelas ketika rute butuh worker.
 - **Error worker:** Ketika worker memanggil `postMessage({ error: true, message: '...' })`, `worker.run()` ditolak dengan `Error` yang membawa pesan itu. Tanpa pesan, error berbunyi `Worker returned an error with no message`.
-- **Crash worker:** Ketika worker melempar atau crash, `run()` ditolak dengan `Worker task failed before responding`.
-- **Timeout tugas:** Ketika tugas berjalan melewati `taskTimeoutMs` (default 30000), `run()` ditolak dengan `Worker task exceeded <ms>ms timeout`.
+- **Crash worker:** Ketika worker melempar atau crash, `run()` ditolak dengan `Worker task failed before responding`, dan slot pulih dengan sendirinya.
+- **Timeout tugas:** Ketika tugas berjalan melewati `taskTimeoutMs` (default 5000), `run()` ditolak dengan `Worker task exceeded <ms>ms timeout`.
+- **Ditolak di bawah beban:** Ketika pool mencapai `maxQueueDepth` atau proyeksi tunggu melewati `maxQueueWaitMs`, `run()` ditolak dengan error antrean-penuh atau slot-sibuk sebelum tugas sempat mulai.
 
-Tangkap tugas yang ditolak dan teruskan ke [error handler terpusat](/id/error-handling/object-details):
+Setiap kesalahan ini juga mengalir lewat bus observability sebagai [event worker](/id/middleware/observability/events#worker), jadi stall, crash, pemulihan, atau penolakan terlihat tanpa menyentuh jalur request. Tangkap tugas yang ditolak dan teruskan ke [error handler terpusat](/id/error-handling/object-details):
 
 ```typescript
 try {

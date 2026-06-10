@@ -76,10 +76,21 @@ import type { Context, WorkerRunHandle } from '@neabyte/deserve'
 export async function GET(ctx: Context): Promise<Response> {
   const worker = ctx.getState<WorkerRunHandle>('worker' as never)
   if (!worker) {
-    return ctx.send.json({ error: 'Worker not enabled' }, { status: 503 })
+    return ctx.send.json(
+      {
+        error: 'Worker not enabled'
+      },
+      {
+        status: 503
+      }
+    )
   }
-  const result = await worker.run<{ done: boolean; value: number }>({ iterations: 50_000 })
-  return ctx.send.json({ value: result?.value })
+  const result = await worker.run<{ done: boolean; value: number }>({
+    iterations: 50_000
+  })
+  return ctx.send.json({
+    value: result?.value
+  })
 }
 ```
 
@@ -105,7 +116,7 @@ worker: {
 
 ### `taskTimeoutMs`
 
-Per-task timeout in milliseconds. Default is **30000**. A task that runs longer rejects with a timeout error and the worker is respawned.
+Per-task timeout in milliseconds. Default is **5000**. A task that runs longer rejects with a timeout error, the slot is reclaimed, and the worker is respawned. The reclaim surfaces as a [`worker:timeout`](/middleware/observability/events#workers) event followed by [`worker:respawn`](/middleware/observability/events#workers).
 
 ```typescript
 worker: {
@@ -113,6 +124,31 @@ worker: {
   taskTimeoutMs: 10_000
 }
 ```
+
+### `maxQueueDepth`
+
+Maximum accepted-but-unsettled tasks the pool holds before turning new work away. Default is the worker count times **8**, so a pool of 4 holds up to 32. Once the ceiling is hit a new dispatch is refused immediately rather than queued, which keeps a flood of work from piling up without bound:
+
+```typescript
+worker: {
+  scriptURL: workerScriptUrl,
+  poolSize: 4,
+  maxQueueDepth: 64
+}
+```
+
+### `maxQueueWaitMs`
+
+Maximum projected wait, measured as the chosen slot's pending count times `taskTimeoutMs`, before a dispatch is refused. Default is **2000**. A task that would otherwise sit behind a long backlog is turned away fast instead of waiting:
+
+```typescript
+worker: {
+  scriptURL: workerScriptUrl,
+  maxQueueWaitMs: 5_000
+}
+```
+
+A refused dispatch rejects right away and surfaces as a [`worker:rejected`](/middleware/observability/events#workers) event, with `reason` saying whether `maxQueueDepth` or `maxQueueWaitMs` tripped it.
 
 ## Complete Example (Inline Worker)
 
@@ -127,13 +163,21 @@ self.onmessage = (e) => {
   const n = Math.max(0, Number(data.iterations) || 50000)
   let value = 0
   for (let i = 0; i < n; i++) value += Math.sqrt(i)
-  self.postMessage({ done: true, value })
+  self.postMessage({
+    done: true,
+    value
+  })
 }
 export {}
 `
 
 const workerScriptUrl = URL.createObjectURL(
-  new Blob([workerCode], { type: 'application/javascript' })
+  new Blob(
+    [workerCode],
+    {
+      type: 'application/javascript'
+    }
+  )
 )
 
 const router = new Router({
@@ -151,10 +195,11 @@ await router.serve(8000)
 
 - **No pool:** A router created without `worker` leaves `ctx.getState('worker' as never)` undefined. Return 503 or a clear message when the route requires a worker.
 - **Worker error:** When the worker calls `postMessage({ error: true, message: '...' })`, `worker.run()` rejects with an `Error` carrying that message. Without a message, the error reads `Worker returned an error with no message`.
-- **Worker crash:** When the worker throws or crashes, `run()` rejects with `Worker task failed before responding`.
-- **Task timeout:** When a task runs past `taskTimeoutMs` (default 30000), `run()` rejects with `Worker task exceeded <ms>ms timeout`.
+- **Worker crash:** When the worker throws or crashes, `run()` rejects with `Worker task failed before responding`, and the slot recovers on its own.
+- **Task timeout:** When a task runs past `taskTimeoutMs` (default 5000), `run()` rejects with `Worker task exceeded <ms>ms timeout`.
+- **Refused under load:** When the pool is at `maxQueueDepth` or the projected wait passes `maxQueueWaitMs`, `run()` rejects with a queue-full or slot-busy error before the task ever starts.
 
-Catch a rejected task and forward it to the [centralized error handler](/error-handling/object-details):
+Every one of these faults also streams through the observability bus as a [worker event](/middleware/observability/events#workers), so a stall, crash, recovery, or refusal is visible without touching the request path. Catch a rejected task and forward it to the [centralized error handler](/error-handling/object-details):
 
 ```typescript
 try {

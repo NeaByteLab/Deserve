@@ -40,7 +40,9 @@ const session = ctx.getState<DataRecord | null>('session' as never)
 
 // Save session data (async)
 const setSession = ctx.getState<(data: DataRecord) => Promise<void>>('setSession' as never)
-await setSession?.({ userId: '1' })
+await setSession?.({
+  userId: '1'
+})
 
 // Clear session
 const clearSession = ctx.getState<() => void>('clearSession' as never)
@@ -62,9 +64,18 @@ export async function POST(ctx: Context): Promise<Response> {
       userId: '1',
       username: 'admin'
     })
-    return ctx.send.json({ ok: true })
+    return ctx.send.json({
+      ok: true
+    })
   }
-  return ctx.send.json({ error: 'Invalid credentials' }, { status: 401 })
+  return ctx.send.json(
+    {
+      error: 'Invalid credentials'
+    },
+    {
+      status: 401
+    }
+  )
 }
 
 // GET: check login status
@@ -72,7 +83,9 @@ export function GET(ctx: Context): Response {
   // Read session from framework state
   const session = ctx.getState<DataRecord | null>('session' as never)
   if (!session) {
-    return ctx.send.json({ loggedIn: false })
+    return ctx.send.json({
+      loggedIn: false
+    })
   }
   return ctx.send.json({
     loggedIn: true,
@@ -85,7 +98,9 @@ export function DELETE(ctx: Context): Response {
   // Drop the session cookie
   const clearSession = ctx.getState<() => void>('clearSession' as never)
   clearSession?.()
-  return ctx.send.json({ ok: true })
+  return ctx.send.json({
+    ok: true
+  })
 }
 ```
 
@@ -129,7 +144,7 @@ The middleware checks its options when created and throws `Deno.errors.InvalidDa
 - `sameSite: 'None'` without `secure: true`, since browsers reject that combination
 - `maxAge` that is not a positive number, or an empty `path`
 
-Each cookie also carries a signed issue time, so the middleware treats a session older than `maxAge` as absent and reads it back as `null`. A tampered cookie fails the signature check and reads as `null` too, which keeps stale or forged sessions from being trusted.
+Each cookie also carries a signed issue time, so the middleware treats a session older than `maxAge` as absent and reads it back as `null`. A tampered cookie fails the signature check and reads as `null` too, which keeps stale or forged sessions from being trusted. Whenever a cookie fails to decode, the middleware emits a [`session:invalid`](/middleware/observability/events#middleware) event naming the cookie and whether the value was tampered with, expired, or malformed, while the request continues with no session attached.
 
 ## Limitations
 

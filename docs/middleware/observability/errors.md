@@ -13,7 +13,9 @@ Errors surface on the same [`router.on()`](/middleware/observability/overview) b
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
-const router = new Router({ routesDir: './routes' })
+const router = new Router({
+  routesDir: './routes'
+})
 
 // Record every failed request
 router.on((event) => {
@@ -40,13 +42,34 @@ await router.serve(8000)
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
-const router = new Router({ routesDir: './routes' })
+const router = new Router({
+  routesDir: './routes'
+})
 // ---cut---
 router.on((event) => {
   if (event.kind === 'process:error') {
     const { origin, error } = event.metadata as { origin: string; error: Error }
     // origin tells the fault source
     console.error(`process fault [${origin}]`, error.message)
+  }
+})
+```
+
+## Capturing Subsystem Faults
+
+The same listener catches faults from the worker pool and the built-in middleware. A task that times out, a worker that crashes, a dispatch refused under load, a session cookie that fails to decode, and a CSRF rule that throws each arrive as their own event. Filter on the kinds listed in the [Event Reference](/middleware/observability/events#workers) to route them wherever logs go:
+
+```typescript twoslash
+import { Router } from '@neabyte/deserve'
+
+const router = new Router({
+  routesDir: './routes'
+})
+// ---cut---
+router.on((event) => {
+  // React to worker and middleware faults
+  if (event.kind === 'worker:crash' || event.kind === 'session:invalid') {
+    console.error(event.kind, event.metadata)
   }
 })
 ```
@@ -65,11 +88,20 @@ Use `catch` to control the reply, and `on` to observe it. A typical setup wires 
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
-const router = new Router({ routesDir: './routes' })
+const router = new Router({
+  routesDir: './routes'
+})
 // ---cut---
 // Shape the client response
 router.catch((ctx, info) => {
-  return ctx.send.json({ error: 'Something went wrong' }, { status: info.statusCode })
+  return ctx.send.json(
+    {
+      error: 'Something went wrong'
+    },
+    {
+      status: info.statusCode
+    }
+  )
 })
 
 // Record the failure for later

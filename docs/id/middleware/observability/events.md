@@ -6,7 +6,7 @@ description: "Referensi semua event siklus hidup dan error yang dipancarkan rout
 
 Setiap event dari [`router.on()`](/id/middleware/observability/overview) membawa diskriminan `kind` dan objek `metadata`. Halaman ini mendaftar setiap jenis dan field yang disediakannya.
 
-![Event request bernilai external secara default tapi jadi internal ketika timeout, error framework, atau context yang hilang yang memicunya, sementara setiap kind non-request selalu internal, jadi merutekan berdasarkan field type menjaga lalu lintas klien normal tetap di luar kanal alert kesalahan](/diagrams/obs-event-channel.png)
+![Event request bernilai external secara default tapi jadi internal ketika dipicu oleh timeout, error framework, atau context yang hilang, sementara setiap kind non-request selalu internal, jadi merutekan berdasarkan field type menjaga lalu lintas klien normal tetap di luar kanal alert kesalahan](/diagrams/obs-event-channel.png)
 
 ## Server
 
@@ -15,7 +15,7 @@ Setiap event dari [`router.on()`](/id/middleware/observability/overview) membawa
 | `server:listening`  | `port`, `hostname`        |
 | `server:shutdown`   | tidak ada                 |
 
-`server:listening` menyala saat server mengikat port. `server:shutdown` menyala setelah server selesai dikuras.
+`server:listening` menyala saat server mengikat port. `server:shutdown` menyala setelah server selesai menuntaskan request berjalan.
 
 ## Rute
 
@@ -40,6 +40,26 @@ Event reload datang dari hot reload saat berkas berubah di disk.
 | `view:error`     | `path`, `error`           |
 
 Event view datang dari [mesin rendering DVE](/id/rendering/).
+
+## Worker
+
+| Kind              | Metadata                                          |
+| ----------------- | ------------------------------------------------- |
+| `worker:timeout`  | `workerIndex`, `timeoutMs`, `error`               |
+| `worker:crash`    | `workerIndex`, `error`                            |
+| `worker:respawn`  | `workerIndex`                                     |
+| `worker:rejected` | `reason` (`queue-depth`, `queue-wait`), `queueDepth`, `maxQueueDepth` |
+
+`worker:timeout` menyala saat sebuah task melewati tenggatnya, `worker:crash` saat worker mati di tengah task, dan `worker:respawn` saat slot yang dibebaskan diganti. `worker:rejected` menyala saat sebuah dispatch ditolak di bawah beban, dengan `reason` menyebut apakah kedalaman antrean atau proyeksi tunggu yang memicu batas. Ini datang dari [worker pool](/id/core-concepts/worker-pool).
+
+## Middleware
+
+| Kind              | Metadata                                          |
+| ----------------- | ------------------------------------------------- |
+| `session:invalid` | `cookieName`, `reason` (`tampered`, `expired`, `malformed`) |
+| `csrf:rule-error` | `rule` (`origin`, `secFetchSite`), `error`        |
+
+`session:invalid` menyala saat cookie bertanda tangan gagal didekode, dengan `reason` menyebut apakah nilainya dirusak, sudah lewat `maxAge`, atau malformed, sementara request lanjut tanpa session terpasang. Ini datang dari [middleware session](/id/middleware/session). `csrf:rule-error` menyala saat aturan CSRF kustom melempar, menyebut aturan mana yang rusak sementara pemeriksaan tetap jatuh aman ke penolakan. Ini datang dari [middleware CSRF](/id/middleware/csrf).
 
 ## Request
 

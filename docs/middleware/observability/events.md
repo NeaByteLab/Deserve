@@ -41,6 +41,26 @@ Reload events come from hot reload as files change on disk.
 
 View events come from the [DVE rendering engine](/rendering/).
 
+## Workers
+
+| Kind              | Metadata                                          |
+| ----------------- | ------------------------------------------------- |
+| `worker:timeout`  | `workerIndex`, `timeoutMs`, `error`               |
+| `worker:crash`    | `workerIndex`, `error`                            |
+| `worker:respawn`  | `workerIndex`                                     |
+| `worker:rejected` | `reason` (`queue-depth`, `queue-wait`), `queueDepth`, `maxQueueDepth` |
+
+`worker:timeout` fires when a task passes its deadline, `worker:crash` when a worker dies mid-task, and `worker:respawn` when the freed slot is replaced. `worker:rejected` fires when a dispatch is turned away under load, with `reason` saying whether the queue depth or the projected wait tripped the limit. These come from the [worker pool](/core-concepts/worker-pool).
+
+## Middleware
+
+| Kind              | Metadata                                          |
+| ----------------- | ------------------------------------------------- |
+| `session:invalid` | `cookieName`, `reason` (`tampered`, `expired`, `malformed`) |
+| `csrf:rule-error` | `rule` (`origin`, `secFetchSite`), `error`        |
+
+`session:invalid` fires when a signed cookie fails to decode, with `reason` naming whether the value was tampered with, aged past `maxAge`, or was malformed, while the request continues with no session attached. It comes from the [session middleware](/middleware/session). `csrf:rule-error` fires when a custom CSRF rule throws, naming which rule broke while the check still falls safe to a refusal. It comes from the [CSRF middleware](/middleware/csrf).
+
 ## Requests
 
 | Kind                | Metadata                                            |

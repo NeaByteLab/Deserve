@@ -35,7 +35,9 @@ import { Mware, Router } from '@neabyte/deserve'
 const router = new Router()
 // ---cut---
 // Single trusted origin
-router.use(Mware.csrf({ origin: 'https://app.example.com' }))
+router.use(Mware.csrf({
+  origin: 'https://app.example.com'
+}))
 
 // List of trusted origins
 router.use(
@@ -99,3 +101,5 @@ type CsrfRulePredicate = (value: string, ctx: Context) => boolean
 ## Error Handling
 
 When a request is blocked, the middleware returns message `Request blocked by CSRF protection` with **status code 403**. To shape that response, register a single handler with [`router.catch()`](/error-handling/object-details), or rely on the [default behavior](/error-handling/default-behavior).
+
+A custom `origin` or `secFetchSite` rule that throws fails its own check and falls safe to a refusal, and the fault surfaces as a [`csrf:rule-error`](/middleware/observability/events#middleware) event naming which rule broke instead of staying hidden.
