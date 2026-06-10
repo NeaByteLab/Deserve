@@ -88,23 +88,31 @@ export class Engine implements Types.ViewEngine, Types.WatchableEngine {
     }
     const renderStart = depth === 0 ? performance.now() : 0
     const renderBudget = budget ?? { iterations: 0, outputSize: 0 }
-    const compiled = await this.resolveTemplate(templatePath)
-    const outputHtml = await this.renderNodes(
-      compiled.ast,
-      data,
-      this.defaultViewsDir,
-      depth,
-      renderBudget
-    )
-    if (depth === 0) {
+    if (depth > 0) {
+      const compiled = await this.resolveTemplate(templatePath)
+      return await this.renderNodes(compiled.ast, data, this.defaultViewsDir, depth, renderBudget)
+    }
+    try {
+      const compiled = await this.resolveTemplate(templatePath)
+      const outputHtml = await this.renderNodes(
+        compiled.ast,
+        data,
+        this.defaultViewsDir,
+        depth,
+        renderBudget
+      )
       this.emit?.(
         Core.Observability.internalEvent('view:rendered', {
           path: templatePath,
           durationMs: performance.now() - renderStart
         })
       )
+      return outputHtml
+    } catch (renderError) {
+      const error = renderError instanceof Error ? renderError : new Error(String(renderError))
+      this.emit?.(Core.Observability.internalEvent('view:error', { path: templatePath, error }))
+      throw renderError
     }
-    return outputHtml
   }
 
   /**
