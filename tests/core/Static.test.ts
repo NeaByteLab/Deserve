@@ -136,6 +136,17 @@ Deno.test('Static#serveStaticFile negative cacheControl does not set header', as
   await res.body?.cancel()
 })
 
+Deno.test('Static#serveStaticFile rejects an in-root symlink that escapes the base directory', async () => {
+  const basePath = fileURLToPath(import.meta.resolve('@tests/fixtures/static/')).replace(
+    /[\\/]$/,
+    ''
+  )
+  const ctx = createTestContext('http://localhost/escape-link.txt')
+  const res = await Core.Static.serveStaticFile(ctx, { path: basePath }, '/')
+  assertEquals(res.status, 404)
+  assertEquals((await res.text()).includes('OUTSIDE-ROOT-SECRET'), false)
+})
+
 Deno.test('Static#serveStaticFile returns 404 for missing file', async () => {
   const basePath = fileURLToPath(import.meta.resolve('@tests/fixtures/static/')).replace(
     /[\\/]$/,
