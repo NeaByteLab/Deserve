@@ -38,15 +38,17 @@ await router.serve(8000)
 Tentukan prefix path untuk upgrade WebSocket:
 
 ```typescript
-listener: '/ws' // Cocok /ws, /ws/chat, /ws/room/123, dll.
-listener: '/api/ws' // Cocok /api/ws, /api/ws/data, dll.
+listener: '/ws' // Cocok /ws, /ws/chat, /ws/room/123
+listener: '/api/ws' // Cocok /api/ws, /api/ws/data
 ```
+
+Pencocokan sadar-batas, jadi path harus sama persis dengan `listener` atau berlanjut dengan `/`. Dengan `listener: '/ws'`, request ke `/ws` atau `/ws/chat` di-upgrade, tapi `/wsfoo` tidak. Garis miring di akhir `listener` dipangkas, jadi `/ws/` berperilaku sama dengan `/ws`. Mengatur `listener: '/'` mencocokkan setiap path.
 
 **Penting:** Middleware hanya mengupgrade request yang:
 
 - Membawa header `Upgrade: websocket`
 - Memakai metode `GET`
-- Punya path yang dimulai dengan nilai `listener`
+- Cocok dengan path `listener` seperti dijelaskan di atas
 
 Tanpa `listener`, middleware meneruskan setiap request dan tidak pernah mengupgrade.
 
@@ -225,10 +227,10 @@ onConnect: (socket, event, ctx) => {
 
 Handshake yang ditolak diarahkan lewat error handler alih-alih melempar saat setup:
 
-- **Origin tidak diizinkan** mengembalikan **403** dengan pesan `WebSocket handshake rejected because the Origin is not allowed`.
-- **Upgrade tidak valid** mengembalikan **400** dengan pesan `WebSocket handshake is malformed because ...`.
+- **Origin tidak diizinkan** gagal dengan **403** dan pesan `WebSocket handshake rejected because the Origin is not allowed`.
+- **Upgrade tidak valid** gagal dengan **400** dan pesan `WebSocket handshake is malformed because ...`.
 
-Untuk membentuk response ini, daftarkan satu handler dengan [`router.catch()`](/id/error-handling/object-details), atau andalkan [perilaku default](/id/error-handling/default-behavior).
+Keduanya dialirkan ke [error handler terpusat](/id/error-handling/object-details), jadi bentuk response di sana atau andalkan [perilaku default](/id/error-handling/default-behavior).
 
 ## Integrasi Dengan CORS
 

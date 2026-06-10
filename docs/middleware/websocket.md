@@ -38,15 +38,17 @@ await router.serve(8000)
 Specify the path prefix for WebSocket upgrades:
 
 ```typescript
-listener: '/ws' // Matches /ws, /ws/chat, /ws/room/123, etc.
-listener: '/api/ws' // Matches /api/ws, /api/ws/data, etc.
+listener: '/ws' // Matches /ws, /ws/chat, /ws/room/123
+listener: '/api/ws' // Matches /api/ws, /api/ws/data
 ```
+
+Matching is boundary-aware, so the path must equal the `listener` exactly or continue with a `/`. With `listener: '/ws'`, a request to `/ws` or `/ws/chat` upgrades, but `/wsfoo` does not. A trailing slash on the `listener` is stripped, so `/ws/` behaves the same as `/ws`. Setting `listener: '/'` matches every path.
 
 **Important:** The middleware only upgrades requests that:
 
 - Carry the `Upgrade: websocket` header
 - Use the `GET` method
-- Have a path that starts with the `listener` value
+- Match the `listener` path as described above
 
 Without a `listener`, the middleware passes every request through and never upgrades.
 
@@ -225,10 +227,10 @@ onConnect: (socket, event, ctx) => {
 
 A rejected handshake routes through the error handler instead of throwing at setup:
 
-- **Disallowed origin** returns **403** with message `WebSocket handshake rejected because the Origin is not allowed`.
-- **Malformed upgrade** returns **400** with message `WebSocket handshake is malformed because ...`.
+- **Disallowed origin** fails with **403** and message `WebSocket handshake rejected because the Origin is not allowed`.
+- **Malformed upgrade** fails with **400** and message `WebSocket handshake is malformed because ...`.
 
-To shape these responses, register a single handler with [`router.catch()`](/error-handling/object-details), or rely on the [default behavior](/error-handling/default-behavior).
+Both route through the [central error handler](/error-handling/object-details), so shape the response there or rely on the [default behavior](/error-handling/default-behavior).
 
 ## Integration with CORS
 
