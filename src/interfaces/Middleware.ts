@@ -136,6 +136,10 @@ export type SecurityHeadersOptions = Partial<Record<SecurityHeaderKey, SecurityH
 
 /** Session cookie options all required. */
 export type SessionCookieOpts = Required<Omit<SessionOptions, 'cookieSecret'>>
+/** Decoded signed session cookie result. */
+export type SessionDecodeResult =
+  | { readonly data: Types.DataRecord }
+  | { readonly reason: 'tampered' | 'expired' | 'malformed' }
 
 /**
  * Socket lifecycle callback with event.
