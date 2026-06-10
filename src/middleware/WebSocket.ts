@@ -78,7 +78,7 @@ export class WebSocket {
 
   /**
    * Decide whether handshake Origin is allowed.
-   * @description Validates Origin header to prevent CSWSH attacks.
+   * @description Validates Origin, missing Origin allowed only without configured policy.
    * @param ctx - Request context
    * @param allowedOrigins - Configured allowlist, '*', or undefined for same-origin
    * @returns True when the handshake may proceed
@@ -89,7 +89,7 @@ export class WebSocket {
   ): boolean {
     const requestOrigin = ctx.header('origin')
     if (!requestOrigin) {
-      return true
+      return allowedOrigins === undefined
     }
     if (allowedOrigins === '*') {
       return true
