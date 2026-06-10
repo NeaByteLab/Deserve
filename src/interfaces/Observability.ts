@@ -32,6 +32,11 @@ export type EventBase =
   | LifecycleEvent<'view:compiled' | 'view:rendered', { path: string; durationMs: number }>
   | LifecycleEvent<'view:refreshed', { paths: readonly string[] }>
   | LifecycleEvent<'view:error', { path: string } & ErrorMeta>
+  | LifecycleEvent<
+    'session:invalid',
+    { cookieName: string; reason: 'tampered' | 'expired' | 'malformed' }
+  >
+  | LifecycleEvent<'csrf:rule-error', { rule: 'origin' | 'secFetchSite' } & ErrorMeta>
   | LifecycleEvent<'worker:timeout', { timeoutMs: number; workerIndex: number } & ErrorMeta>
   | LifecycleEvent<'worker:crash', { workerIndex: number } & ErrorMeta>
   | LifecycleEvent<'worker:respawn', { workerIndex: number }>
