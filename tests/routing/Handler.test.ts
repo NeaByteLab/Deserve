@@ -691,6 +691,25 @@ Deno.test('Handler middleware wildcard /** matches deep paths', async () => {
   assertEquals(await res.text(), 'true')
 })
 
+Deno.test('Handler path-scoped middleware still applies after dot-segment normalization', async () => {
+  const handler = new Routing.Handler()
+  let guarded = false
+  handler.addMiddleware('/api', async (ctx) => {
+    guarded = true
+    return await ctx.handleError(403, new Deno.errors.PermissionDenied('blocked'))
+  })
+  ;(
+    handler as unknown as { routerInstance: { add: (m: string, p: string, d: unknown) => void } }
+  ).routerInstance.add('GET', '/api/secret', {
+    handler: () => new Response('secret-data')
+  })
+  const handle = handler.createHandler()
+  const res = await handle(new Request('http://localhost/foo/../api/secret'))
+  assertEquals(res.status, 403)
+  assertEquals(guarded, true)
+  assertEquals((await res.text()).includes('secret-data'), false)
+})
+
 Deno.test('Handler raw Response keeps its own header over a middleware default', async () => {
   const handler = new Routing.Handler()
   handler.addMiddleware('', (ctx: Core.Context, next) => {
