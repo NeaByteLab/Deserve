@@ -85,4 +85,4 @@ The middleware reads the resolved client IP from `ctx.ip`. Behind a proxy, confi
 
 ## Error Handling
 
-When a request is denied, the middleware returns message `Access denied by IP restriction` with **status code 403**. To shape that response, register a single handler with [`router.catch()`](/error-handling/object-details), or rely on the [default behavior](/error-handling/default-behavior).
+When a request is denied, the middleware fails with **403** and message `Access denied by IP restriction`. That failure routes through the [central error handler](/error-handling/object-details), so shape the response there or rely on the [default behavior](/error-handling/default-behavior).

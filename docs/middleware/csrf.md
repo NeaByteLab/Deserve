@@ -100,6 +100,6 @@ type CsrfRulePredicate = (value: string, ctx: Context) => boolean
 
 ## Error Handling
 
-When a request is blocked, the middleware returns message `Request blocked by CSRF protection` with **status code 403**. To shape that response, register a single handler with [`router.catch()`](/error-handling/object-details), or rely on the [default behavior](/error-handling/default-behavior).
+When a request is blocked, the middleware fails with **403** and message `Request blocked by CSRF protection`. That failure routes through the [central error handler](/error-handling/object-details), so shape the response there or rely on the [default behavior](/error-handling/default-behavior).
 
 A custom `origin` or `secFetchSite` rule that throws fails its own check and falls safe to a refusal, and the fault surfaces as a [`csrf:rule-error`](/middleware/observability/events#middleware) event naming which rule broke instead of staying hidden.

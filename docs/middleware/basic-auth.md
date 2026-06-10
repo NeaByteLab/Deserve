@@ -103,7 +103,7 @@ router.use(
 
 ## Error Handling
 
-A failed login returns **401 Unauthorized** with a `WWW-Authenticate: Basic realm="Secure Area"` header, which is what makes browsers show the login prompt. Credentials are checked in constant time to avoid timing leaks, and an empty `users` array throws `Deno.errors.InvalidData` when the middleware is created. To shape the 401 response, register a single handler with [`router.catch()`](/error-handling/object-details), or rely on the [default behavior](/error-handling/default-behavior).
+A failed login fails with **401 Unauthorized** and a `WWW-Authenticate: Basic realm="Secure Area"` header, which is what makes browsers show the login prompt. Credentials are checked in constant time to avoid timing leaks, and an empty `users` array throws `Deno.errors.InvalidData` when the middleware is created. The 401 routes through the [central error handler](/error-handling/object-details), so shape the response there or rely on the [default behavior](/error-handling/default-behavior).
 
 ## Browser Authentication
 

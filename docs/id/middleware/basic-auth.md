@@ -103,7 +103,7 @@ router.use(
 
 ## Penanganan Error
 
-Login yang gagal mengembalikan **401 Unauthorized** dengan header `WWW-Authenticate: Basic realm="Secure Area"`, yang membuat browser menampilkan prompt login. Kredensial diperiksa dalam waktu konstan untuk menghindari kebocoran timing, dan array `users` kosong melempar `Deno.errors.InvalidData` saat middleware dibuat. Untuk membentuk response 401, daftarkan satu handler dengan [`router.catch()`](/id/error-handling/object-details), atau andalkan [perilaku default](/id/error-handling/default-behavior).
+Login yang gagal menghasilkan **401 Unauthorized** dan header `WWW-Authenticate: Basic realm="Secure Area"`, yang membuat browser menampilkan prompt login. Kredensial diperiksa dalam waktu konstan untuk menghindari kebocoran timing, dan array `users` kosong melempar `Deno.errors.InvalidData` saat middleware dibuat. Response 401 dialirkan ke [error handler terpusat](/id/error-handling/object-details), jadi bentuk response di sana atau andalkan [perilaku default](/id/error-handling/default-behavior).
 
 ## Autentikasi Browser
 

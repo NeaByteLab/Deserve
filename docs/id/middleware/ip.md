@@ -79,4 +79,4 @@ Middleware membaca IP klien yang diresolusi dari `ctx.ip`. Di balik proxy, atur 
 
 ## Penanganan Error
 
-Ketika request ditolak, middleware mengembalikan pesan `Access denied by IP restriction` dengan **status code 403**. Untuk membentuk response itu, daftarkan satu handler dengan [`router.catch()`](/id/error-handling/object-details), atau andalkan [perilaku default](/id/error-handling/default-behavior).
+Ketika request ditolak, middleware menghasilkan **403** dan pesan `Access denied by IP restriction`. Kegagalan itu dialirkan ke [error handler terpusat](/id/error-handling/object-details), jadi bentuk response di sana atau andalkan [perilaku default](/id/error-handling/default-behavior).
