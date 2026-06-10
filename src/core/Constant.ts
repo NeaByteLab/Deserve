@@ -52,6 +52,10 @@ export class Constant {
   static readonly maxUrlLength = 8192
   /** Default max #each iterations */
   static readonly defaultMaxIterations = 100_000
+  /** Default max #each body executions per render */
+  static readonly defaultMaxRenderIterations = 1_000_000
+  /** Default max output characters per render */
+  static readonly defaultMaxOutputSize = 5_000_000
   /** Maximum template include nesting depth */
   static readonly maxIncludeDepth = 64
   /** Route watcher debounce in milliseconds */
