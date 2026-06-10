@@ -64,6 +64,21 @@ Deno.test('Static#serveStaticFile blocks path traversal via ..', async () => {
   assertEquals(res.status, 404)
 })
 
+Deno.test('Static#serveStaticFile clamps an over-long range end to the last byte', async () => {
+  const basePath = fileURLToPath(import.meta.resolve('@tests/fixtures/static/')).replace(
+    /[\\/]$/,
+    ''
+  )
+  const ctx = createTestContext('http://localhost/style.css', {
+    headers: new Headers({ Range: 'bytes=20-999' })
+  })
+  const res = await Core.Static.serveStaticFile(ctx, { path: basePath }, '/')
+  assertEquals(res.status, 206)
+  assertEquals(res.headers.get('Content-Range'), 'bytes 20-21/22')
+  assertEquals(res.headers.get('Content-Length'), '2')
+  await res.body?.cancel()
+})
+
 Deno.test('Static#serveStaticFile empty pathname serves index.html', async () => {
   const basePath = fileURLToPath(import.meta.resolve('@tests/fixtures/static/')).replace(
     /[\\/]$/,
@@ -75,6 +90,38 @@ Deno.test('Static#serveStaticFile empty pathname serves index.html', async () =>
   assertEquals(res.headers.get('Content-Type'), 'text/html')
   const body = await res.text()
   assertEquals(body.includes('static fixture'), true)
+})
+
+Deno.test('Static#serveStaticFile honors a byte range with 206 and Content-Range', async () => {
+  const basePath = fileURLToPath(import.meta.resolve('@tests/fixtures/static/')).replace(
+    /[\\/]$/,
+    ''
+  )
+  const ctx = createTestContext('http://localhost/style.css', {
+    headers: new Headers({ Range: 'bytes=0-3' })
+  })
+  const res = await Core.Static.serveStaticFile(ctx, { path: basePath }, '/')
+  assertEquals(res.status, 206)
+  assertEquals(res.headers.get('Content-Range'), 'bytes 0-3/22')
+  assertEquals(res.headers.get('Content-Length'), '4')
+  assertEquals(res.headers.get('Accept-Ranges'), 'bytes')
+  assertEquals(await res.text(), 'body')
+})
+
+Deno.test('Static#serveStaticFile ignores a multi-range request and serves the full body', async () => {
+  const basePath = fileURLToPath(import.meta.resolve('@tests/fixtures/static/')).replace(
+    /[\\/]$/,
+    ''
+  )
+  const ctx = createTestContext('http://localhost/style.css', {
+    headers: new Headers({ Range: 'bytes=0-3,5-7' })
+  })
+  const res = await Core.Static.serveStaticFile(ctx, { path: basePath }, '/')
+  assertEquals(res.status, 200)
+  assertEquals(res.headers.get('Content-Range'), null)
+  assertEquals(res.headers.get('Content-Length'), '22')
+  assertEquals(res.headers.get('Accept-Ranges'), 'bytes')
+  await res.body?.cancel()
 })
 
 Deno.test('Static#serveStaticFile negative cacheControl does not set header', async () => {
@@ -104,6 +151,34 @@ Deno.test('Static#serveStaticFile returns 404 for missing file', async () => {
   )
   const res = await Core.Static.serveStaticFile(ctxWithHandler, { path: basePath }, '/')
   assertEquals(res.status, 404)
+})
+
+Deno.test('Static#serveStaticFile returns 416 for an unsatisfiable range', async () => {
+  const basePath = fileURLToPath(import.meta.resolve('@tests/fixtures/static/')).replace(
+    /[\\/]$/,
+    ''
+  )
+  const ctx = createTestContext('http://localhost/style.css', {
+    headers: new Headers({ Range: 'bytes=100-200' })
+  })
+  const res = await Core.Static.serveStaticFile(ctx, { path: basePath }, '/')
+  await res.body?.cancel()
+  assertEquals(res.status, 416)
+  assertEquals(res.headers.get('Content-Range'), 'bytes */22')
+})
+
+Deno.test('Static#serveStaticFile serves a suffix range from the end of the file', async () => {
+  const basePath = fileURLToPath(import.meta.resolve('@tests/fixtures/static/')).replace(
+    /[\\/]$/,
+    ''
+  )
+  const ctx = createTestContext('http://localhost/style.css', {
+    headers: new Headers({ Range: 'bytes=-2' })
+  })
+  const res = await Core.Static.serveStaticFile(ctx, { path: basePath }, '/')
+  assertEquals(res.status, 206)
+  assertEquals(res.headers.get('Content-Range'), 'bytes 20-21/22')
+  assertEquals((await res.text()).length, 2)
 })
 
 Deno.test('Static#serveStaticFile serves index.html when pathname is /', async () => {
