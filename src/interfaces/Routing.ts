@@ -4,7 +4,10 @@ import type * as Core from '@core/index.ts'
 /** Request handler configuration options. */
 export interface HandlerOptions extends
   Partial<
-    Pick<Types.EngineOptions, 'maxIterations' | 'viewsDir'>
+    Pick<
+      Types.EngineOptions,
+      'maxIterations' | 'maxRenderIterations' | 'maxOutputSize' | 'viewsDir'
+    >
   > {
   /** Custom error response builder */
   readonly errorResponseBuilder?: Types.ErrorResponseBuilder
