@@ -1,3 +1,4 @@
+import type * as Types from '@interfaces/index.ts'
 import type * as Core from '@core/index.ts'
 
 /**
@@ -145,6 +146,12 @@ export interface WorkerMessageData {
 
 /** Worker pool creation options. */
 export interface WorkerPoolOptions {
+  /** Optional lifecycle event emitter */
+  readonly emit?: Types.EventEmit
+  /** Maximum pending tasks before fast-rejecting */
+  readonly maxQueueDepth?: number
+  /** Maximum projected queue wait in ms */
+  readonly maxQueueWaitMs?: number
   /** Number of workers in pool */
   readonly poolSize?: number
   /** URL to worker script module */
@@ -306,5 +313,7 @@ export type TagCarrier<K extends string> = { readonly [P in K]: string }
  * @template Shape - Payload properties for the member
  */
 export type TaggedVariant<Tag extends string, K extends string, Shape = unknown> =
-  & { readonly [P in Tag]: K }
+  & {
+    readonly [P in Tag]: K
+  }
   & Readonly<Shape>
