@@ -52,7 +52,7 @@ Default error handling covers all error types that can occur during request proc
 
 ### 404 - Route Not Found
 
-When a route doesn't exist or no matching route handler is found:
+When no route matches the request path at all:
 
 ```typescript
 // GET /nonexistent
@@ -64,8 +64,20 @@ When a route doesn't exist or no matching route handler is found:
 This includes:
 
 - Non-existent routes
-- Routes with incorrect HTTP methods
-- Routes that fail to match during routing resolution
+- Paths that match no pattern during routing resolution
+
+### 405 - Method Not Allowed
+
+When the path matches a route but the method has no handler, the response is `405` with an `Allow` header listing the supported methods:
+
+```typescript
+// DELETE /users (only GET and POST defined)
+// Status: 405
+// Body: JSON or HTML (by Accept header)
+// Headers: { Allow: "GET, HEAD, POST" }
+```
+
+`HEAD` is added automatically whenever a `GET` handler exists.
 
 ### 500 - Server Errors
 

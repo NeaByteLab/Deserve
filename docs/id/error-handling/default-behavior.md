@@ -52,7 +52,7 @@ Penanganan error default mencakup semua jenis error yang bisa terjadi selama pem
 
 ### 404 - Rute Tidak Ditemukan
 
-Ketika rute tidak ada atau tidak ada route handler yang cocok:
+Ketika tidak ada rute yang cocok dengan path request sama sekali:
 
 ```typescript
 // GET /nonexistent
@@ -64,8 +64,20 @@ Ketika rute tidak ada atau tidak ada route handler yang cocok:
 Ini mencakup:
 
 - Rute yang tidak ada
-- Rute dengan metode HTTP yang salah
-- Rute yang gagal cocok saat resolusi routing
+- Path yang tidak cocok dengan pola mana pun saat resolusi routing
+
+### 405 - Metode Tidak Diizinkan
+
+Ketika path cocok dengan sebuah rute tapi metodenya tidak punya handler, response-nya **405** dengan header `Allow` yang mendaftar metode yang didukung:
+
+```typescript
+// DELETE /users (hanya GET dan POST terdefinisi)
+// Status: 405
+// Body: JSON atau HTML (lewat header Accept)
+// Headers: { Allow: "GET, HEAD, POST" }
+```
+
+`HEAD` ditambahkan otomatis setiap kali handler `GET` ada.
 
 ### 500 - Error Server
 
