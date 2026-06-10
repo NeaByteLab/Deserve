@@ -245,7 +245,10 @@ export default withMermaid(
                 collapsed: true,
                 items: [
                   { text: 'File Uploads', link: '/recipes/file-upload' },
-                  { text: 'Streaming Data', link: '/recipes/streaming-data' }
+                  { text: 'Streaming Data', link: '/recipes/streaming-data' },
+                  { text: 'Object Storage', link: '/recipes/object-storage' },
+                  { text: 'Graceful Shutdown', link: '/recipes/graceful-shutdown' },
+                  { text: 'Production Deploy', link: '/recipes/production-deploy' }
                 ]
               }
             ]
@@ -432,7 +435,10 @@ export default withMermaid(
                 collapsed: true,
                 items: [
                   { text: 'Upload File', link: '/id/recipes/file-upload' },
-                  { text: 'Streaming Data', link: '/id/recipes/streaming-data' }
+                  { text: 'Streaming Data', link: '/id/recipes/streaming-data' },
+                  { text: 'Object Storage', link: '/id/recipes/object-storage' },
+                  { text: 'Graceful Shutdown', link: '/id/recipes/graceful-shutdown' },
+                  { text: 'Production Deploy', link: '/id/recipes/production-deploy' }
                 ]
               }
             ]
