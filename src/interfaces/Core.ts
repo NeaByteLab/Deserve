@@ -1,6 +1,14 @@
 import type * as Types from '@interfaces/index.ts'
 import type * as Core from '@core/index.ts'
 
+/** Inclusive byte range for partial content. */
+export interface ByteRange {
+  /** Inclusive end byte offset */
+  readonly end: number
+  /** Inclusive start byte offset */
+  readonly start: number
+}
+
 /**
  * Internal framework-only Context surface.
  * @description Members reachable cross-module via the InternalContext symbol.
