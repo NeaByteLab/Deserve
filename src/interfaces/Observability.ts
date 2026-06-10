@@ -32,6 +32,13 @@ export type EventBase =
   | LifecycleEvent<'view:compiled' | 'view:rendered', { path: string; durationMs: number }>
   | LifecycleEvent<'view:refreshed', { paths: readonly string[] }>
   | LifecycleEvent<'view:error', { path: string } & ErrorMeta>
+  | LifecycleEvent<'worker:timeout', { timeoutMs: number; workerIndex: number } & ErrorMeta>
+  | LifecycleEvent<'worker:crash', { workerIndex: number } & ErrorMeta>
+  | LifecycleEvent<'worker:respawn', { workerIndex: number }>
+  | LifecycleEvent<
+    'worker:rejected',
+    { reason: 'queue-depth' | 'queue-wait'; queueDepth: number; maxQueueDepth: number }
+  >
   | LifecycleEvent<
     'request:complete' | 'request:error',
     & {
