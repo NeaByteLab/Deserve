@@ -100,6 +100,35 @@ Deno.test('csrf blocks unsafe POST with no Origin and no Sec-Fetch-Site', async 
   assertEquals(res?.status, 403)
 })
 
+Deno.test('csrf emits csrf:rule-error when a custom rule predicate throws', async () => {
+  const events: Array<{ kind: string; metadata: Record<string, unknown> }> = []
+  const url = 'http://localhost/'
+  const request = new Request(url, {
+    method: 'POST',
+    headers: new Headers({ 'Sec-Fetch-Site': 'same-origin' })
+  })
+  const ctx = new Core.Context(
+    request,
+    new URL(url),
+    {},
+    undefined,
+    undefined,
+    undefined,
+    (event) => events.push(event as { kind: string; metadata: Record<string, unknown> })
+  )
+  const middleware = Middleware.Mware.csrf({
+    secFetchSite: () => {
+      throw new Error('boom in user sec fn')
+    }
+  })
+  const res = await middleware(ctx, async () => new Response('ok'))
+  assertEquals(res?.status, 403)
+  const ruleErrors = events.filter((e) => e.kind === 'csrf:rule-error')
+  assertEquals(ruleErrors.length, 1)
+  assertEquals(ruleErrors[0]?.metadata['rule'], 'secFetchSite')
+  assertEquals(ruleErrors[0]?.metadata['error'] instanceof Error, true)
+})
+
 Deno.test('csrf gates all unsafe methods identically', async () => {
   const middleware = Middleware.Mware.csrf()
   for (const method of ['POST', 'PUT', 'PATCH', 'DELETE']) {
