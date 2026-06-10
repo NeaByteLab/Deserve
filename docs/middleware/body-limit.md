@@ -6,7 +6,7 @@ description: "Limit incoming request body size to guard against oversized payloa
 
 > **Reference**: [RFC 7230 HTTP/1.1 Message Syntax and Routing](https://datatracker.ietf.org/doc/html/rfc7230#section-3.3.1)
 
-Body Limit middleware enforces a maximum request body size. When a body is present, the body stream is always wrapped with a limiter so the size is enforced regardless of headers, which keeps large payloads from overwhelming the server.
+Body Limit middleware enforces a maximum request body size. When a body is present on a method that allows one, the body stream is wrapped with a limiter so the size is enforced as bytes arrive, not only from headers, which keeps large payloads from overwhelming the server.
 
 ## Basic Usage
 
@@ -71,11 +71,11 @@ limit: 10 * 1024 * 1024
 
 ## How It Works
 
-When a request has a body, the middleware wraps the body stream with a byte limiter so the size is enforced as the body is read (not only via headers):
+When a request can carry a body, the middleware checks the declared size first, then wraps the body stream with a byte limiter so the size is enforced as the body is read, not only from headers:
 
-1. **GET/HEAD or no body** - nothing is wrapped and the request passes through.
-2. **Body present** - the body stream is wrapped with the limiter. When the client sends more bytes than `limit`, reading stops and the middleware responds with **413**.
-3. **Content-Length** - when present without `Transfer-Encoding` and above `limit`, the request is rejected before the body is read.
+1. **GET or HEAD** - nothing is wrapped and the request passes through.
+2. **Content-Length** - when present without `Transfer-Encoding`, the request is rejected before the body is read if the value is missing a number, negative, or above `limit`.
+3. **Body present** - on a method that allows a body, the stream is wrapped with the limiter. When the client sends more bytes than `limit`, reading stops and the middleware responds with **413**.
 
 ### RFC 7230
 
@@ -109,4 +109,4 @@ await router.serve(8000)
 
 ## Error Handling
 
-When the limit is exceeded, the middleware returns message `Request body exceeds <limit> bytes limit` with **status code 413**. A known `Content-Length` above the limit is rejected before the body is read, while a chunked or oversized stream is rejected as soon as the extra bytes arrive. To shape that response, register a single handler with [`router.catch()`](/error-handling/object-details), or rely on the [default behavior](/error-handling/default-behavior).
+When the limit is exceeded, the middleware fails with status **413** and message `Request body exceeds <limit> bytes limit`, whether a declared `Content-Length` trips it before the body is read or an oversized stream trips it as the extra bytes arrive. That failure routes through the [central error handler](/error-handling/object-details) like any other, so shape the response there or rely on the [default behavior](/error-handling/default-behavior).

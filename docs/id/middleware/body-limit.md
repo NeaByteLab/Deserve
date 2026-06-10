@@ -6,7 +6,7 @@ description: "Batasi ukuran body request masuk untuk mencegah payload yang terla
 
 > **Referensi**: [RFC 7230 HTTP/1.1 Message Syntax and Routing](https://datatracker.ietf.org/doc/html/rfc7230#section-3.3.1)
 
-Middleware Body Limit memberlakukan ukuran maksimum body request. Ketika body ada, stream body selalu dibungkus dengan limiter sehingga ukurannya diberlakukan terlepas dari header, yang mencegah payload besar membebani server.
+Middleware Body Limit memberlakukan ukuran maksimum body request. Ketika body ada pada metode yang mengizinkannya, stream body dibungkus dengan limiter sehingga ukurannya diberlakukan saat byte tiba, bukan hanya dari header, yang mencegah payload besar membebani server.
 
 ## Penggunaan Dasar
 
@@ -71,11 +71,11 @@ limit: 10 * 1024 * 1024
 
 ## Cara Kerja
 
-Ketika request punya body, middleware membungkus stream body dengan limiter byte sehingga ukurannya diberlakukan saat body dibaca (bukan hanya lewat header):
+Ketika request bisa membawa body, middleware memeriksa ukuran yang dideklarasikan dulu, lalu membungkus stream body dengan limiter byte sehingga ukurannya diberlakukan saat body dibaca, bukan hanya dari header:
 
-1. **GET/HEAD atau tanpa body** - tidak ada yang dibungkus dan request lolos.
-2. **Body ada** - stream body dibungkus dengan limiter. Ketika klien mengirim byte lebih banyak dari `limit`, pembacaan berhenti dan middleware membalas dengan **413**.
-3. **Content-Length** - ketika ada tanpa `Transfer-Encoding` dan di atas `limit`, request ditolak sebelum body dibaca.
+1. **GET atau HEAD** - tidak ada yang dibungkus dan request lolos.
+2. **Content-Length** - ketika ada tanpa `Transfer-Encoding`, request ditolak sebelum body dibaca jika nilainya bukan angka, negatif, atau di atas `limit`.
+3. **Body ada** - pada metode yang mengizinkan body, stream dibungkus dengan limiter. Ketika klien mengirim byte lebih banyak dari `limit`, pembacaan berhenti dan middleware membalas dengan **413**.
 
 ### RFC 7230
 
@@ -109,4 +109,4 @@ await router.serve(8000)
 
 ## Penanganan Error
 
-Ketika batas terlampaui, middleware mengembalikan pesan `Request body exceeds <limit> bytes limit` dengan **status code 413**. `Content-Length` yang diketahui di atas batas ditolak sebelum body dibaca, sementara stream chunked atau yang terlalu besar ditolak begitu byte tambahan tiba. Untuk membentuk response itu, daftarkan satu handler dengan [`router.catch()`](/id/error-handling/object-details), atau andalkan [perilaku default](/id/error-handling/default-behavior).
+Ketika batas terlampaui, middleware gagal dengan status **413** dan pesan `Request body exceeds <limit> bytes limit`, baik saat `Content-Length` yang dideklarasikan memicunya sebelum body dibaca maupun saat stream yang terlalu besar memicunya begitu byte tambahan tiba. Kegagalan itu dialirkan ke [error handler terpusat](/id/error-handling/object-details) seperti error lain, jadi bentuk response di sana atau andalkan [perilaku default](/id/error-handling/default-behavior).
