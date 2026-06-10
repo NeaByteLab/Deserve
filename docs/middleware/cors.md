@@ -139,7 +139,7 @@ Every option has a default, so `Mware.cors()` with no arguments allows any origi
 | Option           | Default                                            |
 | ---------------- | -------------------------------------------------- |
 | `origin`         | `'*'`                                              |
-| `methods`        | all HTTP methods                                   |
+| `methods`        | `['DELETE', 'GET', 'HEAD', 'OPTIONS', 'PATCH', 'POST', 'PUT']` |
 | `allowedHeaders` | `['Content-Type', 'Authorization', 'X-Requested-With']` |
 | `exposedHeaders` | `[]`                                               |
 | `credentials`    | `false`                                            |

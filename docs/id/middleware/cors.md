@@ -139,7 +139,7 @@ Setiap opsi punya default, jadi `Mware.cors()` tanpa argumen mengizinkan origin 
 | Opsi             | Default                                            |
 | ---------------- | -------------------------------------------------- |
 | `origin`         | `'*'`                                              |
-| `methods`        | semua metode HTTP                                  |
+| `methods`        | `['DELETE', 'GET', 'HEAD', 'OPTIONS', 'PATCH', 'POST', 'PUT']` |
 | `allowedHeaders` | `['Content-Type', 'Authorization', 'X-Requested-With']` |
 | `exposedHeaders` | `[]`                                               |
 | `credentials`    | `false`                                            |
