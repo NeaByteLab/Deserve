@@ -40,6 +40,8 @@ export class Context {
   private clientIpValue: string | undefined
   /** Direct TCP peer IP address */
   private directIpValue: string | undefined
+  /** Optional router event emitter for observability */
+  private emit: Types.EventEmit | undefined
 
   /**
    * Create context for one request.
@@ -50,6 +52,7 @@ export class Context {
    * @param errorHandler - Optional custom error handler
    * @param clientIp - Resolved client IP address
    * @param directIp - Direct TCP peer IP address
+   * @param emit - Optional router event emitter for observability
    */
   constructor(
     req: Request,
@@ -57,7 +60,8 @@ export class Context {
     params?: Types.StringRecord,
     errorHandler?: Types.ErrorHandler,
     clientIp?: string,
-    directIp?: string
+    directIp?: string,
+    emit?: Types.EventEmit
   ) {
     this.req = req
     this.parsedUrl = url
@@ -65,6 +69,7 @@ export class Context {
     this.errorHandler = errorHandler
     this.clientIpValue = clientIp
     this.directIpValue = directIp ?? clientIp
+    this.emit = emit
   }
 
   /** Internal framework-only Context surface */
@@ -77,6 +82,7 @@ export class Context {
       replaceRequest: (req) => this.replaceRequest(req),
       setParams: (params) => this.setParams(params),
       setInternalState: (key, value) => this.setInternalState(key, value),
+      emitEvent: (event) => this.emit?.(event),
       get responseCookies() {
         return readCookies()
       },

@@ -162,7 +162,8 @@ export class Handler {
         undefined,
         boundHandleResponse,
         clientIp,
-        directIp
+        directIp,
+        (event) => this.events.emit(event)
       )
       if (workerHandle) {
         holder.ctx[Core.InternalContext].setInternalState(

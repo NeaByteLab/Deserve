@@ -47,6 +47,12 @@ export interface ContextInternal {
    * @param value - Value matching the key type
    */
   setInternalState<T>(key: StateKey<T>, value: T): void
+  /**
+   * Emit lifecycle event on router bus.
+   * @description No-op when the router has no emitter wired.
+   * @param event - Lifecycle event to broadcast
+   */
+  emitEvent(event: Types.EventBase): void
   /** Snapshot of accumulated Set-Cookie values */
   readonly responseCookies: readonly string[]
   /** Snapshot copy of accumulated response headers */
