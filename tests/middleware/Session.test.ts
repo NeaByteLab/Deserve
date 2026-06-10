@@ -216,6 +216,26 @@ Deno.test('session emits session:invalid with reason tampered for a forged signa
   assertEquals(invalid[0]?.metadata['cookieName'], 'session')
 })
 
+Deno.test('session ignores a caller-supplied _iat so a session cannot forge its own lifetime', async () => {
+  const middleware = Middleware.Mware.session({ cookieSecret: testSecret, maxAge: 1 })
+  const ctx1 = createTestContext('http://localhost/')
+  await middleware(ctx1, async () => {
+    const set = ctx1.getState(Handler.stateKeys.setSession) as (
+      d: Record<string, unknown>
+    ) => Promise<void>
+    await set({ userId: 'admin', _iat: 99999999999 })
+    return new Response()
+  })
+  const cookie =
+    (ctx1[Core.InternalContext].responseCookies.at(-1) ?? '').match(/session=([^;]+)/)?.[1] ?? ''
+  await new Promise((r) => setTimeout(r, 2500))
+  const ctx2 = createTestContext('http://localhost/', {
+    headers: new Headers({ Cookie: `session=${cookie}` })
+  })
+  await middleware(ctx2, (): Promise<Response> => Promise.resolve(new Response()))
+  assertEquals(ctx2.getState(Handler.stateKeys.session), null)
+})
+
 Deno.test('session invalid or malformed cookie yields null', async () => {
   const middleware = Middleware.Mware.session({ cookieSecret: testSecret })
   const ctx = createTestContext('http://localhost/', {
