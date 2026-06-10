@@ -51,16 +51,13 @@ export class Respond {
 
   /**
    * Build HEAD response preserving GET headers.
-   * @description Strips body, derives Content-Length when header missing.
+   * @description Strips and cancels body, keeps existing Content-Length unchanged.
    * @param response - The fully built GET-equivalent response
    * @returns Bodyless response with preserved representation headers
    */
   static async toHeadResponse(response: Response): Promise<Response> {
     const headHeaders = new Core.API.Headers(response.headers)
-    if (response.body && !headHeaders.has('Content-Length')) {
-      const bodyBytes = new Uint8Array(await response.arrayBuffer())
-      headHeaders.set('Content-Length', bodyBytes.byteLength.toString())
-    } else if (response.body) {
+    if (response.body) {
       await response.body.cancel()
     }
     return new Core.API.Response(null, {
