@@ -82,7 +82,7 @@ Deno.test('Handler 414 HTML response includes charset', async () => {
   assertEquals(res.headers.get('Content-Type'), 'text/html; charset=utf-8')
 })
 
-Deno.test('Handler HEAD reports the same Content-Length as GET would send', async () => {
+Deno.test('Handler HEAD omits Content-Length rather than buffering an unset-length body', async () => {
   const handler = new Routing.Handler()
   const routeModule = {
     GET: (ctx: Core.Context) => ctx.send.json({ hello: 'world' })
@@ -95,10 +95,27 @@ Deno.test('Handler HEAD reports the same Content-Length as GET would send', asyn
     ['GET']
   )
   const serve = handler.createHandler()
-  const getRes = await serve(new Request('http://localhost/cl', { method: 'GET' }))
-  const getBodyLength = (await getRes.arrayBuffer()).byteLength
   const headRes = await serve(new Request('http://localhost/cl', { method: 'HEAD' }))
-  assertEquals(headRes.headers.get('Content-Length'), getBodyLength.toString())
+  assertEquals(headRes.headers.get('Content-Length'), null)
+  assertEquals(headRes.body, null)
+  assertEquals(headRes.status, 200)
+})
+
+Deno.test('Handler HEAD preserves a Content-Length the handler set explicitly', async () => {
+  const handler = new Routing.Handler()
+  const routeModule = {
+    GET: () => new Response('hello', { headers: { 'Content-Length': '5' } })
+  }
+  Routing.Scanner.registerHandlers(
+    (handler as unknown as { routerInstance: { add: (m: string, p: string, d: unknown) => void } })
+      .routerInstance as Parameters<typeof Routing.Scanner.registerHandlers>[0],
+    routeModule,
+    '/cl-explicit',
+    ['GET']
+  )
+  const serve = handler.createHandler()
+  const headRes = await serve(new Request('http://localhost/cl-explicit', { method: 'HEAD' }))
+  assertEquals(headRes.headers.get('Content-Length'), '5')
   assertEquals(headRes.body, null)
   assertEquals(headRes.status, 200)
 })
