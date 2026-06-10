@@ -58,9 +58,23 @@ export class Session {
     return Middleware.WrapMware('Session error', async (ctx, next) => {
       const key = await getHmacKey()
       const cookieValue = ctx.cookie(sessionOptions.cookieName)
+      let sessionState: Types.DataRecord | null = null
+      if (cookieValue) {
+        const decoded = await Session.decodePayload(cookieValue, key, maxAge)
+        if ('data' in decoded) {
+          sessionState = decoded.data
+        } else {
+          ctx[Core.InternalContext].emitEvent(
+            Core.Observability.internalEvent('session:invalid', {
+              cookieName: sessionOptions.cookieName,
+              reason: decoded.reason
+            })
+          )
+        }
+      }
       ctx[Core.InternalContext].setInternalState(
         Core.Handler.stateKeys.session,
-        cookieValue ? await Session.decodePayload(cookieValue, key, maxAge) : null
+        sessionState
       )
       ctx[Core.InternalContext].setInternalState(
         Core.Handler.stateKeys.setSession,
@@ -130,24 +144,24 @@ export class Session {
 
   /**
    * Decode and verify signed session payload.
-   * @description Returns null on parse error, invalid signature, or expiry.
+   * @description Returns data on success, or a failure reason.
    * @param encodedValue - Cookie value payload dot signature base64url
    * @param key - CryptoKey for HMAC verification
    * @param maxAge - Maximum age in seconds for server-side expiry
-   * @returns Session data or null
+   * @returns Session data or a discriminated failure reason
    */
   private static async decodePayload(
     encodedValue: string,
     key: CryptoKey,
     maxAge: number
-  ): Promise<Types.DataRecord | null> {
+  ): Promise<Types.SessionDecodeResult> {
     try {
       const decodedValue = encodedValue.includes('%')
         ? decodeURIComponent(encodedValue)
         : encodedValue
       const dotIndex = decodedValue.lastIndexOf('.')
       if (dotIndex <= 0 || dotIndex === decodedValue.length - 1) {
-        return null
+        return { reason: 'malformed' }
       }
       const payloadB64 = decodedValue.slice(0, dotIndex)
       const signatureB64 = decodedValue.slice(dotIndex + 1)
@@ -159,19 +173,19 @@ export class Session {
         Core.Constant.encoder.encode(payloadB64)
       )
       if (!isValid) {
-        return null
+        return { reason: 'tampered' }
       }
       const payloadBytes = Session.base64UrlDecode(payloadB64)
       const payloadStr = Core.Constant.decoder.decode(payloadBytes)
       const parsedPayload = Core.API.jsonParse(payloadStr) as Types.DataRecord
       const issuedAt = parsedPayload['_iat']
       if (typeof issuedAt !== 'number' || Math.floor(Date.now() / 1000) - issuedAt > maxAge) {
-        return null
+        return { reason: 'expired' }
       }
       const { _iat, ...sessionData } = parsedPayload
-      return sessionData
+      return { data: sessionData }
     } catch {
-      return null
+      return { reason: 'malformed' }
     }
   }
 
