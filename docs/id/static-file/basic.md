@@ -10,7 +10,7 @@ Sajikan file statis (HTML, CSS, JS, images) menggunakan method `static()`.
 
 Sajikan file statis dari direktori:
 
-![Memanggil router.static dengan prefix garis miring static dan path titik garis miring public mendaftarkan pola garis miring static garis miring bintang bintang, lalu tiap request prefix garis miring static-nya dipotong dari ctx.pathname dan sisanya digabung di bawah public, jadi garis miring static memetakan ke public garis miring index titik html, garis miring static garis miring css garis miring style titik css memetakan ke public garis miring css garis miring style titik css, dan segmen apa pun yang diawali titik atau titik titik atau path yang lolos dari base ditolak dengan 404 sebelum pembacaan apa pun](/diagrams/static-url-to-file.png)
+![Memanggil router.static dengan prefix garis miring static dan path titik garis miring public mendaftarkan pola garis miring static garis miring bintang bintang, lalu tiap request prefix garis miring static-nya dipotong dari ctx.pathname dan sisanya digabung di bawah public, jadi garis miring static memetakan ke public garis miring index titik html, garis miring static garis miring css garis miring style titik css memetakan ke public garis miring css garis miring style titik css, dan garis miring static garis miring titik env ditolak dengan 404 sebelum pembacaan apa pun karena segmennya diawali titik](/diagrams/static-url-to-file.png)
 
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
@@ -31,7 +31,7 @@ Ini menyajikan file dari direktori `public/` di path URL `/static`:
 
 - `GET /static/index.html` → menyajikan `public/index.html`
 - `GET /static/css/style.css` → menyajikan `public/css/style.css`
-- `GET /static/js/app.js` → menyajikan `public/js/app.js`
+- `GET /static/.env` → ditolak dengan **404** sebelum pembacaan apa pun
 
 
 ## Cara Kerja
@@ -81,7 +81,7 @@ router.static('/assets', {
 
 ### `etag`
 
-Aktifkan generasi ETag untuk caching. Tag adalah hash SHA-256 dari ukuran file dan waktu modifikasi, bukan isi file penuh, jadi tetap murah dihitung:
+Aktifkan pembuatan ETag untuk caching. Tag adalah hash SHA-256 dari ukuran file dan waktu modifikasi, bukan isi file penuh, jadi tetap murah dihitung:
 
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
@@ -116,12 +116,22 @@ router.static('/assets', {
 })
 ```
 
+## Permintaan Byte-Range
+
+Response statis mendukung satu [byte range](https://www.rfc-editor.org/rfc/rfc7233) sehingga klien bisa mengambil sebagian berkas, yang diandalkan oleh penggeser video atau unduhan yang bisa dilanjutkan. Setiap response statis mengumumkan `Accept-Ranges: bytes`, dan request yang membawa satu header `Range` kontigu dijawab dengan jendela yang cocok:
+
+- **Satu range valid** mengembalikan **206 Partial Content** dengan header `Content-Range: bytes start-end/size` dan hanya byte itu yang dialirkan dari disk.
+- **Range tak terpenuhi** yang menyebut jendela melewati ukuran berkas mengembalikan **416 Range Not Satisfiable** dengan `Content-Range: bytes */size`.
+- **Range yang tidak ada, multi-bagian, atau tidak valid** kembali menyajikan berkas penuh seperti sebelumnya.
+
+Hanya byte di dalam jendela yang diminta yang dibaca, dan handle berkas dilepas begitu jendela terkirim, error, atau dibatalkan.
+
 ## Resolusi File dan Keamanan
 
 Penyajian static memetakan path URL ke file di bawah direktori yang dikonfigurasi, dengan beberapa aturan bawaan:
 
 - **Index fallback** - request ke root route menyajikan `index.html` dari direktori.
-- **Content type** - tipe dipilih dari ekstensi file. Aset web umum seperti HTML, CSS, JavaScript, JSON, images, fonts, dan dokumen sudah dipetakan langsung, dan ekstensi tidak dikenal jatuh ke `application/octet-stream`.
+- **Content type** - tipe dipilih dari ekstensi file. Aset web umum seperti HTML, CSS, JavaScript, JSON, images, fonts, dan dokumen sudah dipetakan langsung, dan ekstensi tidak dikenal memakai `application/octet-stream`.
 - **Dotfiles diblokir** - segment path apa pun yang namanya diawali `.` ditolak dengan **404**, jadi file seperti `.env`, `.git/config`, atau `..` di awal tidak pernah disajikan. Aturan melihat nama segment, bukan ekstensi, jadi file biasa seperti `report.env` tetap disajikan.
 - **Directory traversal diblokir** - real path hasil resolusi harus tetap di dalam direktori dasar. Path yang lolos keluar, misalnya dibangun dari `..`, ditolak dengan **404**.
 

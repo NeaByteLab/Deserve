@@ -10,7 +10,7 @@ Serve static files (HTML, CSS, JS, images) using the `static()` method.
 
 Serve static files from a directory:
 
-![Calling router.static with the prefix slash static and path dot slash public registers the pattern slash static slash star star, then each request has its slash static prefix sliced off ctx.pathname and the remainder joined under public, so slash static maps to public slash index dot html, slash static slash css slash style dot css maps to public slash css slash style dot css, and any segment starting with a dot or dot dot or a path escaping the base is rejected with 404 before any read](/diagrams/static-url-to-file.png)
+![Calling router.static with the prefix slash static and path dot slash public registers the pattern slash static slash star star, then each request has its slash static prefix sliced off ctx.pathname and the remainder joined under public, so slash static maps to public slash index dot html, slash static slash css slash style dot css maps to public slash css slash style dot css, and slash static slash dot env is rejected with 404 before any read because the segment starts with a dot](/diagrams/static-url-to-file.png)
 
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
@@ -31,7 +31,7 @@ This serves files from the `public/` directory at the `/static` URL path:
 
 - `GET /static/index.html` → serves `public/index.html`
 - `GET /static/css/style.css` → serves `public/css/style.css`
-- `GET /static/js/app.js` → serves `public/js/app.js`
+- `GET /static/.env` → rejected with **404** before any read
 
 
 ## How It Works
@@ -115,6 +115,16 @@ router.static('/assets', {
   cacheControl: 31536000 // Cache for 1 year
 })
 ```
+
+## Byte-Range Requests
+
+Static responses support a single [byte range](https://www.rfc-editor.org/rfc/rfc7233) so a client can fetch part of a file, which is what a video scrubber or a resumable download relies on. Every static response advertises `Accept-Ranges: bytes`, and a request carrying one contiguous `Range` header is answered with the matched window:
+
+- **One valid range** returns **206 Partial Content** with a `Content-Range: bytes start-end/size` header and only those bytes streamed off disk.
+- **An unsatisfiable range** that names a window past the file size returns **416 Range Not Satisfiable** with `Content-Range: bytes */size`.
+- **An absent, multi-part, or malformed range** falls back to the full file as before.
+
+Only the bytes inside the requested window are read, and the file handle is released once the window is sent, errors, or is cancelled.
 
 ## File Resolution and Security
 
