@@ -5,6 +5,13 @@
   --vp-c-brand-soft: rgba(21, 143, 119, 0.14);
 }
 
+.dark {
+  --vp-c-bg: #0f1117;
+  --vp-c-bg-alt: #0b0d12;
+  --vp-c-bg-soft: #171a23;
+  --vp-c-bg-elv: #171a23;
+}
+
 .VPHomeHero .image-container,
 .VPHomeHero .image-bg,
 .VPHomeHero .VPImage.image-src {
