@@ -17,6 +17,14 @@ declare namespace Deno {
     path: string | URL,
     data: Uint8Array | ReadableStream<Uint8Array>
   ): Promise<void>
+  interface FsFile {
+    write(data: Uint8Array): Promise<number>
+    close(): void
+  }
+  function open(
+    path: string | URL,
+    options?: { read?: boolean; write?: boolean; create?: boolean; append?: boolean }
+  ): Promise<FsFile>
   function watchFs(
     paths: string | string[],
     options?: { recursive?: boolean }

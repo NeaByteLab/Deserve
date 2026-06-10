@@ -638,6 +638,12 @@ export type EventBase =
       url: string
       durationMs: number
       ip?: string
+      route?: string
+      serverAddress?: string
+      serverPort?: number
+      userAgent?: string
+      requestSize?: number
+      responseSize?: number
       error?: Error
     }
   >
