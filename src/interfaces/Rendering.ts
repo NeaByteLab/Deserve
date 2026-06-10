@@ -20,10 +20,22 @@ export interface DveStackFrame {
 export interface EngineOptions {
   /** Optional lifecycle event emitter */
   readonly emit?: Types.EventEmit
-  /** Maximum loop iterations allowed */
+  /** Maximum loop iterations per #each block */
   readonly maxIterations?: number
+  /** Maximum #each body executions per render */
+  readonly maxRenderIterations?: number
+  /** Maximum total output characters per render */
+  readonly maxOutputSize?: number
   /** Directory path for template views */
   readonly viewsDir: string
+}
+
+/** Per-render cumulative resource budget. */
+export interface RenderBudget {
+  /** Total #each body executions this render */
+  iterations: number
+  /** Total output characters this render */
+  outputSize: number
 }
 
 /**
