@@ -384,6 +384,22 @@ Deno.test('Engine#render renders simple variable', async () => {
   assertEquals(html.trim(), 'Hello World.')
 })
 
+Deno.test('Engine#render security: a polluted Object.prototype does not leak into a template read', async () => {
+  const viewsDir = fileURLToPath(import.meta.resolve('@tests/fixtures/views/')).replace(
+    /[\\/]$/,
+    ''
+  )
+  const engine = new Rendering.Engine({ viewsDir })
+  const proto = Object.prototype as unknown as Record<string, unknown>
+  proto['isAdmin'] = 'YES-POLLUTED'
+  try {
+    const html = await engine.render('attack-pollution.dve', { probe: {} })
+    assertEquals(html.trim(), '[]')
+  } finally {
+    delete proto['isAdmin']
+  }
+})
+
 Deno.test('Engine#render security: assignment is rejected', async () => {
   const viewsDir = fileURLToPath(import.meta.resolve('@tests/fixtures/views/')).replace(
     /[\\/]$/,
@@ -460,6 +476,16 @@ Deno.test('Engine#render security: self-including template is stopped by include
     Deno.errors.InvalidData,
     'include depth'
   )
+})
+
+Deno.test('Engine#render security: the constructor.constructor RCE gadget resolves to nothing', async () => {
+  const viewsDir = fileURLToPath(import.meta.resolve('@tests/fixtures/views/')).replace(
+    /[\\/]$/,
+    ''
+  )
+  const engine = new Rendering.Engine({ viewsDir })
+  const html = await engine.render('attack-proto-chain.dve', { x: {} })
+  assertEquals(html.trim(), '[|]')
 })
 
 Deno.test('Engine#render security: unterminated string literal is rejected', async () => {
