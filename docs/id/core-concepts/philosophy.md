@@ -40,6 +40,8 @@ Kode harus enak dibaca, pola harus mudah ditebak, dan error harus menunjuk ke ar
 
 Sederhana dan aman layak berada di kalimat yang sama. Router yang sedang melayani melindungi proses dari mati tak sengaja lewat [proteksi proses](/id/getting-started/server-configuration#proteksi-proses), dan kegagalan ditangkap berlapis lewat [defense in depth](/id/error-handling/defense-in-depth). Tetap kecil adalah bagian dari tetap aman, sebab makin sedikit kode berarti makin sedikit yang bisa salah.
 
+Tetap aman juga berarti tetap terkini. Permukaan serangan terus bergeser, jadi setiap rilis mengikutinya dan menyertakan perbaikannya bersama fitur baru. Versi baru jarang sekadar membawa kemampuan baru, sebagian besar isinya justru perbaikan untuk celah serangan dari versi sebelumnya. Karena itu memakai versi terbaru adalah pilihan yang aman, bukan sekadar pilihan opsional. Satu perintah sudah cukup untuk menjaga dependensi tetap terkini melalui [`deno update`](https://docs.deno.com/runtime/reference/cli/update/), dan perintah `deno update --latest` menarik rilis terbaru dengan mengabaikan semver sehingga perbaikan keamanan langsung kamu terima begitu rilis tersedia.
+
 ## Kecil karena Sengaja
 
 Deserve tidak hadir untuk menggantikan framework besar atau memenangkan adu benchmark. Ini alat untuk pengembang yang menyukai betapa ringannya Deno dan ingin menjaga rasa itu sampai ke produksi.
