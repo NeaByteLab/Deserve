@@ -95,6 +95,8 @@ export interface StateKeysMap {
   readonly setSession: Types.StateKey<(data: Types.DataRecord) => Promise<void>>
   /** Key for the session clearer */
   readonly clearSession: Types.StateKey<() => void>
+  /** Key for validated request data */
+  readonly validated: Types.StateKey<Types.DataRecord>
 }
 
 /** Route entry for type-safe dispatch. */

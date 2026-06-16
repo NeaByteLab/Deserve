@@ -25,6 +25,9 @@ export const Mware = {
     Loader.SecHeaders.create(options),
   /** Session middleware factory */
   session: (options: Types.SessionOptions): Types.MiddlewareFn => Loader.Session.create(options),
+  /** Validation middleware factory */
+  validator: (schema: Types.ValidationSchema): Types.MiddlewareFn =>
+    Loader.Validator.create(schema),
   /** WebSocket upgrade middleware factory */
   websocket: (options?: Types.WebSocketOptions): Types.MiddlewareFn =>
     Loader.WebSocket.create(options)

@@ -13,7 +13,8 @@ export class Handler {
     worker: Handler.stateKey<Types.WorkerRunHandle>('worker'),
     session: Handler.stateKey<Types.DataRecord | null>('session'),
     setSession: Handler.stateKey<(data: Types.DataRecord) => Promise<void>>('setSession'),
-    clearSession: Handler.stateKey<() => void>('clearSession')
+    clearSession: Handler.stateKey<() => void>('clearSession'),
+    validated: Handler.stateKey<Types.DataRecord>('validated')
   } as const
   /** Reserved framework state key names, not writable by public setState */
   static readonly reservedStateKeys: ReadonlySet<string> = new Set([
@@ -21,7 +22,8 @@ export class Handler {
     'worker',
     'session',
     'setSession',
-    'clearSession'
+    'clearSession',
+    'validated'
   ])
 
   /**
