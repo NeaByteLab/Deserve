@@ -187,6 +187,26 @@ export default withMermaid(
                       { text: 'Request Logging', link: '/middleware/observability/logging' },
                       { text: 'Error Reporting', link: '/middleware/observability/errors' }
                     ]
+                  },
+                  {
+                    text: 'Validation',
+                    collapsed: true,
+                    items: [
+                      { text: 'Overview', link: '/middleware/validation/overview' },
+                      { text: 'Define Schema', link: '/middleware/validation/define-schema' },
+                      {
+                        text: 'Validator Middleware',
+                        link: '/middleware/validation/validator-middleware'
+                      },
+                      {
+                        text: 'Reading Validated Data',
+                        link: '/middleware/validation/reading-data'
+                      },
+                      {
+                        text: 'Advanced Patterns',
+                        link: '/middleware/validation/advanced-patterns'
+                      }
+                    ]
                   }
                 ]
               },
@@ -377,6 +397,26 @@ export default withMermaid(
                       { text: 'Referensi Event', link: '/id/middleware/observability/events' },
                       { text: 'Request Logging', link: '/id/middleware/observability/logging' },
                       { text: 'Pelaporan Error', link: '/id/middleware/observability/errors' }
+                    ]
+                  },
+                  {
+                    text: 'Validasi',
+                    collapsed: true,
+                    items: [
+                      { text: 'Ringkasan', link: '/id/middleware/validation/overview' },
+                      { text: 'Define Schema', link: '/id/middleware/validation/define-schema' },
+                      {
+                        text: 'Middleware Validator',
+                        link: '/id/middleware/validation/validator-middleware'
+                      },
+                      {
+                        text: 'Membaca Data Tervalidasi',
+                        link: '/id/middleware/validation/reading-data'
+                      },
+                      {
+                        text: 'Pola Lanjutan',
+                        link: '/id/middleware/validation/advanced-patterns'
+                      }
                     ]
                   }
                 ]
