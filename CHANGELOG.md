@@ -8,6 +8,10 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+---
+
+## [0.14.0] - 2026-06-16
+
 ### Added
 
 - A request can now be checked against a per-source contract before it reaches a handler. A new validation middleware takes a schema naming any of body, cookies, headers, json, or query, and runs each named contract against the matching slice of the incoming request. Every value that passes is gathered into one validated record and stored on the context under a reserved framework key, so a handler downstream reads only data that has already cleared its contract. A schema that names no source at all is refused at construction time, and a schema that tries to validate route params in middleware is refused with a message pointing to the in-handler path instead, since params are not yet resolved while middleware runs
@@ -647,7 +651,8 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
-[Unreleased]: https://github.com/NeaByteLab/Deserve/compare/v0.13.0...HEAD
+[Unreleased]: https://github.com/NeaByteLab/Deserve/compare/v0.14.0...HEAD
+[0.14.0]: https://github.com/NeaByteLab/Deserve/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/NeaByteLab/Deserve/compare/v0.12.2...v0.13.0
 [0.12.2]: https://github.com/NeaByteLab/Deserve/compare/v0.12.1...v0.12.2
 [0.12.1]: https://github.com/NeaByteLab/Deserve/compare/v0.12.0...v0.12.1
