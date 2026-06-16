@@ -141,26 +141,23 @@ export async function POST(ctx: Context): Promise<Response> {
 
 ## Validation Errors
 
-Return appropriate status codes for validation errors:
+A rejected [validation](/middleware/validation/overview) contract throws a **422 Unprocessable Content** and preserves the failure reasons on `error.cause` as a string array. The same `router.catch` handles it, so reading the reasons turns a failure into a field-level response:
 
 ```typescript twoslash
-import type { Context, DataRecord } from '@neabyte/deserve'
+import { Router } from '@neabyte/deserve'
+
+const router = new Router()
 // ---cut---
-export async function POST(ctx: Context): Promise<Response> {
-  const data = await ctx.body() as DataRecord
-  if (!data.email) {
+router.catch((ctx, error) => {
+  if (error.statusCode === 422 && Array.isArray(error.error.cause)) {
+    // Surface each validation reason
     return ctx.send.json(
-      {
-        error: 'Email is required'
-      },
-      {
-        status: 400
-      }
+      { error: 'Validation failed', reasons: error.error.cause },
+      { status: 422 }
     )
   }
-  // Process valid data...
-  return ctx.send.json({
-    success: true
-  })
-}
+  return null
+})
 ```
+
+How a contract produces those reasons lives in [Reading Validated Data](/middleware/validation/reading-data#how-failures-surface), which keeps the validation rules in one place and the response shaping here.

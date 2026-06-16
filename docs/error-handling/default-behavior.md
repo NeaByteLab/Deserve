@@ -28,7 +28,7 @@ await router.serve(8000)
 
 The default error response (without custom `router.catch()`) follows the client's `Accept` header:
 
-- **Accept includes `application/json`** → JSON body: `{ error, path, statusCode }`
+- **Accept includes `application/json` or `application/problem+json`** → a problem-details body `{ type, title, status, instance }` sent as `application/problem+json`
 - **Otherwise** → HTML body: simple error page with status and message (escaped)
 
 Also:
@@ -39,12 +39,15 @@ Also:
 ```typescript
 // Example default response (client requests JSON)
 // Status: 404
-// Body: { "error": "...", "path": "/api/foo", "statusCode": 404 }
+// Content-Type: application/problem+json
+// Body: { "type": "about:blank", "title": "Not Found", "status": 404, "instance": "/api/foo" }
 
 // Example default response (client does not request JSON)
 // Status: 404
 // Body: HTML with <title>404</title> and error message
 ```
+
+The problem-details shape follows [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457), where `type` is a problem URI, `title` is a short summary, `status` repeats the code, and `instance` carries the request path. A custom `router.catch()` replaces this body with whatever shape suits the client, covered in [Error Object Details](/error-handling/object-details).
 
 ## Error Scenarios
 
@@ -78,6 +81,20 @@ When the path matches a route but the method has no handler, the response is `40
 ```
 
 `HEAD` is added automatically whenever a `GET` handler exists.
+
+### 422 - Validation Failed
+
+When a [validation](/middleware/validation/overview) contract rejects request input, the default response adds an `errors` array listing each failure reason:
+
+```typescript
+// POST /users with an invalid body
+// Status: 422
+// Content-Type: application/problem+json
+// Body: { "type": "about:blank", "title": "...", "status": 422,
+//         "instance": "/users", "errors": ["name must not be empty"] }
+```
+
+Only a 422 carries `errors`, and every other status keeps a reason-free body. How a contract produces those reasons lives in [Reading Validated Data](/middleware/validation/reading-data#how-failures-surface).
 
 ### 500 - Server Errors
 

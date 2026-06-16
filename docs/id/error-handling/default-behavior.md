@@ -28,7 +28,7 @@ await router.serve(8000)
 
 Response error default (tanpa `router.catch()` khusus) mengikuti header `Accept` klien:
 
-- **Accept mencakup `application/json`** → body JSON: `{ error, path, statusCode }`
+- **Accept mencakup `application/json` atau `application/problem+json`** → body problem-details `{ type, title, status, instance }` dikirim sebagai `application/problem+json`
 - **Selain itu** → body HTML: halaman error sederhana dengan status dan pesan (di-escape)
 
 Juga:
@@ -39,12 +39,15 @@ Juga:
 ```typescript
 // Contoh response default (klien minta JSON)
 // Status: 404
-// Body: { "error": "...", "path": "/api/foo", "statusCode": 404 }
+// Content-Type: application/problem+json
+// Body: { "type": "about:blank", "title": "Not Found", "status": 404, "instance": "/api/foo" }
 
 // Contoh response default (klien tidak minta JSON)
 // Status: 404
 // Body: HTML dengan <title>404</title> dan pesan error
 ```
+
+Bentuk problem-details mengikuti [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457), di mana `type` adalah URI masalah, `title` ringkasan singkat, `status` mengulang kodenya, dan `instance` membawa path request. Sebuah `router.catch()` khusus mengganti body ini dengan bentuk apa pun yang cocok untuk klien, dibahas di [Detail Objek Error](/id/error-handling/object-details).
 
 ## Skenario Error
 
@@ -78,6 +81,20 @@ Ketika path cocok dengan sebuah rute tapi metodenya tidak punya handler, respons
 ```
 
 `HEAD` ditambahkan otomatis setiap kali handler `GET` ada.
+
+### 422 - Validasi Gagal
+
+Ketika kontrak [validasi](/id/middleware/validation/overview) menolak input request, response default menambahkan array `errors` yang mendaftar tiap alasan kegagalan:
+
+```typescript
+// POST /users dengan body tidak valid
+// Status: 422
+// Content-Type: application/problem+json
+// Body: { "type": "about:blank", "title": "...", "status": 422,
+//         "instance": "/users", "errors": ["name must not be empty"] }
+```
+
+Hanya 422 yang membawa `errors`, dan setiap status lain tetap berbody tanpa alasan. Bagaimana sebuah kontrak menghasilkan alasan itu ada di [Membaca Data Tervalidasi](/id/middleware/validation/reading-data#cara-kegagalan-muncul).
 
 ### 500 - Error Server
 
