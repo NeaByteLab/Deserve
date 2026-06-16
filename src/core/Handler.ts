@@ -135,18 +135,19 @@ export class Handler {
   static errorResponse(ctx: Context, statusCode: number): globalThis.Response {
     const errorMessage = Handler.safeMessage(statusCode)
     const wantsJson = Handler.wantsJson(ctx.request.headers)
+    const reasons = Handler.safeReasons(ctx[Core.InternalContext].getFrameworkError())
     try {
       if (wantsJson) {
-        return ctx.send.json(
-          { error: errorMessage, path: ctx.pathname, statusCode },
-          { status: statusCode }
-        )
+        return ctx.send.json(Handler.problemDetails(statusCode, ctx.pathname, undefined, reasons), {
+          status: statusCode,
+          headers: { 'Content-Type': Core.Constant.problemJsonContentType }
+        })
       }
       return ctx.send.html(Handler.defaultErrorHtml(statusCode, errorMessage), {
         status: statusCode
       })
     } catch {
-      return Handler.safeFallbackResponse(ctx, statusCode, errorMessage, wantsJson)
+      return Handler.safeFallbackResponse(ctx, statusCode, errorMessage, wantsJson, reasons)
     }
   }
 
@@ -217,14 +218,13 @@ export class Handler {
     statusCode: number,
     message: string,
     wantsJson: boolean,
-    pathname?: string
+    pathname?: string,
+    reasons?: readonly string[]
   ): globalThis.Response {
     const headers = new Core.API.Headers(Core.Constant.securityHeaderDefaults)
     if (wantsJson) {
-      headers.set('Content-Type', 'application/json')
-      const body = pathname === undefined
-        ? { error: message, statusCode }
-        : { error: message, path: pathname, statusCode }
+      headers.set('Content-Type', Core.Constant.problemJsonContentType)
+      const body = Handler.problemDetails(statusCode, pathname, message, reasons)
       return new Core.API.Response(Core.API.jsonStringify(body), { status: statusCode, headers })
     }
     headers.set('Content-Type', 'text/html; charset=utf-8')
@@ -232,6 +232,32 @@ export class Handler {
       status: statusCode,
       headers
     })
+  }
+
+  /**
+   * Build structured error problem details.
+   * @description Returns problem body with type, title, status, optional instance.
+   * @param statusCode - HTTP status code
+   * @param pathname - Optional request pathname as instance
+   * @param title - Optional title overriding safe message
+   * @param reasons - Optional validation reasons added as errors
+   * @returns Problem details object
+   */
+  static problemDetails(
+    statusCode: number,
+    pathname?: string,
+    title?: string,
+    reasons?: readonly string[]
+  ): Types.ProblemDetails {
+    const base: Types.ProblemDetails = {
+      type: 'about:blank',
+      title: title ?? Handler.safeMessage(statusCode),
+      status: statusCode
+    }
+    const withInstance = pathname === undefined ? base : { ...base, instance: pathname }
+    return reasons !== undefined && reasons.length > 0
+      ? { ...withInstance, errors: reasons }
+      : withInstance
   }
 
   /**
@@ -245,6 +271,27 @@ export class Handler {
       Core.Constant.serverErrorMessages[statusCode as Types.HttpStatusCode] ??
         (statusCode >= 500 ? 'Internal Server Error' : 'Bad Request')
     )
+  }
+
+  /**
+   * Extract safe reasons from error.
+   * @description Returns string causes only for 422 status errors.
+   * @param error - Error to inspect, or null
+   * @returns Reason strings, or undefined when none
+   */
+  static safeReasons(error: Error | null): readonly string[] | undefined {
+    if (
+      error === null ||
+      !Handler.isErrorWithStatus(error) ||
+      error.statusCode !== 422 ||
+      !Array.isArray(error.cause)
+    ) {
+      return undefined
+    }
+    const reasons = (error.cause as readonly unknown[]).filter(
+      (reason): reason is string => typeof reason === 'string'
+    )
+    return reasons.length > 0 ? reasons : undefined
   }
 
   /**
@@ -284,7 +331,11 @@ export class Handler {
    * @returns True when JSON is preferred
    */
   static wantsJson(headers: Headers): boolean {
-    return headers.get('accept')?.includes('application/json') === true
+    const accept = headers.get('accept')
+    if (accept === null) {
+      return false
+    }
+    return accept.includes('application/json') || accept.includes('application/problem+json')
   }
 
   /**
@@ -328,8 +379,9 @@ export class Handler {
     ctx: Context,
     statusCode: number,
     message: string,
-    wantsJson: boolean
+    wantsJson: boolean,
+    reasons?: readonly string[]
   ): globalThis.Response {
-    return Handler.negotiatedResponse(statusCode, message, wantsJson, ctx.pathname)
+    return Handler.negotiatedResponse(statusCode, message, wantsJson, ctx.pathname, reasons)
   }
 }

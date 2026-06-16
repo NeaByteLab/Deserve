@@ -102,6 +102,20 @@ export interface ParsedIp {
   readonly version: 4 | 6
 }
 
+/** Structured error problem details payload. */
+export interface ProblemDetails {
+  /** Problem type URI reference */
+  readonly type: string
+  /** Short human-readable problem summary */
+  readonly title: string
+  /** HTTP status code for problem */
+  readonly status: number
+  /** Optional URI reference of occurrence */
+  readonly instance?: string
+  /** Optional list of validation reasons */
+  readonly errors?: readonly string[]
+}
+
 /**
  * Response helpers on context.
  * @description Provides typed methods for common response formats.

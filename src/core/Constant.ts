@@ -71,6 +71,8 @@ export class Constant {
     httpOnly: true,
     secure: true
   }
+  /** Problem details JSON content type */
+  static readonly problemJsonContentType = 'application/problem+json'
   /** Status code to error message */
   static readonly serverErrorMessages: Readonly<
     Partial<Record<Types.HttpStatusCode, string>>
