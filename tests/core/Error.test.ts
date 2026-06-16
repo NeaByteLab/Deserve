@@ -12,8 +12,8 @@ Deno.test('Error#buildResponse 500 does not leak error message', async () => {
     new globalThis.Error('Connection to ************************ failed'),
     null
   )
-  const body = (await res.json()) as { error: string }
-  assertEquals(body.error, 'Internal Server Error')
+  const body = (await res.json()) as { title: string }
+  assertEquals(body.title, 'Internal Server Error')
   assertEquals(JSON.stringify(body).includes('password'), false)
 })
 
@@ -40,9 +40,9 @@ Deno.test('Error#buildResponse preserves security headers when errorMiddleware r
   )
   assertEquals(res.status, 500)
   assertEquals(res.headers.get('X-Content-Type-Options'), 'nosniff')
-  assertEquals(res.headers.get('Content-Type'), 'application/json')
-  const body = (await res.json()) as { error: string }
-  assertEquals(body.error, 'Internal Server Error')
+  assertEquals(res.headers.get('Content-Type'), 'application/problem+json')
+  const body = (await res.json()) as { title: string }
+  assertEquals(body.title, 'Internal Server Error')
 })
 
 Deno.test('Error#buildResponse uses generic message for unmapped 418 status', async () => {
@@ -56,9 +56,9 @@ Deno.test('Error#buildResponse uses generic message for unmapped 418 status', as
     new globalThis.Error('secret internal detail'),
     null
   )
-  const body = (await res.json()) as { error: string; statusCode: number }
-  assertEquals(body.error, 'Bad Request')
-  assertEquals(body.statusCode, 418)
+  const body = (await res.json()) as { title: string; status: number }
+  assertEquals(body.title, 'Bad Request')
+  assertEquals(body.status, 418)
 })
 
 Deno.test('Error#buildResponse uses generic message for unmapped 599 status', async () => {
@@ -72,8 +72,8 @@ Deno.test('Error#buildResponse uses generic message for unmapped 599 status', as
     new globalThis.Error('db password leaked'),
     null
   )
-  const body = (await res.json()) as { error: string }
-  assertEquals(body.error, 'Internal Server Error')
+  const body = (await res.json()) as { title: string }
+  assertEquals(body.title, 'Internal Server Error')
 })
 
 Deno.test('Error#buildResponse with errorMiddleware receives correct error info', async () => {
@@ -114,8 +114,8 @@ Deno.test('Error#buildResponse with errorMiddleware returning null uses default'
     async () => null
   )
   assertEquals(res.status, 502)
-  const body = (await res.json()) as { error: string }
-  assertEquals(body.error, 'Bad Gateway')
+  const body = (await res.json()) as { title: string }
+  assertEquals(body.title, 'Bad Gateway')
 })
 
 Deno.test('Error#buildResponse with errorMiddleware returning response uses it', async () => {
@@ -147,9 +147,9 @@ Deno.test('Error#buildResponse with errorMiddleware returns non-Response falls t
       async () => ret as never
     )
     assertEquals(res.status, 500)
-    assertEquals(res.headers.get('Content-Type'), 'application/json')
-    const body = (await res.json()) as { error: string }
-    assertEquals(body.error, 'Internal Server Error')
+    assertEquals(res.headers.get('Content-Type'), 'application/problem+json')
+    const body = (await res.json()) as { title: string }
+    assertEquals(body.title, 'Internal Server Error')
   }
 })
 
@@ -175,8 +175,8 @@ Deno.test('Error#buildResponse with sync errorMiddleware returning null', async 
   const ctx = new Core.Context(request, new URL('http://localhost/'), {})
   const res = await Core.Handler.buildResponse(ctx, 500, new globalThis.Error('fail'), () => null)
   assertEquals(res.status, 500)
-  const body = (await res.json()) as { error: string }
-  assertEquals(body.error, 'Internal Server Error')
+  const body = (await res.json()) as { title: string }
+  assertEquals(body.title, 'Internal Server Error')
 })
 
 Deno.test('Error#buildResponse without errorMiddleware returns JSON when Accept json', async () => {
@@ -186,11 +186,11 @@ Deno.test('Error#buildResponse without errorMiddleware returns JSON when Accept 
   const ctx = new Core.Context(request, new URL('http://localhost/foo'), {})
   const res = await Core.Handler.buildResponse(ctx, 404, new globalThis.Error('gone'), null)
   assertEquals(res.status, 404)
-  assertEquals(res.headers.get('Content-Type'), 'application/json')
-  const body = (await res.json()) as { error: string; path: string; statusCode: number }
-  assertEquals(body.error, 'Not Found')
-  assertEquals(body.path, '/foo')
-  assertEquals(body.statusCode, 404)
+  assertEquals(res.headers.get('Content-Type'), 'application/problem+json')
+  const body = (await res.json()) as { title: string; instance: string; status: number }
+  assertEquals(body.title, 'Not Found')
+  assertEquals(body.instance, '/foo')
+  assertEquals(body.status, 404)
 })
 
 Deno.test('Error#defaultErrorHtml escapes quotes and apostrophes in message', () => {
@@ -229,10 +229,10 @@ Deno.test('Error#errorResponse falls back to a hardened JSON response when heade
   ;(ctx as unknown as { responseHeaders: Record<string, string> }).responseHeaders['Inva lid'] = 'x'
   const res = Core.Handler.errorResponse(ctx, 500)
   assertEquals(res.status, 500)
-  assertEquals(res.headers.get('Content-Type'), 'application/json')
+  assertEquals(res.headers.get('Content-Type'), 'application/problem+json')
   assertEquals(res.headers.get('X-Content-Type-Options'), 'nosniff')
-  const body = (await res.json()) as { error: string }
-  assertEquals(body.error, 'Internal Server Error')
+  const body = (await res.json()) as { title: string }
+  assertEquals(body.title, 'Internal Server Error')
 })
 
 Deno.test('Error#escapeHtml escapes &, <, >, ", \'', () => {
@@ -305,4 +305,43 @@ Deno.test('Error#extractError wraps a non-error value as 500', () => {
   assertEquals(result.statusCode, 500)
   assertEquals(result.error instanceof globalThis.Error, true)
   assertEquals(result.error.message, 'plain string failure')
+})
+
+Deno.test('Error#handleError omits errors when error has no structured cause', async () => {
+  const request = new Request('http://localhost/x', {
+    headers: new Headers({ Accept: 'application/json' })
+  })
+  const ctx = new Core.Context(request, new URL('http://localhost/x'), {})
+  const res = await ctx.handleError(500, new globalThis.Error('boom'))
+  assertEquals(res.status, 500)
+  const body = (await res.json()) as { title: string; errors?: string[] }
+  assertEquals(body.title, 'Internal Server Error')
+  assertEquals('errors' in body, false)
+})
+
+Deno.test('Error#handleError surfaces validation reasons as problem+json errors', async () => {
+  const request = new Request('http://localhost/users', {
+    headers: new Headers({ Accept: 'application/json' })
+  })
+  const ctx = new Core.Context(request, new URL('http://localhost/users'), {})
+  const validationError = Core.Handler.createStatusError(422, 'name must not be empty')
+  Object.defineProperty(validationError, 'cause', {
+    value: ['name must not be empty', 'email must contain @'],
+    enumerable: false
+  })
+  const res = await ctx.handleError(422, validationError)
+  assertEquals(res.status, 422)
+  assertEquals(res.headers.get('Content-Type'), 'application/problem+json')
+  const body = (await res.json()) as {
+    type: string
+    title: string
+    status: number
+    instance: string
+    errors: string[]
+  }
+  assertEquals(body.type, 'about:blank')
+  assertEquals(body.title, 'Unprocessable Entity')
+  assertEquals(body.status, 422)
+  assertEquals(body.instance, '/users')
+  assertEquals(body.errors, ['name must not be empty', 'email must contain @'])
 })

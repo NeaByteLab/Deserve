@@ -48,7 +48,7 @@ Deno.test('Handler produces a genuine Response when globalThis.Response is patch
     assertEquals(html.headers.get('content-type'), 'text/html; charset=utf-8')
     assertEquals(json instanceof realResponse, true)
     assertEquals(json.status, 404)
-    assertEquals(json.headers.get('content-type'), 'application/json')
+    assertEquals(json.headers.get('content-type'), 'application/problem+json')
   } finally {
     ;(globalThis as unknown as { Response: unknown }).Response = realResponse
   }

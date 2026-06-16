@@ -58,6 +58,35 @@ Deno.test('Handler#isDirectory returns true for an existing directory', () => {
   assertEquals(Core.Handler.isDirectory(dirPath), true)
 })
 
+Deno.test('Handler#problemDetails builds an RFC 9457 body with instance', () => {
+  const body = Core.Handler.problemDetails(422, '/users')
+  assertEquals(body.type, 'about:blank')
+  assertEquals(body.title, 'Unprocessable Entity')
+  assertEquals(body.status, 422)
+  assertEquals(body.instance, '/users')
+})
+
+Deno.test('Handler#problemDetails includes errors extension when reasons exist', () => {
+  const body = Core.Handler.problemDetails(422, '/users', undefined, [
+    'name must not be empty',
+    'email must contain @'
+  ])
+  assertEquals(body.status, 422)
+  assertEquals(body.errors, ['name must not be empty', 'email must contain @'])
+})
+
+Deno.test('Handler#problemDetails omits errors when reasons are empty', () => {
+  const body = Core.Handler.problemDetails(422, '/users', undefined, [])
+  assertEquals('errors' in body, false)
+})
+
+Deno.test('Handler#problemDetails omits instance when pathname is undefined', () => {
+  const body = Core.Handler.problemDetails(500)
+  assertEquals(body.title, 'Internal Server Error')
+  assertEquals(body.status, 500)
+  assertEquals('instance' in body, false)
+})
+
 Deno.test('Handler#safeMessage falls back to Bad Request for an unmapped 4xx status', () => {
   assertEquals(Core.Handler.safeMessage(418), 'Bad Request')
 })
@@ -69,6 +98,31 @@ Deno.test('Handler#safeMessage falls back to Internal Server Error for an unmapp
 Deno.test('Handler#safeMessage returns the known message for a mapped status', () => {
   assertEquals(Core.Handler.safeMessage(404), 'Not Found')
   assertEquals(Core.Handler.safeMessage(500), 'Internal Server Error')
+})
+
+Deno.test('Handler#safeReasons does not leak cause from non-validation errors', () => {
+  const leaky = new Error('db failed', { cause: ['SECRET host=10.0.0.5', 'password'] })
+  assertEquals(Core.Handler.safeReasons(leaky), undefined)
+})
+
+Deno.test('Handler#safeReasons extracts string-array cause from a 422 status error', () => {
+  const error = Core.Handler.createStatusError(422, 'invalid')
+  Object.defineProperty(error, 'cause', { value: ['a', 'b'], enumerable: false })
+  assertEquals(Core.Handler.safeReasons(error), ['a', 'b'])
+})
+
+Deno.test('Handler#safeReasons ignores cause on non-422 status errors', () => {
+  const error = Core.Handler.createStatusError(400, 'bad')
+  Object.defineProperty(error, 'cause', { value: ['leak'], enumerable: false })
+  assertEquals(Core.Handler.safeReasons(error), undefined)
+})
+
+Deno.test('Handler#safeReasons returns undefined for null or non-array cause', () => {
+  assertEquals(Core.Handler.safeReasons(null), undefined)
+  assertEquals(Core.Handler.safeReasons(new Error('x')), undefined)
+  const plain = Core.Handler.createStatusError(422, 'x')
+  Object.defineProperty(plain, 'cause', { value: 'plain', enumerable: false })
+  assertEquals(Core.Handler.safeReasons(plain), undefined)
 })
 
 Deno.test('Handler#stateKey returns the raw key value', () => {
@@ -95,5 +149,10 @@ Deno.test('Handler#wantsJson is false when no Accept header is present', () => {
 
 Deno.test('Handler#wantsJson is true when Accept includes application/json', () => {
   const headers = new Headers({ Accept: 'application/json, text/plain' })
+  assertEquals(Core.Handler.wantsJson(headers), true)
+})
+
+Deno.test('Handler#wantsJson is true when Accept includes application/problem+json', () => {
+  const headers = new Headers({ Accept: 'application/problem+json' })
   assertEquals(Core.Handler.wantsJson(headers), true)
 })

@@ -29,9 +29,9 @@ Deno.test('Handler 404 for unmatched route returns JSON when Accept json', async
     })
   )
   assertEquals(res.status, 404)
-  assertEquals(res.headers.get('Content-Type'), 'application/json')
-  const body = (await res.json()) as { error: string }
-  assertEquals(body.error, 'Not Found')
+  assertEquals(res.headers.get('Content-Type'), 'application/problem+json')
+  const body = (await res.json()) as { title: string }
+  assertEquals(body.title, 'Not Found')
 })
 
 Deno.test('Handler 405 Allow advertises HEAD for a GET-only route (RFC 7231 §4.3.2)', async () => {
@@ -448,9 +448,9 @@ Deno.test('Handler masks a non-Response return as JSON Internal Server Error', a
   })
   const res = await handler.createHandler()(req)
   assertEquals(res.status, 500)
-  assertEquals(res.headers.get('Content-Type'), 'application/json')
-  const body = (await res.json()) as { error: string }
-  assertEquals(body.error, 'Internal Server Error')
+  assertEquals(res.headers.get('Content-Type'), 'application/problem+json')
+  const body = (await res.json()) as { title: string }
+  assertEquals(body.title, 'Internal Server Error')
 })
 
 Deno.test('Handler maxRouteParamLength returns 414 when exceeded', async () => {
@@ -526,8 +526,8 @@ Deno.test('Handler maxUrlLength 414 returns JSON when Accept json', async () => 
     })
   )
   assertEquals(res.status, 414)
-  const body = (await res.json()) as { error: string }
-  assertEquals(body.error, 'URI Too Long')
+  const body = (await res.json()) as { title: string }
+  assertEquals(body.title, 'URI Too Long')
 })
 
 Deno.test('Handler maxUrlLength returns 414 when exceeded', async () => {
@@ -1173,9 +1173,9 @@ Deno.test('Handler#handleResponse when errorMiddleware returns non-Response fall
   })
   const res = await handler.handleResponse(ctx, 500, new Error('boom'))
   assertEquals(res.status, 500)
-  const body = (await res.json()) as { error: string; path: string; statusCode: number }
-  assertEquals(body.statusCode, 500)
-  assertEquals(body.path, '/oops')
+  const body = (await res.json()) as { title: string; instance: string; status: number }
+  assertEquals(body.status, 500)
+  assertEquals(body.instance, '/oops')
 })
 
 Deno.test('Handler#handleResponse when errorMiddleware returns null uses default', async () => {
@@ -1186,9 +1186,9 @@ Deno.test('Handler#handleResponse when errorMiddleware returns null uses default
   })
   const res = await handler.handleResponse(ctx, 404, new Error('Not found'))
   assertEquals(res.status, 404)
-  const body = (await res.json()) as { error: string; path: string; statusCode: number }
-  assertEquals(body.statusCode, 404)
-  assertEquals(body.path, '/bar')
+  const body = (await res.json()) as { title: string; instance: string; status: number }
+  assertEquals(body.status, 404)
+  assertEquals(body.instance, '/bar')
 })
 
 Deno.test('Handler#handleResponse with Accept application/json returns JSON', async () => {
@@ -1198,11 +1198,11 @@ Deno.test('Handler#handleResponse with Accept application/json returns JSON', as
   })
   const res = await handler.handleResponse(ctx, 404, new Error('Not found'))
   assertEquals(res.status, 404)
-  assertEquals(res.headers.get('Content-Type'), 'application/json')
-  const responseBody = (await res.json()) as { error: string; path: string; statusCode: number }
-  assertEquals(responseBody.error, 'Not Found')
-  assertEquals(responseBody.path, '/foo')
-  assertEquals(responseBody.statusCode, 404)
+  assertEquals(res.headers.get('Content-Type'), 'application/problem+json')
+  const responseBody = (await res.json()) as { title: string; instance: string; status: number }
+  assertEquals(responseBody.title, 'Not Found')
+  assertEquals(responseBody.instance, '/foo')
+  assertEquals(responseBody.status, 404)
 })
 
 Deno.test('Handler#removeRoute for non-existent pattern does not throw', () => {
