@@ -78,8 +78,9 @@ export class Handler {
         viewsDir: options.viewsDir,
         emit: (event) => this.events.emit(event),
         ...(options.maxIterations !== undefined && { maxIterations: options.maxIterations }),
-        ...(options.maxRenderIterations !== undefined &&
-          { maxRenderIterations: options.maxRenderIterations }),
+        ...(options.maxRenderIterations !== undefined && {
+          maxRenderIterations: options.maxRenderIterations
+        }),
         ...(options.maxOutputSize !== undefined && { maxOutputSize: options.maxOutputSize })
       })
       : undefined

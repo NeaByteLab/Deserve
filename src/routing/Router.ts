@@ -121,9 +121,7 @@ export class Router {
   use(pathOrMiddleware: string | Types.MiddlewareFn, ...handlers: Types.MiddlewareFn[]): void {
     if (typeof pathOrMiddleware === 'string') {
       if (handlers.length === 0) {
-        throw new TypeError(
-          `use("${pathOrMiddleware}") requires at least one middleware function`
-        )
+        throw new TypeError(`use("${pathOrMiddleware}") requires at least one middleware function`)
       }
       this.handler.addMiddleware(pathOrMiddleware, ...handlers)
     } else {
