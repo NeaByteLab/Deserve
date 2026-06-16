@@ -3,7 +3,9 @@
 /// <reference lib="esnext" />
 // Real module shim for Twoslash docs samples, mapped to `@neabyte/deserve` via
 // compilerOptions.paths. Using a real module (not `declare module`) ensures the
-// copied JSDoc shows up in hover popups. Keep in sync with src/index.ts.
+// copied JSDoc shows up in hover popups. Mirrors the full public surface of
+// src/index.ts (all interface types, Validator/Context/Router/Mware, and the
+// re-exported Typebox contract helpers). Keep in sync with src/index.ts.
 
 // ───────────────────────── Core: value/string types ─────────────────────────
 
@@ -150,6 +152,58 @@ export interface ErrorInfo {
 
 /** Extracted status code and error. */
 export type ExtractedError = Pick<ErrorInfo, 'statusCode' | 'error'>
+
+/** Structured error problem details payload. */
+export interface ProblemDetails {
+  /** Problem type URI reference */
+  readonly type: string
+  /** Short human-readable problem summary */
+  readonly title: string
+  /** HTTP status code for problem */
+  readonly status: number
+  /** Optional URI reference of occurrence */
+  readonly instance?: string
+  /** Optional list of validation reasons */
+  readonly errors?: readonly string[]
+}
+
+/** Inclusive byte range for partial content. */
+export interface ByteRange {
+  /** Inclusive end byte offset */
+  readonly end: number
+  /** Inclusive start byte offset */
+  readonly start: number
+}
+
+/** Parsed IP address value with version. */
+export interface ParsedIp {
+  /** Numeric address value */
+  readonly value: bigint
+  /** Address version, 4 or 6 */
+  readonly version: 4 | 6
+}
+
+/** Worker message payload data. */
+export interface WorkerMessageData {
+  /** True when message indicates error */
+  readonly error?: boolean
+  /** Human-readable message text */
+  readonly message?: string
+}
+
+/**
+ * Callback that builds redirect response.
+ * @description Constructs redirect Response with status and headers.
+ * @param url - Target redirect URL
+ * @param status - HTTP redirect status code
+ * @param extraHeaders - Additional headers to include
+ * @returns Redirect Response instance
+ */
+export type RedirectBuilder = (
+  url: string,
+  status: RedirectStatus,
+  extraHeaders?: HeadersInit
+) => Response
 
 // ───────────────────────── Core: Context class ─────────────────────────
 
@@ -298,6 +352,56 @@ export class Context {
 // ───────────────────────── Core: handler/middleware function types ─────────────────────────
 
 /**
+ * Internal framework-only Context surface.
+ * @description Members reachable cross-module via the InternalContext symbol.
+ */
+export interface ContextInternal {
+  /**
+   * Apply headers and cookies to Response.
+   * @description Merges accumulated headers and cookies, existing values win.
+   * @param response - Native Response to finalize
+   * @returns Same Response with headers applied
+   */
+  finalizeRaw(response: Response): Response
+  /**
+   * Read captured framework error.
+   * @description Returns error set by handleError, null when none.
+   * @returns Framework Error or null
+   */
+  getFrameworkError(): Error | null
+  /**
+   * Replace request and reset body state.
+   * @description Swaps the request and clears parsed body state.
+   * @param req - New request to use
+   */
+  replaceRequest(req: Request): void
+  /**
+   * Merge percent-decoded route params.
+   * @description Spread-merges decoded params into existing route params.
+   * @param params - Params from the router match
+   */
+  setParams(params: StringRecord): void
+  /**
+   * Write reserved framework state key.
+   * @description Internal write path for framework-wired keys.
+   * @template T - Value type encoded in the key
+   * @param key - Branded reserved state key
+   * @param value - Value matching the key type
+   */
+  setInternalState<T>(key: StateKey<T>, value: T): void
+  /**
+   * Emit lifecycle event on router bus.
+   * @description No-op when the router has no emitter wired.
+   * @param event - Lifecycle event to broadcast
+   */
+  emitEvent(event: EventBase): void
+  /** Snapshot of accumulated Set-Cookie values */
+  readonly responseCookies: readonly string[]
+  /** Snapshot copy of accumulated response headers */
+  readonly responseHeadersMap: StringRecord
+}
+
+/**
  * Context-receiving function type.
  * @description Generic for handlers that take context and return R.
  * @template Args - Additional argument types after context
@@ -422,8 +526,27 @@ export interface SessionOptions {
   readonly secure?: boolean
 }
 
+/** Derived security header option key union. */
+export type SecurityHeaderKey =
+  | 'contentSecurityPolicy'
+  | 'crossOriginEmbedderPolicy'
+  | 'crossOriginOpenerPolicy'
+  | 'crossOriginResourcePolicy'
+  | 'originAgentCluster'
+  | 'referrerPolicy'
+  | 'strictTransportSecurity'
+  | 'xContentTypeOptions'
+  | 'xDnsPrefetchControl'
+  | 'xDownloadOptions'
+  | 'xFrameOptions'
+  | 'xPermittedCrossDomainPolicies'
+  | 'xPoweredBy'
+
+/** Header value or false to omit. */
+export type SecurityHeaderValue = string | false
+
 /** Security header partial options map. */
-export type SecurityHeadersOptions = Partial<Record<string, string | false>>
+export type SecurityHeadersOptions = Partial<Record<SecurityHeaderKey, SecurityHeaderValue>>
 
 /**
  * Socket lifecycle callback with event.
@@ -455,10 +578,28 @@ export interface WebSocketOptions {
   readonly onMessage?: SocketCallback<MessageEvent>
 }
 
+/** Middleware bound to optional path. */
+export interface MiddlewareEntry {
+  /** Middleware handler function */
+  readonly handler: MiddlewareFn
+  /** Path prefix to match */
+  readonly path: string
+}
+
+/** Session cookie options all required. */
+export type SessionCookieOpts = Required<Omit<SessionOptions, 'cookieSecret'>>
+
+/** Decoded signed session cookie result. */
+export type SessionDecodeResult =
+  | { readonly data: DataRecord }
+  | { readonly reason: 'tampered' | 'expired' | 'malformed' }
+
 // ───────────────────────── Rendering / worker ─────────────────────────
 
 /** Worker pool creation options. */
 export interface WorkerPoolOptions {
+  /** Optional lifecycle event emitter */
+  readonly emit?: EventEmit
   /** Maximum pending tasks before fast-rejecting */
   readonly maxQueueDepth?: number
   /** Maximum projected queue wait in ms */
@@ -506,6 +647,148 @@ export interface ViewEngine {
   streamRender(templatePath: string, data?: DataRecord): Promise<ReadableStream>
 }
 
+/** Rendering engine constructor options. */
+export interface EngineOptions {
+  /** Optional lifecycle event emitter */
+  readonly emit?: EventEmit
+  /** Maximum loop iterations per #each block */
+  readonly maxIterations?: number
+  /** Maximum #each body executions per render */
+  readonly maxRenderIterations?: number
+  /** Maximum total output characters per render */
+  readonly maxOutputSize?: number
+  /** Directory path for template views */
+  readonly viewsDir: string
+}
+
+/** Compiled DVE template result. */
+export interface CompileResult {
+  /** Parsed AST node array */
+  readonly ast: readonly AstNode[]
+}
+
+/** DVE template parser stack frame. */
+export interface DveStackFrame {
+  /** True when inside else branch */
+  inElse: boolean
+  /** Block node type discriminant */
+  readonly kind: AstBlockKind
+  /** Parent block AST node */
+  readonly node: AstBlockNode
+}
+
+/** Per-render cumulative resource budget. */
+export interface RenderBudget {
+  /** Total #each body executions this render */
+  iterations: number
+  /** Total output characters this render */
+  outputSize: number
+}
+
+/**
+ * Watchable engine for cache invalidation.
+ * @description Supports file watching and cache refresh.
+ */
+export interface WatchableEngine extends Pick<EngineOptions, 'viewsDir'> {
+  /**
+   * Invalidate cached template file.
+   * @param absPath - Absolute path to invalidate
+   */
+  invalidateFile(absPath: string): void
+  /**
+   * Emit view:refreshed for changed paths.
+   * @param paths - Absolute paths that were refreshed
+   */
+  notifyRefresh(paths: readonly string[]): void
+  /** Refresh all template paths */
+  refreshPaths(): void
+}
+
+/** Arithmetic sign for expressions. */
+export type ArithmeticSign = '+' | '-'
+
+/** Block-level AST node type discriminants. */
+export type AstBlockKind = AstBlockNode['type']
+
+/** Block-level AST node with children. */
+export type AstBlockNode = Extract<AstNode, { type: 'each' } | { type: 'if' }>
+
+/** DVE template AST node union. */
+export type AstNode =
+  | (TaggedVariant<'type', 'each', { path: string; itemName: string }> & { nodes: AstNode[] })
+  | (TaggedVariant<'type', 'if', { path: string }> & {
+    thenNodes: AstNode[]
+    elseNodes: AstNode[]
+  })
+  | TaggedVariant<'type', 'include', { templatePath: string }>
+  | TaggedVariant<'type', 'text', { value: string }>
+  | TaggedVariant<'type', 'var', { path: string; raw: boolean }>
+
+/** AST node type discriminant values. */
+export type AstNodeType = AstNode['type']
+
+/** Binary operator literals. */
+export type BinaryOp =
+  | '!='
+  | '!=='
+  | '%'
+  | '&&'
+  | '*'
+  | '/'
+  | '<'
+  | '<='
+  | '=='
+  | '==='
+  | '>'
+  | '>='
+  | '??'
+  | '||'
+  | ArithmeticSign
+
+/** DVE expression AST node union. */
+export type ExprNode =
+  | TaggedVariant<'type', 'binary', { op: BinaryOp; left: ExprNode; right: ExprNode }>
+  | TaggedVariant<'type', 'ident', { name: string }>
+  | TaggedVariant<'type', 'literal', { value: string | number }>
+  | TaggedVariant<'type', 'member', { object: ExprNode; property: string }>
+  | TaggedVariant<
+    'type',
+    'ternary',
+    { test: ExprNode; consequent: ExprNode; alternate: ExprNode }
+  >
+  | TaggedVariant<'type', 'unary', { op: UnaryOp; arg: ExprNode }>
+
+/** Expression node type discriminant values. */
+export type ExprNodeType = ExprNode['type']
+
+/** Node shape exposing op discriminant. */
+export type ExprOpCarrier = TagCarrier<'op'>
+
+/** DVE expression evaluator token. */
+export type ExprToken =
+  | TaggedVariant<'kind', 'ident', { value: string }>
+  | TaggedVariant<'kind', 'number', { value: number }>
+  | TaggedVariant<'kind', 'op', { value: TokenOp }>
+  | TaggedVariant<'kind', 'string', { value: string }>
+
+/** Expression token kind discriminant values. */
+export type ExprTokenKind = ExprToken['kind']
+
+/** Node shape exposing type discriminant. */
+export type ExprTypeCarrier = TagCarrier<'type'>
+
+/** Structural operators in expression tokens. */
+export type StructuralOp = '(' | ')' | '.' | ':' | '?' | '?.'
+
+/** Template method parameter tuple. */
+export type TemplateArgs = [templatePath: string, data?: DataRecord]
+
+/** All operator literals in tokens. */
+export type TokenOp = BinaryOp | StructuralOp | UnaryOp
+
+/** Unary operator literals. */
+export type UnaryOp = '!' | ArithmeticSign
+
 // ───────────────────────── Routing: static + router options ─────────────────────────
 
 /** Static file serving options. */
@@ -538,7 +821,7 @@ export interface ErrorResponseBuilder {
     ctx: Context,
     statusCode: number,
     error: Error,
-    errorMiddleware?: ErrorMiddleware | null
+    errorMiddleware: ErrorMiddleware | null
   ): Promise<Response>
 }
 
@@ -587,6 +870,113 @@ export interface RouterOptions {
 
 /** Allowed route module file extensions. */
 export type RouteFileExtension = 'cjs' | 'js' | 'jsx' | 'mjs' | 'ts' | 'tsx'
+
+/** Request handler configuration options. */
+export interface HandlerOptions extends
+  Partial<
+    Pick<
+      EngineOptions,
+      'maxIterations' | 'maxRenderIterations' | 'maxOutputSize' | 'viewsDir'
+    >
+  > {
+  /** Custom error response builder */
+  readonly errorResponseBuilder?: ErrorResponseBuilder
+  /** Maximum route parameter length */
+  readonly maxParamLength?: number
+  /** Maximum request URL length */
+  readonly maxUrlLength?: number
+  /** Request timeout in milliseconds */
+  readonly requestTimeoutMs?: number
+  /** Static file handler instance */
+  readonly staticHandler?: StaticHandler
+  /** Trusted proxy configuration for IP resolution */
+  readonly trustProxy?: TrustProxyConfig
+  /** Worker pool configuration options */
+  readonly worker?: WorkerPoolOptions
+}
+
+/** Server listen address info. */
+export interface ListenAddr {
+  /** Bound hostname */
+  readonly hostname: string
+  /** Bound port number */
+  readonly port: number
+}
+
+/** Per-request context and error holder. */
+export interface RequestHolder {
+  /** Request context, null before creation */
+  ctx: Context | null
+  /** Framework error captured during handling */
+  frameworkError: Error | null
+  /** Resolved client IP, undefined when unknown */
+  clientIp: string | undefined
+  /** Matched route pattern, undefined when unmatched */
+  routePattern: string | undefined
+  /** Parsed request URL, reused to avoid re-parsing for metrics */
+  parsedUrl: URL | undefined
+}
+
+/** Optional OTel-aligned request metrics. */
+export interface RequestMetrics {
+  /** Matched route pattern */
+  route?: string
+  /** Resolved server hostname */
+  serverAddress?: string
+  /** Resolved server port number */
+  serverPort?: number
+  /** Request User-Agent header value */
+  userAgent?: string
+  /** Request body size in bytes */
+  requestSize?: number
+  /** Response body size in bytes */
+  responseSize?: number
+}
+
+/** Route change entry for hot-reload. */
+export interface RouteChangeEntry {
+  /** Absolute filesystem path to module */
+  readonly fullPath: string
+  /** Registered route path pattern */
+  readonly routePath: string
+}
+
+/** Shared route entry fields. */
+export interface RouteEntryBase {
+  /** URL pattern for route matching */
+  readonly pattern: string
+}
+
+/** Route entry for type-safe dispatch. */
+export type RouteEntry =
+  | (RouteEntryBase & {
+    readonly kind: 'handler'
+    readonly handler: RouteHandler
+  })
+  | (RouteEntryBase & {
+    readonly kind: 'static'
+    readonly execute: (ctx: Context) => Promise<Response>
+    readonly urlPath: string
+  })
+
+/** Loaded route module with method exports. */
+export type RouteModule = Record<string, unknown>
+
+/** Well-known framework state keys shape. */
+export interface StateKeysMap {
+  /** Key for the view engine */
+  readonly view: StateKey<ViewEngine>
+  /** Key for the worker handle */
+  readonly worker: StateKey<WorkerRunHandle>
+  /** Key for current session data */
+  readonly session: StateKey<DataRecord | null>
+  /** Key for the session setter */
+  readonly setSession: StateKey<(data: DataRecord) => Promise<void>>
+  /** Key for the session clearer */
+  readonly clearSession: StateKey<() => void>
+  /** Key for validated request data */
+  readonly validated: StateKey<DataRecord>
+}
 
 // ───────────────────────── Observability: events ─────────────────────────
 
@@ -679,6 +1069,272 @@ export type EventEmit = (event: EventBase) => void
 /** Listener invoked for emitted events. */
 export type EventListener = (event: EventBase) => void
 
+// ───────────────────────── Validation: Typebox contracts ─────────────────────────
+
+/** Single-input contract function signature. */
+export type ContractFn = (input: never) => unknown
+
+/** First parameter type of a contract. */
+export type ContractInput<ContractType extends ContractFn> = Parameters<ContractType>[0]
+
+/** Contract function or stateful base entry. */
+export type ContractEntry = ContractFn | StatefulBase
+
+/** Record mapping names to contract entries. */
+export type ContractMap = Record<string, ContractEntry>
+
+/** Generic record backing a live facade. */
+export type FacadeRecord = Record<string, unknown>
+
+/** Object with an optional then property. */
+export type ThenableLike = { readonly then?: unknown }
+
+/**
+ * Recursively immutable version of a type.
+ * @description Deeply marks objects, maps, and sets readonly.
+ * @template SourceType - Source type to make immutable
+ */
+export type DeepImmutable<SourceType> = SourceType extends (...args: never[]) => unknown
+  ? SourceType
+  : SourceType extends ReadonlyMap<infer KeyType, infer ValueType>
+    ? ReadonlyMap<KeyType, DeepImmutable<ValueType>>
+  : SourceType extends ReadonlySet<infer ValueType> ? ReadonlySet<DeepImmutable<ValueType>>
+  : SourceType extends object
+    ? { readonly [Key in keyof SourceType]: DeepImmutable<SourceType[Key]> }
+  : SourceType
+
+/**
+ * Normalized contract output for the facade.
+ * @description Flattens promise outputs to single await.
+ * @template OutputType - Raw contract return type
+ */
+export type UnwrapOutput<OutputType> = OutputType extends PromiseLike<unknown>
+  ? Promise<Awaited<OutputType>>
+  : OutputType
+
+/**
+ * Reducer advancing state by a step.
+ * @description Computes next state from current and args.
+ * @template ValueType - Stored state value type
+ * @template ArgsType - Step argument tuple type
+ */
+export type StepFn<ValueType, ArgsType extends [] | [unknown]> = (
+  state: ValueType,
+  ...args: ArgsType
+) => ValueType
+
+/**
+ * Payload type derived from step arguments.
+ * @description Extracts payload or marks absence of payload.
+ * @template ArgsType - Step argument tuple type
+ */
+export type PayloadOf<ArgsType extends [] | [unknown]> = ArgsType extends [infer PayloadType]
+  ? PayloadType
+  : NoPayloadMarker
+
+/** Marker for payload-less steps. */
+export type NoPayloadMarker = { readonly __noPayload: true }
+
+/**
+ * Base shape for stateful entries.
+ * @description Carries the unique stateful identity mark.
+ */
+export interface StatefulBase {
+  /** Unique mark identifying stateful entries */
+  readonly __stateful: true
+}
+
+/**
+ * Fully typed stateful contract.
+ * @description Holds initial state and a step function.
+ * @template ValueType - Stored state value type
+ * @template PayloadType - Step payload argument type
+ */
+export interface StatefulContract<ValueType, PayloadType> extends StatefulBase {
+  /** Initial state value for the contract */
+  readonly initialState: ValueType
+  /** Reducer advancing state with a payload */
+  readonly stepFn: (state: ValueType, payload: PayloadType) => ValueType
+}
+
+/**
+ * Untyped stateful entry record.
+ * @description Internal stateful entry before activation.
+ * @template ValueType - Stored state value type
+ */
+export interface StatefulEntry<ValueType> extends StatefulBase {
+  /** Initial state value for the entry */
+  readonly initialState: ValueType
+  /** Reducer stored without payload typing */
+  readonly stepFn: unknown
+}
+
+/**
+ * Callable handle for stateful contracts.
+ * @description Advances state and exposes current value.
+ * @template ValueType - Stored state value type
+ * @template PayloadType - Step payload argument type
+ */
+export interface StateHandle<ValueType, PayloadType> {
+  (...args: [PayloadType] extends [NoPayloadMarker] ? [] : [payload: PayloadType]): ValueType
+  /** Read the current immutable state */
+  get(): DeepImmutable<ValueType>
+}
+
+/**
+ * Public stateful contract builder API.
+ * @description Creates stateful contract entries from steps.
+ */
+export interface StatefulApi {
+  state<ValueType, ArgsType extends [] | [unknown]>(
+    initialState: ValueType,
+    stepFn: StepFn<ValueType, ArgsType>
+  ): StatefulContract<ValueType, PayloadOf<ArgsType>>
+}
+
+/**
+ * Activated entry from a map.
+ * @description Resolves stateful or plain contract entries.
+ * @template EntryType - Source contract entry type
+ */
+export type LiveEntry<EntryType> = EntryType extends
+  StatefulContract<infer ValueType, infer PayloadType> ? StateHandle<ValueType, PayloadType>
+  : EntryType extends (...args: infer ArgsType) => infer OutputType
+    ? (...args: ArgsType) => UnwrapOutput<OutputType>
+  : never
+
+/**
+ * Facade with activated contract entries.
+ * @description Maps each entry to its live form.
+ * @template ContractMapType - Source contract map type
+ */
+export type LoadedFacade<ContractMapType extends ContractMap> = {
+  readonly [Key in keyof ContractMapType]: LiveEntry<ContractMapType[Key]>
+}
+
+/** Guard pass flag or failure reasons. */
+export type GuardVerdict = true | string | readonly string[]
+
+/**
+ * Synchronous guard for contract input.
+ * @description Validates input and returns a verdict.
+ * @template ContractType - Contract function type
+ */
+export type GuardFn<ContractType extends ContractFn> = (
+  input: NoInfer<ContractInput<ContractType>>
+) => GuardVerdict
+
+/** One guard or guard list. */
+export type GuardInput<ContractType extends ContractFn> =
+  | GuardFn<ContractType>
+  | readonly GuardFn<ContractType>[]
+
+/**
+ * Wrap a contract with guards.
+ * @description Validates input then delegates to the contract.
+ * @param contract - Contract function to wrap
+ * @param guard - Optional guard or list of guards
+ * @returns Wrapped contract function
+ * @template ContractType - Contract function type
+ */
+export function Define<ContractType extends ContractFn>(
+  contract: ContractType,
+  guard?: GuardInput<ContractType>
+): ContractType
+
+// deno-lint-ignore no-namespace
+export namespace Define {
+  /**
+   * Build a stateful contract.
+   * @description Stores initial state and a step reducer.
+   * @param initialState - Initial state seed value
+   * @param stepFn - Reducer advancing the state
+   * @returns Stateful contract entry
+   * @template ValueType - Stored state value type
+   * @template ArgsType - Step argument tuple type
+   */
+  export function state<ValueType, ArgsType extends [] | [unknown]>(
+    initialState: ValueType,
+    stepFn: StepFn<ValueType, ArgsType>
+  ): StatefulContract<ValueType, PayloadOf<ArgsType>>
+}
+
+/**
+ * Activate a contract map.
+ * @description Converts entries into live callable facade.
+ * @param contractMap - Map of contract entries
+ * @returns Facade with live entries
+ * @template ContractMapType - Contract map type
+ */
+export function Loader<ContractMapType extends ContractMap>(
+  contractMap: ContractMapType
+): LoadedFacade<ContractMapType>
+
+/** Per-source validation contract schema. */
+export interface ValidationSchema {
+  /** Contract for raw request body */
+  readonly body?: ContractFn
+  /** Contract for parsed request cookies */
+  readonly cookies?: ContractFn
+  /** Contract for request header record */
+  readonly headers?: ContractFn
+  /** Contract for parsed JSON body */
+  readonly json?: ContractFn
+  /** Contract for matched route params */
+  readonly params?: ContractFn
+  /** Contract for query string record */
+  readonly query?: ContractFn
+}
+
+/** Allowed validation source key. */
+export type ValidationSource = keyof ValidationSchema
+
+/**
+ * Extract raw data from a source.
+ * @description Reads one validation source from the context.
+ * @param ctx - Request context instance
+ * @returns Source value, possibly async
+ */
+export type SourceExtractor = (ctx: Context) => MaybeAsync<unknown>
+
+/**
+ * Validated output mapped from a schema.
+ * @description Maps each source to its contract output type.
+ * @template SchemaType - Validation schema being validated
+ */
+export type ValidatedData<SchemaType extends ValidationSchema> = {
+  readonly [Key in keyof SchemaType]: SchemaType[Key] extends (input: never) => infer OutputType
+    ? Awaited<OutputType>
+    : never
+}
+
+/**
+ * Standalone contract validation helpers.
+ * @description Validates input and reads validated request data.
+ */
+export class Validator {
+  /**
+   * Validate input against a contract.
+   * @description Runs contract, maps failures to status errors.
+   * @param contract - Typebox contract function
+   * @param input - Value to validate
+   * @returns Validated contract result
+   * @template ContractType - Contract function type
+   */
+  static check<ContractType extends ContractFn>(
+    contract: ContractType,
+    input: ContractInput<ContractType>
+  ): ReturnType<ContractType>
+  /**
+   * Read validated data from context.
+   * @description Returns state set by the validator middleware.
+   * @param ctx - Request context instance
+   * @returns Validated data for the schema
+   * @template SchemaType - Validation schema type
+   */
+  static read<SchemaType extends ValidationSchema>(ctx: Context): ValidatedData<SchemaType>
+}
+
 // ───────────────────────── Prebuilt middleware factory ─────────────────────────
 
 /**
@@ -700,6 +1356,8 @@ export const Mware: {
   securityHeaders(options?: SecurityHeadersOptions): MiddlewareFn
   /** Session middleware factory */
   session(options: SessionOptions): MiddlewareFn
+  /** Request validation middleware factory */
+  validator(schema: ValidationSchema): MiddlewareFn
   /** WebSocket upgrade middleware factory */
   websocket(options?: WebSocketOptions): MiddlewareFn
 }
