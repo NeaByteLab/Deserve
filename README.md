@@ -10,15 +10,17 @@ Build HTTP server effortlessly with zero configuration for productivity.
 
 ## Features
 
-- **Zero Config** - No build step. Point to routes and serve.
-- **File-Based Routing** - Put route files in a folder, URL follows that structure.
-- **Context** - Body, query, params, cookies, headers, plus helpers to respond.
-- **Middleware** - Global or per path. CORS, CSRF, IP, auth, session, WebSocket.
-- **Static Files** - Serve directories with optional cache and etag.
-- **Error Handling** - Custom or default HTML/JSON error responses.
-- **Observability** - Subscribe to lifecycle, request, and error events.
-- **Hot Reload** - Routes and templates reload automatically when files change.
-- **Worker Pool** - Offload heavy work to a pool so the server stays responsive.
+- **[Zero Config](https://docs-deserve.neabyte.com/getting-started/installation)** - No build step, point at routes and serve.
+- **[File-Based Routing](https://docs-deserve.neabyte.com/core-concepts/file-based-routing)** - Route files in a folder mirror the URL.
+- **[Context](https://docs-deserve.neabyte.com/core-concepts/context-object)** - Read request data and respond through one object.
+- **[Middleware](https://docs-deserve.neabyte.com/middleware/global)** - Run global or per-path logic before handlers.
+- **[Validation](https://docs-deserve.neabyte.com/middleware/validation/overview)** - Check body, query, and params before handlers.
+- **[Static Files](https://docs-deserve.neabyte.com/static-file/basic)** - Serve directories with optional cache and etag.
+- **[Rendering](https://docs-deserve.neabyte.com/rendering/)** - Build dynamic HTML from templates with streaming.
+- **[Error Handling](https://docs-deserve.neabyte.com/error-handling/default-behavior)** - Catch every error with custom or default responses.
+- **[Observability](https://docs-deserve.neabyte.com/middleware/observability/overview)** - Subscribe to lifecycle, request, and error events.
+- **[Hot Reload](https://docs-deserve.neabyte.com/core-concepts/hot-reload)** - Routes and templates reload without a restart.
+- **[Worker Pool](https://docs-deserve.neabyte.com/core-concepts/worker-pool)** - Offload CPU-bound work to keep server responsive.
 
 ## Installation
 
@@ -30,7 +32,7 @@ Build HTTP server effortlessly with zero configuration for productivity.
 deno add jsr:@neabyte/deserve
 ```
 
-See the [installation guide](https://docs-deserve.neabyte.com/en/getting-started/installation) for details.
+See the [installation guide](https://docs-deserve.neabyte.com/getting-started/installation) for details.
 
 ## Quick Start
 
@@ -64,8 +66,8 @@ export function GET(ctx: Context): Response {
 }
 ```
 
-- [Quick Start (Docs)](https://docs-deserve.neabyte.com/en/getting-started/quick-start)
-- [File-Based Routing](https://docs-deserve.neabyte.com/en/core-concepts/file-based-routing)
+- [Quick Start (Docs)](https://docs-deserve.neabyte.com/getting-started/quick-start)
+- [File-Based Routing](https://docs-deserve.neabyte.com/core-concepts/file-based-routing)
 - [Example Implementation](https://docs-deserve.neabyte.com/examples)
 
 ## Build & Test
