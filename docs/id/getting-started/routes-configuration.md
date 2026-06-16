@@ -137,7 +137,7 @@ const router = new Router({
       ctx: Context,
       statusCode: number,
       error: Error,
-      errorMiddleware?: ErrorMiddleware
+      errorMiddleware: ErrorMiddleware | null
     ) {
       return ctx.send.json(
         {
