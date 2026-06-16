@@ -99,7 +99,7 @@ router.use(
 await router.serve(8000)
 ```
 
-Handlers stay focused on their own job, while shared behavior is applied once. The full set of building blocks is in [Global Middleware](/middleware/global), and errors flow to one place through [error handling](/error-handling/object-details).
+Handlers stay focused on their own job, while shared behavior is applied once. The full set of building blocks is in [Global Middleware](/middleware/global), and errors flow to one place through [error handling](/error-handling/object-details). Input rules belong here too, where a [validation](/middleware/validation/overview) contract checks a request before the handler so each route reads only data that already passed.
 
 ![Shared rules in one place: securityHeaders() registered with router.use(fn) reaches every route, while basicAuth() registered with router.use('/admin', fn) reaches only /admin/*, so one developer can own auth and another own logging without touching each other's route files](/diagrams/team-shared-rules.png)
 

@@ -39,6 +39,8 @@ export async function POST(ctx: Context): Promise<Response> {
 
 The `status` value must be an integer in the 200-599 range, or one of the body-less codes 101, 204, 205, and 304 which send an empty body. Any other value throws `Deno.errors.InvalidData`. This rule is shared by every `ctx.send` helper.
 
+Here `ctx.body()` returns whatever the client sent, so a handler that depends on its shape runs a [validation](/middleware/validation/overview) contract first and reads typed data that already passed.
+
 ## With Custom Headers
 
 ```typescript twoslash
@@ -97,3 +99,5 @@ export function GET(ctx: Context): Response {
   )
 }
 ```
+
+A handler can shape a one-off error body like this, but a thrown error routes through one place instead, covered in [Error Object Details](/error-handling/object-details).

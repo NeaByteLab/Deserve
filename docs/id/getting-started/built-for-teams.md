@@ -99,7 +99,7 @@ router.use(
 await router.serve(8000)
 ```
 
-Handler tetap fokus pada tugasnya sendiri, sementara perilaku bersama diterapkan sekali. Set lengkap blok penyusunnya ada di [Global Middleware](/id/middleware/global), dan error mengalir ke satu tempat lewat [penanganan error](/id/error-handling/object-details).
+Handler tetap fokus pada tugasnya sendiri, sementara perilaku bersama diterapkan sekali. Set lengkap blok penyusunnya ada di [Global Middleware](/id/middleware/global), dan error mengalir ke satu tempat lewat [penanganan error](/id/error-handling/object-details). Aturan input juga ada di sini, tempat kontrak [validasi](/id/middleware/validation/overview) memeriksa request sebelum handler sehingga tiap rute hanya membaca data yang sudah lolos.
 
 ![Aturan bersama di satu tempat: securityHeaders() yang didaftarkan dengan router.use(fn) menjangkau setiap rute, sedangkan basicAuth() yang didaftarkan dengan router.use('/admin', fn) hanya menjangkau /admin/*, jadi satu developer bisa memegang auth dan yang lain memegang logging tanpa menyentuh berkas rute satu sama lain](/diagrams/team-shared-rules.png)
 

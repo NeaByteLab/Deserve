@@ -106,3 +106,5 @@ export function GET(ctx: Context): Response {
   })
 }
 ```
+
+Handler yang memvalidasi beberapa param, atau ingin kegagalannya membawa alasan tingkat field, menjalankan kontrak [validasi](/id/middleware/validation/overview) dengan `Validator.check` alih-alih regex inline. Param diperiksa di dalam handler karena baru tersedia setelah middleware berjalan, dibahas di [Membaca Data Tervalidasi](/id/middleware/validation/reading-data#memeriksa-params-di-handler).

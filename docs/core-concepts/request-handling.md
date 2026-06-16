@@ -270,3 +270,7 @@ const sessionId = ctx.cookie('sessionId')
 // Get all cookies
 const cookies = ctx.cookie() // { sessionId: 'abc123', theme: 'dark' }
 ```
+
+## Validating Before The Handler
+
+Every reader above hands back the raw value as it arrived, so a handler still checks the shape itself. A schema moves those checks ahead of the handler, runs a contract against each source, and leaves only data that already passed. See [Validation Overview](/middleware/validation/overview) for how `ctx.json()`, `ctx.query()`, and the other readers feed a contract.

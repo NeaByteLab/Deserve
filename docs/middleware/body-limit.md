@@ -82,6 +82,8 @@ When a request can carry a body, the middleware checks the declared size first, 
 - When both `Transfer-Encoding` and `Content-Length` are present, `Transfer-Encoding` takes precedence.
 - Chunked or unknown-length bodies are still limited by the wrapped stream, and only the bytes read count toward the limit.
 
+This middleware caps how many bytes a body may carry. Checking the shape of those bytes is a separate step that a [validation](/middleware/validation/overview) contract runs once the body is within the limit.
+
 ## Complete Example
 
 ```typescript twoslash

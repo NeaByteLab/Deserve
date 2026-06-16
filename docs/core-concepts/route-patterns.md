@@ -106,3 +106,5 @@ export function GET(ctx: Context): Response {
   })
 }
 ```
+
+A handler that validates several params, or wants the failure to carry field-level reasons, runs a [validation](/middleware/validation/overview) contract with `Validator.check` instead of an inline regex. Params are checked inside the handler because they resolve after middleware runs, covered in [Reading Validated Data](/middleware/validation/reading-data#checking-params-in-a-handler).

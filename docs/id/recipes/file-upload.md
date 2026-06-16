@@ -76,6 +76,8 @@ export async function POST(ctx: Context): Promise<Response> {
 
 Objek `File` memaparkan `name`, `type`, dan `size` miliknya sendiri, jadi melaporkan kembali sebuah upload tidak pernah perlu menyentuh disk.
 
+Handler yang memeriksa beberapa field bisa memindahkan pemeriksaan itu ke depan dirinya dengan kontrak [validasi](/id/middleware/validation/overview) pada sumber `body`, sehingga hanya request yang sudah membawa field yang benar mencapai handler.
+
 ## Menyimpan ke Disk
 
 Bytes tetap di dalam `File` sampai `arrayBuffer()` mengeluarkannya, dan membungkus buffer itu dalam `Uint8Array` memberi [`Deno.writeFile`](https://docs.deno.com/api/deno/~/Deno.writeFile) persis bentuk yang diharapkannya. Deserve tidak pernah menulis upload sendiri, jadi path tujuan tetap dalam kendali penuh:

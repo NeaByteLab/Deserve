@@ -76,6 +76,8 @@ export async function POST(ctx: Context): Promise<Response> {
 
 The `File` exposes its own `name`, `type`, and `size`, so reporting back on an upload never has to touch the disk.
 
+A handler that checks several fields can move those checks ahead of itself with a [validation](/middleware/validation/overview) contract on the `body` source, so only a request that already carries the right fields reaches the handler.
+
 ## Saving to Disk
 
 The bytes stay inside the `File` until `arrayBuffer()` pulls them out, and wrapping that buffer in a `Uint8Array` hands [`Deno.writeFile`](https://docs.deno.com/api/deno/~/Deno.writeFile) exactly the shape it expects. Deserve never writes uploads on its own, so the destination path stays under full control:

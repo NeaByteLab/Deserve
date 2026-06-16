@@ -270,3 +270,7 @@ const sessionId = ctx.cookie('sessionId')
 // Ambil semua cookie
 const cookies = ctx.cookie() // { sessionId: 'abc123', theme: 'dark' }
 ```
+
+## Memvalidasi Sebelum Handler
+
+Setiap pembaca di atas mengembalikan nilai mentah seperti saat tiba, jadi handler tetap memeriksa bentuknya sendiri. Sebuah schema memindahkan pemeriksaan itu ke depan handler, menjalankan kontrak terhadap tiap sumber, dan menyisakan hanya data yang sudah lolos. Lihat [Ringkasan Validasi](/id/middleware/validation/overview) untuk bagaimana `ctx.json()`, `ctx.query()`, dan pembaca lain mengisi sebuah kontrak.

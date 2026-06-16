@@ -32,4 +32,4 @@ Some values are meant to be HTML, such as content from a trusted editor. Triple 
 <p>{{{ trustedHtml }}}</p>
 ```
 
-The opt-out is deliberate and local, so the default stays safe and only the value that needs raw markup is marked as such. Sending JSON needs no escaping at all, since the data is never parsed as markup, covered in [JSON responses](/response/json). Checking the shape and type of incoming data is a separate task for the handler after [reading the body](/core-concepts/context-object#request-data-access), which is validation rather than escaping.
+The opt-out is deliberate and local, so the default stays safe and only the value that needs raw markup is marked as such. Sending JSON needs no escaping at all, since the data is never parsed as markup, covered in [JSON responses](/response/json). Checking the shape and type of incoming data is a separate task that runs before the handler through a [validation](/middleware/validation/overview) contract, which is validation rather than escaping.

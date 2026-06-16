@@ -82,6 +82,8 @@ Ketika request bisa membawa body, middleware memeriksa ukuran yang dideklarasika
 - Ketika `Transfer-Encoding` dan `Content-Length` sama-sama ada, `Transfer-Encoding` didahulukan.
 - Body chunked atau panjang tak diketahui tetap dibatasi oleh stream yang dibungkus, dan hanya byte yang dibaca yang dihitung terhadap batas.
 
+Middleware ini membatasi berapa byte yang boleh dibawa sebuah body. Memeriksa bentuk byte itu adalah langkah terpisah yang dijalankan kontrak [validasi](/id/middleware/validation/overview) setelah body berada dalam batas.
+
 ## Contoh Lengkap
 
 ```typescript twoslash

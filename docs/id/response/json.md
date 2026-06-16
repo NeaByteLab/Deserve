@@ -39,6 +39,8 @@ export async function POST(ctx: Context): Promise<Response> {
 
 Nilai `status` harus integer dalam rentang 200-599, atau salah satu kode tanpa body 101, 204, 205, dan 304 yang mengirim body kosong. Nilai lain melempar `Deno.errors.InvalidData`. Aturan ini berlaku untuk setiap helper `ctx.send`.
 
+Di sini `ctx.body()` mengembalikan apa pun yang dikirim client, jadi handler yang bergantung pada bentuknya menjalankan kontrak [validasi](/id/middleware/validation/overview) lebih dulu dan membaca data bertipe yang sudah lolos.
+
 ## Dengan Header Kustom
 
 ```typescript twoslash
@@ -97,3 +99,5 @@ export function GET(ctx: Context): Response {
   )
 }
 ```
+
+Sebuah handler bisa membentuk body error sekali pakai seperti ini, tetapi error yang dilempar mengalir lewat satu tempat alih-alih, dibahas di [Detail Objek Error](/id/error-handling/object-details).

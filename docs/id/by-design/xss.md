@@ -32,4 +32,4 @@ Beberapa nilai memang dimaksudkan jadi HTML, seperti konten dari editor tepercay
 <p>{{{ trustedHtml }}}</p>
 ```
 
-Opt-out ini sengaja dan lokal, jadi default tetap aman dan hanya nilai yang butuh markup mentah yang ditandai begitu. Mengirim JSON sama sekali tak butuh escaping, karena data tak pernah diurai sebagai markup, dibahas di [response JSON](/id/response/json). Memeriksa bentuk dan tipe data masuk adalah tugas terpisah untuk handler setelah [membaca body](/id/core-concepts/context-object#akses-data-request), yang merupakan validasi ketimbang escaping.
+Opt-out ini sengaja dan lokal, jadi default tetap aman dan hanya nilai yang butuh markup mentah yang ditandai begitu. Mengirim JSON sama sekali tak butuh escaping, karena data tak pernah diurai sebagai markup, dibahas di [response JSON](/id/response/json). Memeriksa bentuk dan tipe data masuk adalah tugas terpisah yang berjalan sebelum handler lewat kontrak [validasi](/id/middleware/validation/overview), yang merupakan validasi ketimbang escaping.
