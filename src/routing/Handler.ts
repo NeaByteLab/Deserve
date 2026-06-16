@@ -187,10 +187,7 @@ export class Handler {
             return middlewareResult
           }
         }
-        let routeResult = this.routerInstance.find(req.method, holder.parsedUrl.pathname)
-        if (!routeResult && req.method === 'HEAD') {
-          routeResult = this.routerInstance.find('GET', holder.parsedUrl.pathname)
-        }
+        const routeResult = this.routerInstance.find(req.method, holder.parsedUrl.pathname)
         if (routeResult) {
           const routeEntry = 'data' in routeResult ? routeResult.data : null
           if (!routeEntry) {
@@ -255,6 +252,10 @@ export class Handler {
       }
     }
     return async (req: Request, info?: Deno.ServeHandlerInfo) => {
+      const isHead = req.method === 'HEAD'
+      if (isHead) {
+        req = new Core.API.Request(req, { method: 'GET' })
+      }
       const observe = this.events.hasListeners()
       const requestStart = observe ? performance.now() : 0
       const holder: Types.RequestHolder = {
@@ -314,7 +315,7 @@ export class Handler {
             timedOut
           )
         }
-        if (req.method === 'HEAD') {
+        if (isHead) {
           return await Routing.Respond.toHeadResponse(finalResponse)
         }
         return finalResponse
