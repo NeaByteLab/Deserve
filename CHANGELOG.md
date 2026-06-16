@@ -6,6 +6,32 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [Unreleased]
+
+### Added
+
+- A request can now be checked against a per-source contract before it reaches a handler. A new validation middleware takes a schema naming any of body, cookies, headers, json, or query, and runs each named contract against the matching slice of the incoming request. Every value that passes is gathered into one validated record and stored on the context under a reserved framework key, so a handler downstream reads only data that has already cleared its contract. A schema that names no source at all is refused at construction time, and a schema that tries to validate route params in middleware is refused with a message pointing to the in-handler path instead, since params are not yet resolved while middleware runs
+- A standalone validation helper now exists alongside the middleware. One call validates a single value against a contract and hands back the typed result or maps the failure to a status, and a companion call reads the validated record the middleware left on the context, failing loudly when nothing was registered so a missing validator step is caught rather than silently returning nothing
+- A failing validation now carries its reasons outward. The source of a validation throw is inspected, an existing status is preserved as-is, and a plain client-input failure is mapped to a 422 whose joined reasons become its message while the individual reason strings ride along on a non-enumerable cause for later structured rendering
+
+### Changed
+
+- An error response asked for in JSON now answers in a structured problem-details shape carrying a type, a title, the status, and the request path as the instance, sent under the `application/problem+json` content type, in place of the older ad-hoc object of error, path, and status. The same structured body is used on the safe fallback path, so a response that fails to build the primary way still comes back in the new shape rather than the old one
+- A 422 failure now surfaces its individual reasons inside the problem body. The reasons are pulled only from a status-bearing 422 error whose cause is a list of strings, and only when at least one survives, so a structured validation failure tells the caller every field that broke while every other status keeps a reason-free body
+- Content negotiation now also recognises a request that asks specifically for the problem-details media type, not only plain JSON, so a client opting into `application/problem+json` is answered in JSON rather than falling through to HTML, while a request with no accept header at all still defaults away from JSON
+- A HEAD request is now rewritten to a GET at the very edge of request handling and remembered as having arrived as HEAD, so the whole pipeline routes, matches, and runs exactly as the GET it mirrors and the body is stripped only at the end. This replaces the older approach of letting a HEAD miss its own lookup and then retrying the route table as a GET, so a HEAD no longer depends on a second lookup to find its handler
+
+### Public API
+
+- `Validator` exported, offering the standalone validate-one-value and read-validated-data helpers
+- `Mware.validator(schema)` added as a middleware factory that builds the request validation step from a per-source contract schema
+- The contract-building helpers `Define` and `Loader` and the contract types from the Typebox dependency are now re-exported from the package root, so a consumer writes contracts without reaching for the dependency directly
+- `ProblemDetails` exported as the structured error body shape, describing the type, title, status, optional instance, and optional list of reasons
+- `ValidationSchema`, `ValidatedData`, `ValidationSource`, and `SourceExtractor` exported to describe a validation schema, the typed record it produces, the allowed source names, and how a source is read
+- `StateKeysMap` gains a `validated` key naming where the validated request record lives on the context
+
+---
+
 ## [0.13.0] - 2026-06-10
 
 ### Added
