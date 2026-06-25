@@ -1,59 +1,13 @@
-import type * as Types from '@interfaces/index.ts'
-import * as Core from '@core/index.ts'
-import * as Loader from '@middleware/Loaders.ts'
-import { Immutable } from '@neabyte/utils-core'
-
-/**
- * Prebuilt middleware factories.
- * @description Common middleware creators for auth, CORS, session.
- */
-export const Mware = {
-  /** Basic Auth middleware factory */
-  basicAuth: (options: Types.BasicAuthOptions): Types.MiddlewareFn =>
-    Loader.BasicAuth.create(options),
-  /** Body size limit middleware factory */
-  bodyLimit: (options: Types.BodyLimitOptions): Types.MiddlewareFn =>
-    Loader.BodyLimit.create(options),
-  /** CORS middleware factory */
-  cors: (options?: Types.CorsOptions): Types.MiddlewareFn => Loader.Cors.create(options),
-  /** CSRF middleware factory */
-  csrf: (options?: Types.CsrfOptions): Types.MiddlewareFn => Loader.CSRF.create(options),
-  /** IP restriction middleware factory */
-  ip: (options: Types.IpOptions): Types.MiddlewareFn => Loader.IP.create(options),
-  /** Security headers middleware factory */
-  securityHeaders: (options?: Types.SecurityHeadersOptions): Types.MiddlewareFn =>
-    Loader.SecHeaders.create(options),
-  /** Session middleware factory */
-  session: (options: Types.SessionOptions): Types.MiddlewareFn => Loader.Session.create(options),
-  /** Validation middleware factory */
-  validator: (schema: Types.ValidationSchema): Types.MiddlewareFn =>
-    Loader.Validator.create(schema),
-  /** WebSocket upgrade middleware factory */
-  websocket: (options?: Types.WebSocketOptions): Types.MiddlewareFn =>
-    Loader.WebSocket.create(options)
-}
-
-/**
- * Wrap middleware with try/catch and label.
- * @description Catches errors and calls ctx.handleError, preserves original error.
- * @param label - Context label for error diagnostics
- * @param middleware - Middleware to run
- * @returns Middleware that delegates and catches
- */
-export function WrapMware(label: string, middleware: Types.MiddlewareFn): Types.MiddlewareFn {
-  return async (ctx, next) => {
-    try {
-      return await middleware(ctx, next)
-    } catch (error) {
-      const extracted = Core.Handler.extractError(error)
-      extracted.error.message = `[${label}] ${extracted.error.message}`
-      return await ctx.handleError(extracted.statusCode, extracted.error)
-    }
-  }
-}
-
-/** Freeze Mware factory registry */
-Immutable.harden(Mware)
-
-/** Re-exports middleware public API. */
-export * from '@middleware/Loaders.ts'
+/** Re-exports middleware public API */
+export * from '@middleware/BasicAuth.ts'
+export * from '@middleware/BodyLimit.ts'
+export * from '@middleware/CORS.ts'
+export * from '@middleware/CSRF.ts'
+export * from '@middleware/IP.ts'
+export * from '@middleware/Mware.ts'
+export * from '@middleware/SecurityHeaders.ts'
+export * from '@middleware/Session.ts'
+export * from '@middleware/Validate.ts'
+export * from '@middleware/Validator.ts'
+export * from '@middleware/WebSocket.ts'
+export * from '@middleware/Wrap.ts'
