@@ -1,10 +1,36 @@
-/** Public API for Deserve HTTP server. */
-export type * from '@interfaces/index.ts'
+/** Public API for Deserve HTTP server */
 export { Context } from '@core/index.ts'
-export { Mware, WrapMware } from '@middleware/index.ts'
 export { Router } from '@routing/index.ts'
-export { Validator } from '@validation/index.ts'
+export { Mware, Validator, Wrap } from '@middleware/index.ts'
 
-/** Re-exports Typebox contract helpers. */
-export type * from '@neabyte/typebox'
-export { Define, Loader } from '@neabyte/typebox'
+/** Re-exports Typebox contract helpers */
+export type { GuardFn, GuardInput, GuardVerdict } from '@neabyte/typebox'
+export type {
+  BasicAuthOptions,
+  BodyLimitOptions,
+  CookieInit,
+  CorsOptions,
+  CsrfOptions,
+  CsrfRulePredicate,
+  ErrorInfo,
+  ErrorMiddleware,
+  EventBase,
+  EventFn,
+  HttpStatusCode,
+  IpOptions,
+  MiddlewareFn,
+  RedirectInit,
+  RedirectStatus,
+  RenderInit,
+  RequestMetrics,
+  RouterOptions,
+  SecurityHeadersOptions,
+  SendInit,
+  ServeOptions,
+  SessionData,
+  SessionOptions,
+  StaticFn,
+  ValidatedMap,
+  ValidationSchema,
+  WebSocketOptions
+} from '@interfaces/index.ts'
