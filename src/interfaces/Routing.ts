@@ -1,121 +1,70 @@
 import type * as Types from '@interfaces/index.ts'
 import type * as Core from '@core/index.ts'
 
-/** Request handler configuration options. */
-export interface HandlerOptions extends
-  Partial<
-    Pick<
-      Types.EngineOptions,
-      'maxIterations' | 'maxRenderIterations' | 'maxOutputSize' | 'viewsDir'
-    >
-  > {
-  /** Custom error response builder */
-  readonly errorResponseBuilder?: Types.ErrorResponseBuilder
-  /** Maximum route parameter length */
-  readonly maxParamLength?: number
-  /** Maximum request URL length */
-  readonly maxUrlLength?: number
-  /** Request timeout in milliseconds */
-  readonly requestTimeoutMs?: number
-  /** Static file handler instance */
-  readonly staticHandler?: Types.StaticHandler
-  /** Trusted proxy configuration for IP resolution */
-  readonly trustProxy?: TrustProxyConfig
-  /** Worker pool configuration options */
-  readonly worker?: Types.WorkerPoolOptions
+/**
+ * Scoped middleware registration entry.
+ * @description Pairs path prefix with middleware handler.
+ */
+export interface MiddlewareEntry {
+  /** Path prefix scoping the middleware */
+  readonly path: string
+  /** Middleware handler function */
+  readonly handler: Types.MiddlewareFn
 }
 
-/** Server listen address info. */
-export interface ListenAddr {
-  /** Bound hostname */
-  readonly hostname: string
-  /** Bound port number */
-  readonly port: number
-}
-
-/** Per-request context and error holder. */
+/**
+ * Mutable per request state holder.
+ * @description Carries context, error, URL, and pattern.
+ */
 export interface RequestHolder {
-  /** Request context, null before creation */
+  /** Active request context or null */
   ctx: Core.Context | null
-  /** Framework error captured during handling */
+  /** Captured framework error or null */
   frameworkError: Error | null
-  /** Resolved client IP, undefined when unknown */
-  clientIp: string | undefined
-  /** Matched route pattern, undefined when unmatched */
-  routePattern: string | undefined
-  /** Parsed request URL, reused to avoid re-parsing for metrics */
+  /** Parsed request URL or undefined */
   parsedUrl: URL | undefined
+  /** Matched route pattern or undefined */
+  routePattern: string | undefined
 }
 
-/** Optional OTel-aligned request metrics. */
-export interface RequestMetrics {
-  /** Matched route pattern */
-  route?: string
-  /** Resolved server hostname */
-  serverAddress?: string
-  /** Resolved server port number */
-  serverPort?: number
-  /** Request User-Agent header value */
-  userAgent?: string
-  /** Request body size in bytes */
-  requestSize?: number
-  /** Response body size in bytes */
-  responseSize?: number
-}
-
-/** Route change entry for hot-reload. */
-export interface RouteChangeEntry {
-  /** Absolute filesystem path to module */
+/**
+ * Route file change descriptor.
+ * @description Holds full path and route path.
+ */
+export interface RouteChange {
+  /** Absolute path to route file */
   readonly fullPath: string
-  /** Registered route path pattern */
+  /** Route path relative to directory */
   readonly routePath: string
 }
 
-/** Shared route entry fields. */
-export interface RouteEntryBase {
-  /** URL pattern for route matching */
+/**
+ * Registered route lookup entry.
+ * @description Pairs route handler with its pattern.
+ */
+export interface RouteEntry {
+  /** Route handler function */
+  readonly handler: Types.RouteHandler
+  /** Route pattern string */
   readonly pattern: string
 }
 
-/** Router constructor and serve options. */
-export interface RouterOptions extends HandlerOptions {
-  /** Directory path for route modules */
-  readonly routesDir?: string
+/**
+ * Static mount registration entry.
+ * @description Pairs URL prefix with serving handler.
+ */
+export interface StaticMount {
+  /** URL prefix for static files */
+  readonly urlPrefix: string
+  /** Serving handler for the mount */
+  readonly handler: Types.StaticFn
 }
 
-/** Well-known framework state keys shape. */
-export interface StateKeysMap {
-  /** Key for the view engine */
-  readonly view: Types.StateKey<Types.ViewEngine>
-  /** Key for the worker handle */
-  readonly worker: Types.StateKey<Types.WorkerRunHandle>
-  /** Key for current session data */
-  readonly session: Types.StateKey<Types.DataRecord | null>
-  /** Key for the session setter */
-  readonly setSession: Types.StateKey<(data: Types.DataRecord) => Promise<void>>
-  /** Key for the session clearer */
-  readonly clearSession: Types.StateKey<() => void>
-  /** Key for validated request data */
-  readonly validated: Types.StateKey<Types.DataRecord>
-}
-
-/** Route entry for type-safe dispatch. */
-export type RouteEntry =
-  | (RouteEntryBase & {
-    readonly kind: 'handler'
-    readonly handler: Types.RouteHandler
-  })
-  | (RouteEntryBase & {
-    readonly kind: 'static'
-    readonly execute: (ctx: Core.Context) => Promise<Response>
-    readonly urlPath: string
-  })
-
-/** Allowed route module file extensions. */
-export type RouteFileExtension = 'cjs' | 'js' | 'jsx' | 'mjs' | 'ts' | 'tsx'
-
-/** Loaded route module with method exports. */
-export type RouteModule = Record<string, unknown>
-
-/** Trusted proxy configuration for IP resolution. */
-export type TrustProxyConfig = readonly string[] | Types.IpMatcher
+/**
+ * Deno server request handler.
+ * @description Handles request and returns response promise.
+ * @param req - Incoming request instance
+ * @param info - Optional Deno serve handler info
+ * @returns Promise resolving to response
+ */
+export type ServeHandler = (req: Request, info?: Deno.ServeHandlerInfo) => Promise<Response>
