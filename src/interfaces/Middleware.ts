@@ -1,89 +1,121 @@
 import type * as Types from '@interfaces/index.ts'
 import type * as Core from '@core/index.ts'
 
-/** Basic Auth middleware options. */
+/**
+ * Basic auth middleware options.
+ * @description Configures allowed users and realm.
+ */
 export interface BasicAuthOptions {
-  /** Allowed user credentials list */
+  /** Allowed basic auth users */
   readonly users: readonly BasicAuthUser[]
+  /** Optional authentication realm name */
+  readonly realm?: string
 }
 
-/** Single Basic Auth user credential. */
+/**
+ * Basic auth user credentials.
+ * @description Holds username and password pair.
+ */
 export interface BasicAuthUser {
-  /** Login username string */
+  /** Account username value */
   readonly username: string
-  /** Login password string */
+  /** Account password value */
   readonly password: string
 }
 
-/** Body size limit middleware options. */
+/**
+ * Body limit middleware options.
+ * @description Sets maximum allowed request body bytes.
+ */
 export interface BodyLimitOptions {
-  /** Maximum body size in bytes */
+  /** Maximum request body size in bytes */
   readonly limit: number
 }
 
-/** CORS middleware options. */
+/**
+ * CORS middleware options.
+ * @description Configures allowed origins, methods, and headers.
+ */
 export interface CorsOptions {
   /** Allowed request header names */
   readonly allowedHeaders?: readonly string[]
-  /** Allow credentials in requests */
+  /** Allow credentials on requests */
   readonly credentials?: boolean
-  /** Headers exposed to client scripts */
+  /** Exposed response header names */
   readonly exposedHeaders?: readonly string[]
-  /** Preflight cache duration in seconds */
+  /** Preflight cache max age seconds */
   readonly maxAge?: number
-  /** Allowed HTTP methods for CORS */
+  /** Allowed HTTP request methods */
   readonly methods?: readonly Types.HttpMethod[]
-  /** Allowed origin or origin list */
+  /** Allowed request origin values */
   readonly origin?: string | readonly string[]
 }
 
-/** CSRF middleware options. */
+/**
+ * CSRF middleware options.
+ * @description Configures origin and fetch site rules.
+ */
 export interface CsrfOptions {
-  /** Allowed origin, list, or predicate */
+  /** Allowed origin rule or predicate */
   readonly origin?: string | readonly string[] | CsrfRulePredicate
-  /** Allowed sec-fetch-site, list, or predicate */
+  /** Allowed fetch site rule or predicate */
   readonly secFetchSite?: string | readonly string[] | CsrfRulePredicate
 }
 
-/** IP restriction middleware options. */
+/**
+ * IP filter middleware options.
+ * @description Configures whitelist and blacklist rules.
+ */
 export interface IpOptions {
-  /** Allowed IP, CIDR, or wildcard rules */
+  /** Allowed IP or CIDR rules */
   readonly whitelist?: readonly string[]
-  /** Denied IP, CIDR, or wildcard rules */
+  /** Blocked IP or CIDR rules */
   readonly blacklist?: readonly string[]
 }
 
-/** Middleware bound to optional path. */
-export interface MiddlewareEntry {
-  /** Middleware handler function */
-  readonly handler: MiddlewareFn
-  /** Path prefix to match */
-  readonly path: string
+/**
+ * Session controller for context.
+ * @description Exposes session state and write method.
+ */
+export interface SessionController {
+  /** Current session state or null */
+  readonly state: SessionData | null
+  /**
+   * Write session data to cookie.
+   * @description Persists or clears session state.
+   * @param data - Session data or null
+   * @returns Promise resolving when write completes
+   */
+  write(data: SessionData | null): Promise<void>
 }
 
-/** Session middleware cookie options. */
-export interface SessionOptions {
+/**
+ * Default session cookie values.
+ * @description Holds name and cookie attribute defaults.
+ */
+export interface SessionDefaults {
   /** Session cookie name */
-  readonly cookieName?: string
-  /** Secret key for cookie signing */
-  readonly cookieSecret: string
-  /** Restrict cookie to HTTP only */
-  readonly httpOnly?: boolean
-  /** Cookie expiry in seconds */
-  readonly maxAge?: number
+  readonly name: string
+  /** Mark cookie as HTTP only */
+  readonly httpOnly: boolean
+  /** Cookie max age in seconds */
+  readonly maxAge: number
   /** Cookie path scope */
-  readonly path?: string
-  /** SameSite cookie policy attribute */
-  readonly sameSite?: SameSitePolicy
-  /** Require HTTPS for cookie */
-  readonly secure?: boolean
+  readonly path: string
+  /** Cookie SameSite policy */
+  readonly sameSite: Types.SameSitePolicy
+  /** Mark cookie as secure */
+  readonly secure: boolean
 }
 
-/** WebSocket upgrade middleware options. */
+/**
+ * WebSocket upgrade middleware options.
+ * @description Configures listener path, origin policy, and lifecycle callbacks.
+ */
 export interface WebSocketOptions {
   /** Allowed handshake origins or wildcard */
   readonly allowedOrigins?: readonly string[] | '*'
-  /** Listener event name override */
+  /** Path prefix that triggers an upgrade */
   readonly listener?: string
   /** Called on socket connection open */
   readonly onConnect?: SocketCallback<Event>
@@ -95,59 +127,41 @@ export interface WebSocketOptions {
   readonly onMessage?: SocketCallback<MessageEvent>
 }
 
-/** Async-resolved middleware result promise. */
-export type AsyncMiddlewareResult = Promise<Awaited<MiddlewareResult>>
-
 /**
- * CSRF rule predicate over a header value.
- * @description Returns true when the value is allowed.
- * @param value - Incoming header value to test
+ * CSRF rule predicate function.
+ * @description Validates value against request context.
+ * @param value - Header value to validate
  * @param ctx - Request context instance
- * @returns True when the value passes the rule
+ * @returns True when value is allowed
  */
 export type CsrfRulePredicate = (value: string, ctx: Core.Context) => boolean
 
-/**
- * Middleware function with context.
- * @description Processes request with context and next chain.
- */
-export type MiddlewareFn = Types.ContextFn<[next: NextFn], Response | undefined>
-
-/** Middleware return type alias. */
-export type MiddlewareResult = ReturnType<MiddlewareFn>
-
-/** Next function in middleware chain. */
-export type NextFn = () => AsyncMiddlewareResult
-
-/** Route handler receiving context. */
-export type RouteHandler = Types.ContextFn<[], Response>
-
-/** SameSite cookie attribute value. */
-export type SameSitePolicy = 'Strict' | 'Lax' | 'None'
-
-/** Derived security header option key union. */
+/** Security header configuration key */
 export type SecurityHeaderKey = keyof typeof Core.Constant.securityHeaders
 
-/** Header value or false to omit. */
+/** Security header value or disable flag */
 export type SecurityHeaderValue = string | false
 
-/** Security header partial options map. */
+/** Security headers middleware options map */
 export type SecurityHeadersOptions = Partial<Record<SecurityHeaderKey, SecurityHeaderValue>>
 
-/** Session cookie options all required. */
-export type SessionCookieOpts = Required<Omit<SessionOptions, 'cookieSecret'>>
+/** Session data key value record */
+export type SessionData = Record<string, unknown>
 
-/** Decoded signed session cookie result. */
+/** Session decode success or failure result */
 export type SessionDecodeResult =
-  | { readonly data: Types.DataRecord }
-  | { readonly reason: 'tampered' | 'expired' | 'malformed' }
+  | { readonly data: SessionData }
+  | { readonly reason: Types.SessionInvalidReason }
+
+/** Session options with required secret */
+export type SessionOptions = { readonly secret: string } & Partial<SessionDefaults>
 
 /**
- * Socket lifecycle callback with event.
- * @description Handles WebSocket events with socket and context.
- * @template E - Event subtype constraint
+ * Socket lifecycle callback function.
+ * @description Receives the socket, originating event, and request context.
+ * @template E - Event subtype delivered to the callback
  * @param socket - WebSocket connection instance
- * @param event - DOM event from socket
+ * @param event - Event emitted by the socket
  * @param ctx - Request context instance
  */
 export type SocketCallback<E extends Event = Event> = (
