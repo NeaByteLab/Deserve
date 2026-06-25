@@ -1,5 +1,12 @@
-import { Router } from '@app/index.ts'
+import { Router } from '@neabyte/deserve'
 
-const router = new Router({ routesDir: 'benchmark/routes', viewsDir: 'benchmark/views' })
+const router = new Router({
+  routes: {
+    directory: 'benchmark/routes'
+  },
+  views: {
+    directory: 'benchmark/views'
+  }
+})
 
 await router.serve(8000)

@@ -13,16 +13,10 @@ Start a server (from repo root), then run `autocannon` from another terminal.
 
 ### Start Server
 
-- **Non-worker mode** (view routes + CPU on main thread):
+- **Standard mode** (view routes + CPU on main thread):
 
   ```bash
   deno run --allow-net --allow-read benchmark/main.ts
-  ```
-
-- **Worker mode** (enables `/test-worker`):
-
-  ```bash
-  deno run --allow-net --allow-read benchmark/main-worker.ts
   ```
 
 - **Listener mode** (one empty event listener attached):
@@ -33,8 +27,7 @@ Start a server (from repo root), then run `autocannon` from another terminal.
 
 Notes:
 
-- In non-worker mode, **`/test-worker` returns 503** (`worker not enabled`).
-- All view routes (`/test-view*`) are available in both modes.
+- All view routes (`/test-view*`) are available.
 - Listener mode is for measuring observability cost, see [Observability Cost](#observability-cost-logging-on-vs-off).
 
 ### Run Benchmark
@@ -47,11 +40,10 @@ npx autocannon http://localhost:8000/test -c 500 -p 10 -d 30
 
 ### JSON + CPU Comparison
 
-| Route          | What it does                             | Why it exists              |
-| -------------- | ---------------------------------------- | -------------------------- |
-| `/test`        | JSON only (no CPU work)                  | Baseline throughput        |
-| `/test-cpu`    | 50k `sqrt` loop on **main thread**       | Event-loop blocking cost   |
-| `/test-worker` | Same loop offloaded to a **worker pool** | Offload overhead + scaling |
+| Route       | What it does                       | Why it exists            |
+| ----------- | ---------------------------------- | ------------------------ |
+| `/test`     | JSON only (no CPU work)            | Baseline throughput      |
+| `/test-cpu` | 50k `sqrt` loop on **main thread** | Event-loop blocking cost |
 
 ### DVE View Engine Routes
 
@@ -71,9 +63,6 @@ npx autocannon http://localhost:8000/test -c 500 -p 10 -d 30
 # CPU On Main Thread
 npx autocannon http://localhost:8000/test-cpu -c 500 -p 10 -d 30
 
-# CPU In Worker (Requires benchmark/main-worker.ts)
-npx autocannon http://localhost:8000/test-worker -c 500 -p 10 -d 30
-
 # DVE Views
 npx autocannon http://localhost:8000/test-view -c 500 -p 10 -d 30
 npx autocannon http://localhost:8000/test-view-each-meta -c 500 -p 10 -d 30
@@ -88,50 +77,48 @@ npx autocannon http://localhost:8000/test -c 500 -p 10 -d 30
 
 - **OS**: macOS 26.5
 - **Machine**: Apple M3 Pro, 18 GB RAM
-- **Framework**: Deserve (0.12.2)
-- **Runtime**: Deno 2.8.2 (V8 14.9.207.2, TypeScript 6.0.3)
+- **Framework**: Deserve (0.15.0)
+- **Runtime**: Deno 2.8.3 (V8 14.9.207.2, TypeScript 6.0.3)
 - **Config**: 500 connections, pipelining 10, duration 30s
 
-## Results — Deno 2.8.2
+## Results - Deno 2.8.3
 
-2 runs each, non-worker server, same machine and config.
+`/test` is 3 runs, other routes 2 runs each, same machine and config.
 
-### JSON + CPU (Non-worker)
+### JSON + CPU
 
-| Route       | Test 1  | Test 2  | Req/Sec (avg) | Latency (avg) | Total (avg) |
-| ----------- | ------- | ------- | ------------- | ------------- | ----------- |
-| `/test`     | 150,950 | 148,637 | 149,794       | 32.87 ms      | 4,494k      |
-| `/test-cpu` | 22,442  | 22,148  | 22,295        | 223.04 ms     | 669k        |
+| Route       | Test 1  | Test 2  | Test 3  | Req/Sec (avg) | Latency (avg) | Total (avg) |
+| ----------- | ------- | ------- | ------- | ------------- | ------------- | ----------- |
+| `/test`     | 181,158 | 177,024 | 185,173 | 181,118       | 27.12 ms      | 5,439k      |
+| `/test-cpu` | 23,881  | 23,972  | 23,973  | 23,942        | 207.70 ms     | 723k        |
 
-Takeaway: `/test-cpu` blocks the event loop on the main thread, see [worker mode](#start-server) to move CPU work off-thread.
+Takeaway: `/test-cpu` blocks the event loop on the main thread.
 
 ### Views (DVE Rendering Baseline)
 
 | Route                  | Test 1  | Test 2  | Req/Sec (avg) | Latency (avg) | Total (avg) |
 | ---------------------- | ------- | ------- | ------------- | ------------- | ----------- |
-| `/test-view`           | 118,026 | 118,323 | 118,175       | 41.81 ms      | 3.55M       |
-| `/test-view-each-meta` | 8,522   | 8,530   | 8,526         | 580.44 ms     | 256k        |
-| `/test-view-include`   | 103,633 | 106,489 | 105,061       | 47.09 ms      | 3.15M       |
-| `/test-view-expr`      | 79,089  | 79,556  | 79,322        | 62.49 ms      | 2.38M       |
+| `/test-view`           | 141,019 | 141,755 | 141,387       | 34.86 ms      | 4.25M       |
+| `/test-view-each-meta` | 5,766   | 5,838   | 5,802         | 849.39 ms     | 179k        |
+| `/test-view-include`   | 43,876  | 44,129  | 44,003        | 112.97 ms     | 1.33M       |
+| `/test-view-expr`      | 85,852  | 81,939  | 83,896        | 59.10 ms      | 2.52M       |
 
 ## Observability Cost (Logging On vs Off)
 
-Deserve emits lifecycle events (route, view, worker, request, session, csrf, process).
-By default **no listener is attached**, so the request path skips all reporting and
-stays cheap. The moment you attach a listener with `router.on(...)`, every request
-walks the full reporting path. This section measures that difference on the same
-`/test` route.
+Deserve emits lifecycle events (route, view, request, session, process). By default **no listener is attached**, so the request path skips all reporting and stays cheap. The moment you attach a listener with `router.on(...)`, every request walks the full reporting path. This section measures that difference on the same `/test` route.
 
 ### How to Reproduce
 
-Off (no listener) uses `benchmark/main.ts`. On uses `benchmark/main-log.ts` with an
-empty listener, so the result reflects the framework cost only, not any logging work:
+Off (no listener) uses `benchmark/main.ts`. On uses `benchmark/main-log.ts` with an empty listener, so the result reflects the framework cost only, not any logging work:
 
 ```ts
 // benchmark/main-log.ts
-import { Router } from '@app/index.ts'
+import { Router } from '@neabyte/deserve'
 
-const router = new Router({ routesDir: 'benchmark/routes', viewsDir: 'benchmark/views' })
+const router = new Router({
+  routes: { directory: 'benchmark/routes' },
+  views: { directory: 'benchmark/views' }
+})
 
 // Empty listener, observability path active
 router.on(() => {})
@@ -151,12 +138,10 @@ npx autocannon http://localhost:8000/test -c 500 -p 10 -d 30
 
 | Mode                | Run 1   | Run 2   | Run 3   | Req/Sec (avg) | Latency (avg) |
 | ------------------- | ------- | ------- | ------- | ------------- | ------------- |
-| Off (no listener)   | 147,434 | 148,492 | 148,949 | 148,292       | 33.21 ms      |
-| On (empty listener) | 115,880 | 118,030 | 114,016 | 115,975       | 42.61 ms      |
+| Off (no listener)   | 181,158 | 177,024 | 185,173 | 181,118       | 27.12 ms      |
+| On (empty listener) | 148,309 | 147,170 | 136,182 | 143,887       | 34.30 ms      |
 
-Attaching a listener drops throughput to about **78%** of the no-listener baseline
-and raises average latency from 33 ms to 43 ms. This gap is the framework reporting
-cost, measured with no logging in the listener.
+Attaching a listener drops throughput to about **79%** of the no-listener baseline and raises average latency from 27 ms to 34 ms. This gap is the framework reporting cost, measured with no logging in the listener.
 
 ### Where the Cost Comes From
 
@@ -172,21 +157,18 @@ const observe = this.events.hasListeners()
 const requestStart = observe ? performance.now() : 0
 ```
 
-With no listener, `observe` is `false`, `reportRequest` is never called, and
-`events.emit(...)` returns immediately. This is why the baseline holds ~148k.
+With no listener, `observe` is `false`, `reportRequest` is never called, and `events.emit(...)` returns immediately. This is why the baseline holds ~181k.
 
 #### 2. Per-request reporting (paid once a listener exists)
 
-Once `observe` is `true`, **every request** is parsed to build the event metadata.
-This is the framework cost, and it runs even with an empty listener:
+Once `observe` is `true`, **every request** is parsed to build the event metadata. This is the framework cost, and it runs even with an empty listener:
 
 - `performance.now()` is read twice (request start and duration).
 - `reportRequest()` builds metadata for `request:complete`, plus `request:error` when status >= 400.
 - `requestMetrics()` reads `content-length` (request and response), parses the URL for host and port, and reads `user-agent`.
 - One or two event objects are created and dispatched to the listener.
 
-The work your listener itself does is added on top of this, so keep it light on the
-hot path.
+The work your listener itself does is added on top of this, so keep it light on the hot path.
 
 ### Keeping Observability Light
 
@@ -203,14 +185,11 @@ hot path.
 
 - **Batch off the request path**: push events into a buffer, flush on a timer to a sink such as a file or an OTel exporter.
 
-Related events you may want to watch: `request:error`, `view:error`,
-`reload:error`, `worker:timeout`, `worker:crash`, `session:invalid`,
-`csrf:rule-error`, and `process:error`.
+Related events you may want to watch: `request:error`, `view:error`, `reload:error`, `session:invalid`, and `process:error`.
 
 ## Files
 
-- `benchmark/main.ts`: server entry (non-worker)
-- `benchmark/main-worker.ts`: server entry (worker-enabled)
+- `benchmark/main.ts`: server entry
 - `benchmark/main-log.ts`: server entry (one empty event listener)
 - `benchmark/routes/*.ts`: route handlers
 - `benchmark/views/*.dve`: DVE templates

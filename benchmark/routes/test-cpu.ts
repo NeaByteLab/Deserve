@@ -1,4 +1,4 @@
-import type { Context } from '@app/index.ts'
+import type { Context } from '@neabyte/deserve'
 
 export function GET(_ctx: Context) {
   let value = 0
