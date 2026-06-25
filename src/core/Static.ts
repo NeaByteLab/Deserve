@@ -2,194 +2,207 @@ import type * as Types from '@interfaces/index.ts'
 import * as Core from '@core/index.ts'
 
 /**
- * Serves static files with caching.
- * @description Resolves path under base, enforces same directory.
+ * Filesystem static file server.
+ * @description Serves files with caching, ranges, and security.
  */
 export class Static {
   /**
-   * Serve one file from static root.
-   * @description Resolves path under base, sets Content-Type and etag.
-   * @param ctx - Request context
-   * @param options - Path, etag, cacheControl
-   * @param urlPath - URL prefix for static route
-   * @returns File response or 304 or error
+   * Serve file from base directory.
+   * @description Handles caching, ranges, and path containment.
+   * @param ctx - Request context instance
+   * @param options - Static serving options
+   * @param urlPath - URL path relative to mount
+   * @returns Promise resolving to file response
    */
-  static async serveStaticFile(
+  static async serveFile(
     ctx: Core.Context,
     options: Types.ServeOptions,
     urlPath: string
   ): Promise<Response> {
-    try {
-      const notFound = (message: string): Promise<Response> =>
-        ctx.handleError(404, new Deno.errors.NotFound(message))
-      let filePath = ctx.pathname
-      if (urlPath !== '/') {
-        filePath = ctx.pathname.slice(urlPath.length)
-      }
-      if (filePath === '/' || filePath === '') {
-        filePath = 'index.html'
-      } else if (filePath.startsWith('/')) {
-        filePath = filePath.slice(1)
-      }
-      const baseNormalized = options.path.replace(/^\.\//, '').replace(/[\\/]+$/, '') || '/'
-      const fileSegments = filePath.split('/')
-      for (const segment of fileSegments) {
-        if (segment.startsWith('.')) {
-          return await notFound(`Static file "${filePath}" was not found`)
-        }
-      }
-      const fullPath = `${baseNormalized}/${filePath}`.replace(/\\/g, '/')
-      const fileInfo = await Deno.stat(fullPath).catch(() => null)
-      if (!fileInfo || !fileInfo.isFile) {
-        return await notFound(`Static file "${filePath}" was not found`)
-      }
-      let baseResolved: string
-      let fileResolved: string
-      try {
-        baseResolved = (await Deno.realPath(baseNormalized)).replace(/[\\/]+$/, '') + '/'
-        fileResolved = await Deno.realPath(fullPath)
-      } catch {
-        return await notFound(`Static file path "${filePath}" cannot be resolved`)
-      }
-      const normalizedBase = baseResolved.replace(/\\/g, '/')
-      const normalizedFile = fileResolved.replace(/\\/g, '/')
-      if (
-        normalizedFile !== normalizedBase.slice(0, -1) &&
-        !normalizedFile.startsWith(normalizedBase)
-      ) {
-        return await notFound(`Static file "${filePath}" is outside the base directory`)
-      }
-      const fileExtension = filePath.split('.').pop()?.toLowerCase() ?? ''
-      const contentType = Core.Constant.contentTypes[fileExtension] ?? 'application/octet-stream'
-      let etag: string | null = null
-      if (options.etag) {
-        const hashDigest = await Core.API.subtle.digest(
-          'SHA-256',
-          Core.Constant.encoder.encode(`${fileInfo.size}-${fileInfo.mtime?.getTime() ?? 0}`)
-        )
-        const hashBytes = new Uint8Array(hashDigest)
-        let hashHex = ''
-        for (let i = 0; i < hashBytes.length; i++) {
-          hashHex += (hashBytes[i]!).toString(16).padStart(2, '0')
-        }
-        etag = `"${hashHex}"`
-      }
-      if (etag && Static.etagMatch(ctx.request.headers.get('If-None-Match'), etag)) {
-        Static.applyCacheHeaders(ctx, etag, options.cacheControl)
-        return ctx.send.custom(null, { status: 304 })
-      }
-      ctx.setHeader('Accept-Ranges', 'bytes')
-      const rangeResult = Static.parseRange(
-        ctx.request.headers.get('Range'),
-        fileInfo.size
+    const baseDirectory = Static.#baseDirectory(options.path)
+    const relativePath = Static.#relativePath(urlPath)
+    if (relativePath.split('/').some((segment) => segment.startsWith('.'))) {
+      Core.Context.internalOf(ctx).emitEvent(
+        Core.Observability.internalEvent('static:missing', { path: urlPath })
       )
-      if (rangeResult === 'unsatisfiable') {
-        ctx.setHeader('Content-Range', `bytes */${fileInfo.size}`)
-        return await ctx.handleError(
-          416,
-          new Deno.errors.InvalidData(
-            `Static file range is not satisfiable for "${filePath}"`
-          )
-        )
-      }
-      const fsFile = await Deno.open(fileResolved, { read: true })
-      ctx.setHeader('Content-Type', contentType)
-      Static.applyCacheHeaders(ctx, etag, options.cacheControl)
-      if (rangeResult !== null) {
-        const { start, end } = rangeResult
-        await fsFile.seek(start, Deno.SeekMode.Start)
-        ctx.setHeader('Content-Range', `bytes ${start}-${end}/${fileInfo.size}`)
-        ctx.setHeader('Content-Length', (end - start + 1).toString())
-        return ctx.send.custom(Static.boundedStream(fsFile, end - start + 1), { status: 206 })
-      }
-      ctx.setHeader('Content-Length', fileInfo.size.toString())
-      return ctx.send.custom(fsFile.readable)
-    } catch (staticFileError) {
-      const extractedError = Core.Handler.extractError(staticFileError)
-      return await ctx.handleError(extractedError.statusCode, extractedError.error)
+      return await ctx.handleError(404, new Deno.errors.NotFound('static file not found'))
     }
+    const resolved = await Static.#resolveContained(
+      baseDirectory,
+      `${baseDirectory}/${relativePath}`
+    )
+    if (resolved === null) {
+      Core.Context.internalOf(ctx).emitEvent(
+        Core.Observability.internalEvent('static:missing', { path: urlPath })
+      )
+      return await ctx.handleError(404, new Deno.errors.NotFound('static file not found'))
+    }
+    const method = ctx.get.method()
+    if (method !== 'GET' && method !== 'HEAD') {
+      ctx.set.header('Allow', 'GET, HEAD')
+      return await ctx.handleError(
+        405,
+        new Deno.errors.NotSupported('static file supports GET and HEAD only')
+      )
+    }
+    const lastModified = resolved.fileInfo.mtime ?? null
+    const etag = (options.etag ?? true) ? await Static.#computeEtag(resolved.fileInfo) : null
+    if (Static.#notModified(ctx.get.request().headers, etag, lastModified)) {
+      Static.#applyCacheHeaders(ctx, options.cacheControl, etag, lastModified)
+      return ctx.send.empty(304)
+    }
+    ctx.set.header('Accept-Ranges', 'bytes')
+    const ifRange = ctx.get.request().headers.get('If-Range')
+    const rangeAllowed = ifRange === null || Static.#ifRangeFresh(ifRange, lastModified)
+    const rangeResult = rangeAllowed
+      ? Static.#parseRange(ctx.get.request().headers.get('Range'), resolved.fileInfo.size)
+      : null
+    const contentType = Static.#contentType(relativePath)
+    Static.#applyCacheHeaders(ctx, options.cacheControl, etag, lastModified)
+    if (rangeResult === 'unsatisfiable') {
+      ctx.set.header('Content-Range', `bytes */${resolved.fileInfo.size}`)
+      return await ctx.handleError(
+        416,
+        new Deno.errors.InvalidData('static file range is not satisfiable')
+      )
+    }
+    const file = await Deno.open(resolved.filePath, { read: true })
+    ctx.set.header('Content-Type', contentType)
+    if (rangeResult !== null) {
+      await file.seek(rangeResult.start, Deno.SeekMode.Start)
+      const length = rangeResult.end - rangeResult.start + 1
+      ctx.set.header(
+        'Content-Range',
+        `bytes ${rangeResult.start}-${rangeResult.end}/${resolved.fileInfo.size}`
+      )
+      ctx.set.header('Content-Length', length.toString())
+      return ctx.send.custom(Static.#boundedStream(file, length), { status: 206 })
+    }
+    ctx.set.header('Content-Length', resolved.fileInfo.size.toString())
+    return ctx.send.custom(file.readable)
   }
 
   /**
-   * Apply ETag and Cache-Control headers.
-   * @description Sets ETag when present and a public max-age when configured.
-   * @param ctx - Request context receiving the headers
-   * @param etag - Strong ETag value or null when disabled
-   * @param cacheControl - Max-age in seconds, or undefined to skip
+   * Apply cache related response headers.
+   * @description Sets ETag, Last-Modified, and Cache-Control.
+   * @param ctx - Request context instance
+   * @param cacheControl - Max age seconds or undefined
+   * @param etag - Entity tag value or null
+   * @param lastModified - Last modified date or null
    */
-  private static applyCacheHeaders(
+  static #applyCacheHeaders(
     ctx: Core.Context,
+    cacheControl: number | undefined,
     etag: string | null,
-    cacheControl: number | undefined
+    lastModified: Date | null
   ): void {
-    if (etag) {
-      ctx.setHeader('ETag', etag)
+    if (etag !== null) {
+      ctx.set.header('ETag', etag)
+    }
+    if (lastModified !== null) {
+      ctx.set.header('Last-Modified', lastModified.toUTCString())
     }
     if (cacheControl !== undefined && cacheControl >= 0) {
-      ctx.setHeader('Cache-Control', `public, max-age=${cacheControl}`)
+      ctx.set.header('Cache-Control', `public, max-age=${cacheControl}`)
     }
   }
 
   /**
-   * Stream bounded bytes then close file.
-   * @description Emits at most length bytes, releasing handle on completion.
-   * @param fsFile - Open file handle positioned at the range start
-   * @param length - Number of bytes to emit
-   * @returns ReadableStream emitting at most length bytes
+   * Normalize base directory path.
+   * @description Strips trailing slashes and validates input.
+   * @param path - Configured static directory path
+   * @returns Normalized base directory path
+   * @throws When path is empty or invalid
    */
-  private static boundedStream(fsFile: Deno.FsFile, length: number): ReadableStream<Uint8Array> {
+  static #baseDirectory(path: string): string {
+    if (typeof path !== 'string' || path.length === 0) {
+      throw new Deno.errors.InvalidData('static path must be a non-empty string')
+    }
+    return path.replace(/[\\/]+$/, '') || '/'
+  }
+
+  /**
+   * Build length bounded read stream.
+   * @description Caps emitted bytes to requested length.
+   * @param file - Open file handle to read
+   * @param length - Maximum bytes to emit
+   * @returns Bounded readable byte stream
+   */
+  static #boundedStream(file: Deno.FsFile, length: number): ReadableStream<Uint8Array> {
     let remaining = length
-    const streamReader = fsFile.readable.getReader()
+    const reader = file.readable.getReader()
     return new ReadableStream<Uint8Array>({
       async pull(controller) {
         if (remaining <= 0) {
           controller.close()
-          await streamReader.cancel()
+          await reader.cancel()
           return
         }
-        const { value, done } = await streamReader.read()
-        if (done || value === undefined) {
+        const result = await reader.read()
+        if (result.done || result.value === undefined) {
           controller.close()
           return
         }
-        if (value.byteLength <= remaining) {
-          remaining -= value.byteLength
-          controller.enqueue(value)
-        } else {
-          controller.enqueue(value.subarray(0, remaining))
-          remaining = 0
-          controller.close()
-          await streamReader.cancel()
+        if (result.value.byteLength <= remaining) {
+          remaining -= result.value.byteLength
+          controller.enqueue(result.value)
+          return
         }
+        controller.enqueue(result.value.subarray(0, remaining))
+        remaining = 0
+        controller.close()
+        await reader.cancel()
       },
       async cancel() {
-        await streamReader.cancel()
+        await reader.cancel()
       }
     })
   }
 
   /**
-   * Weak ETag comparison for If-None-Match.
-   * @description Matches exact, W/ stripped, list, or wildcard.
-   * @param headerValue - If-None-Match header value
-   * @param etag - Server-generated strong ETag
-   * @returns True when any value matches
+   * Compute weak ETag for file.
+   * @description Hashes size and modification time seed.
+   * @param fileInfo - File info for hashing
+   * @returns Weak ETag header value
    */
-  private static etagMatch(headerValue: string | null, etag: string): boolean {
-    if (!headerValue) {
+  static async #computeEtag(fileInfo: Deno.FileInfo): Promise<string> {
+    const seed = `${fileInfo.size}-${fileInfo.mtime?.getTime() ?? 0}`
+    const digest = await Core.API.subtle.digest('SHA-256', Core.Constant.encoder.encode(seed))
+    const hex = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0'))
+      .join('')
+    return `W/"${hex}"`
+  }
+
+  /**
+   * Resolve content type from path.
+   * @description Maps file extension to known type.
+   * @param relativePath - Relative file path used
+   * @returns Content type header value
+   */
+  static #contentType(relativePath: string): string {
+    const extension = relativePath.split('.').pop()?.toLowerCase() ?? ''
+    return Core.Constant.contentTypes[extension] ?? Core.Constant.defaultContentType
+  }
+
+  /**
+   * Check ETag matches header value.
+   * @description Compares strong and weak tag forms.
+   * @param headerValue - If-None-Match header value
+   * @param etag - Current entity tag value
+   * @returns True when ETag matches
+   */
+  static #etagMatches(headerValue: string | null, etag: string): boolean {
+    if (headerValue === null) {
       return false
     }
     if (headerValue === '*') {
       return true
     }
-    const strippedEtag = etag.startsWith('W/') ? etag.slice(2) : etag
+    const target = etag.startsWith('W/') ? etag.slice(2) : etag
     for (const part of headerValue.split(',')) {
       const candidate = part.trim()
-      if (candidate === etag || candidate === strippedEtag) {
-        return true
-      }
-      const weakStripped = candidate.startsWith('W/') ? candidate.slice(2) : candidate
-      if (weakStripped === strippedEtag) {
+      const stripped = candidate.startsWith('W/') ? candidate.slice(2) : candidate
+      if (candidate === etag || stripped === target) {
         return true
       }
     }
@@ -197,13 +210,51 @@ export class Static {
   }
 
   /**
-   * Parse single byte-range against known size.
-   * @description Reads a single bytes range, ignores invalid values.
-   * @param headerValue - Raw Range header value or null
-   * @param size - Total representation size in bytes
-   * @returns Inclusive start and end, unsatisfiable, or null fallback
+   * Check If-Range freshness by date.
+   * @description Rejects entity tags and compares seconds.
+   * @param ifRange - If-Range header value
+   * @param lastModified - Last modified date or null
+   * @returns True when range is fresh
    */
-  private static parseRange(
+  static #ifRangeFresh(ifRange: string, lastModified: Date | null): boolean {
+    if (ifRange.startsWith('"') || ifRange.startsWith('W/')) {
+      return false
+    }
+    const since = Date.parse(ifRange)
+    return lastModified !== null && Number.isFinite(since) &&
+      Math.floor(lastModified.getTime() / 1000) === Math.floor(since / 1000)
+  }
+
+  /**
+   * Check resource is not modified.
+   * @description Evaluates ETag then modified since headers.
+   * @param headers - Request headers instance
+   * @param etag - Current entity tag value
+   * @param lastModified - Last modified date or null
+   * @returns True when resource unchanged
+   */
+  static #notModified(headers: Headers, etag: string | null, lastModified: Date | null): boolean {
+    const ifNoneMatch = headers.get('If-None-Match')
+    if (ifNoneMatch !== null) {
+      return etag !== null && Static.#etagMatches(ifNoneMatch, etag)
+    }
+    const ifModifiedSince = headers.get('If-Modified-Since')
+    if (ifModifiedSince !== null && lastModified !== null) {
+      const since = Date.parse(ifModifiedSince)
+      return Number.isFinite(since) &&
+        Math.floor(lastModified.getTime() / 1000) <= Math.floor(since / 1000)
+    }
+    return false
+  }
+
+  /**
+   * Parse byte range request header.
+   * @description Returns range, unsatisfiable, or null result.
+   * @param headerValue - Range header value
+   * @param size - Total file size in bytes
+   * @returns Byte range, unsatisfiable, or null
+   */
+  static #parseRange(
     headerValue: string | null,
     size: number
   ): Types.ByteRange | 'unsatisfiable' | null {
@@ -233,14 +284,60 @@ export class Static {
       end = size - 1
     } else {
       start = Number.parseInt(startToken, 10)
-      end = endToken === '' ? size - 1 : Number.parseInt(endToken, 10)
-      if (end > size - 1) {
-        end = size - 1
-      }
+      end = endToken === '' ? size - 1 : Math.min(Number.parseInt(endToken, 10), size - 1)
     }
     if (start > end || start >= size) {
       return 'unsatisfiable'
     }
     return { start, end }
+  }
+
+  /**
+   * Normalize URL path into relative.
+   * @description Strips leading slash and defaults index.
+   * @param urlPath - URL path relative to mount
+   * @returns Relative file path string
+   */
+  static #relativePath(urlPath: string): string {
+    let filePath = urlPath
+    if (filePath.startsWith('/')) {
+      filePath = filePath.slice(1)
+    }
+    if (filePath === '') {
+      return 'index.html'
+    }
+    return filePath
+  }
+
+  /**
+   * Resolve file within base directory.
+   * @description Blocks path escape and non file targets.
+   * @param baseDirectory - Allowed base directory path
+   * @param requestedPath - Requested file path
+   * @returns Resolved file info or null
+   */
+  static async #resolveContained(
+    baseDirectory: string,
+    requestedPath: string
+  ): Promise<Types.ResolvedFile | null> {
+    try {
+      const baseResolved = `${(await Deno.realPath(baseDirectory)).replace(/[\\/]+$/, '')}/`
+      const fileResolved = await Deno.realPath(requestedPath)
+      const normalizedBase = baseResolved.replace(/\\/g, '/')
+      const normalizedFile = fileResolved.replace(/\\/g, '/')
+      if (
+        normalizedFile !== normalizedBase.slice(0, -1) &&
+        !normalizedFile.startsWith(normalizedBase)
+      ) {
+        return null
+      }
+      const info = await Deno.stat(fileResolved)
+      if (!info.isFile) {
+        return null
+      }
+      return { fileInfo: info, filePath: fileResolved }
+    } catch {
+      return null
+    }
   }
 }
