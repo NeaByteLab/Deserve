@@ -3,16 +3,16 @@ import * as Core from '@core/index.ts'
 import type { FastRouter } from '@neabyte/fast-router'
 
 /**
- * File-based route discovery and pattern creation.
- * @description Walks directory, converts paths to route patterns.
+ * Filesystem route scanner.
+ * @description Discovers, validates, and registers route modules.
  */
 export class Scanner {
   /**
-   * Convert file path to router pattern.
-   * @description Drops extension, [id] to :id, /index to /.
-   * @param routePath - Relative path like users/[id].ts
+   * Build route pattern from path.
+   * @description Returns null when path is not loadable.
+   * @param routePath - Relative route file path
    * @param extensions - Allowed file extensions
-   * @returns Pattern or null if skipped
+   * @returns Route pattern string or null
    */
   static createPattern(routePath: string, extensions: readonly string[]): string | null {
     const pathExtension = routePath.split('.').pop()?.toLowerCase() ?? ''
@@ -40,14 +40,16 @@ export class Scanner {
   }
 
   /**
-   * Recursively scan directory and register routes.
-   * @description Imports each route file, validates and adds to router.
-   * @param routerInstance - Router to add routes to
+   * Recursively scan directory for routes.
+   * @description Imports, validates, and registers found route modules.
+   * @param routerInstance - Router receiving registered handlers
    * @param targetDir - Directory to scan
-   * @param basePath - Path prefix for route paths
-   * @param methods - HTTP methods to register
+   * @param basePath - Accumulated relative base path
+   * @param methods - Supported HTTP methods
    * @param extensions - Allowed file extensions
-   * @param emit - Optional lifecycle event emitter
+   * @param emit - Optional event emitter
+   * @returns Promise resolving when scan completes
+   * @throws {Error} When scanning fails for non-missing directory
    */
   static async explore(
     routerInstance: FastRouter<Types.RouteEntry>,
@@ -55,7 +57,7 @@ export class Scanner {
     basePath: string,
     methods: readonly string[],
     extensions: readonly string[],
-    emit?: Types.EventEmit
+    emit: Types.EventFn | null = null
   ): Promise<void> {
     try {
       for await (const dirEntry of Deno.readDir(targetDir)) {
@@ -63,39 +65,31 @@ export class Scanner {
         const routePath = basePath ? `${basePath}/${dirEntry.name}` : dirEntry.name
         if (dirEntry.isDirectory) {
           await Scanner.explore(routerInstance, fullPath, routePath, methods, extensions, emit)
-        } else {
-          const pathExtension = dirEntry.name.split('.').pop()?.toLowerCase()
-          if (!extensions.includes(pathExtension ?? '')) {
-            continue
-          }
-          try {
-            const fileModule = await Core.API.importRouteModule(fullPath)
-            const routePattern = Scanner.createPattern(routePath, extensions)
-            if (routePattern) {
-              Scanner.validateModule(fileModule, routePath, methods)
-              Scanner.registerHandlers(routerInstance, fileModule, routePattern, methods)
-              emit?.(
-                Core.Observability.internalEvent('route:loaded', {
-                  routePath,
-                  pattern: routePattern
-                })
-              )
-            } else if (/[^\x20-\x7E]/.test(dirEntry.name)) {
-              emit?.(
-                Core.Observability.internalEvent('route:skipped', {
-                  routePath,
-                  reason: 'filename contains non-ASCII characters'
-                })
-              )
-            }
-          } catch (fileError) {
-            emit?.(
-              Core.Observability.internalEvent('route:error', {
+          continue
+        }
+        const pathExtension = dirEntry.name.split('.').pop()?.toLowerCase()
+        if (!extensions.includes(pathExtension ?? '')) {
+          continue
+        }
+        const routePattern = Scanner.createPattern(routePath, extensions)
+        if (routePattern === null) {
+          if (emit !== null) {
+            emit(
+              Core.Observability.internalEvent('route:ignored', {
                 routePath,
-                error: fileError instanceof Error ? fileError : new Error(String(fileError))
+                reason: 'route path does not match a loadable pattern'
               })
             )
           }
+          continue
+        }
+        const fileModule = await Core.API.importRouteModule(fullPath)
+        Scanner.validateModule(fileModule, routePath, methods)
+        Scanner.registerHandlers(routerInstance, fileModule, routePattern, methods)
+        if (emit !== null) {
+          emit(
+            Core.Observability.internalEvent('route:added', { routePath, pattern: routePattern })
+          )
         }
       }
     } catch (scanError) {
@@ -107,12 +101,12 @@ export class Scanner {
   }
 
   /**
-   * Register handlers from module to router.
-   * @description Iterates methods, checks for function exports, adds to router.
-   * @param routerInstance - Router to add routes to
-   * @param fileModule - Loaded route module
-   * @param routePattern - Route URL pattern
-   * @param methods - HTTP methods to register
+   * Register module handlers on router.
+   * @description Adds function exports for each supported method.
+   * @param routerInstance - Router receiving registered handlers
+   * @param fileModule - Imported route module
+   * @param routePattern - Route pattern to register
+   * @param methods - Supported HTTP methods
    */
   static registerHandlers(
     routerInstance: FastRouter<Types.RouteEntry>,
@@ -125,22 +119,18 @@ export class Scanner {
       if (typeof routeHandler !== 'function') {
         continue
       }
-      const routeEntry: Types.RouteEntry = {
-        kind: 'handler',
-        handler: routeHandler,
-        pattern: routePattern
-      }
-      routerInstance.add(method, routePattern, routeEntry)
+      routerInstance.add(method, routePattern, { handler: routeHandler, pattern: routePattern })
     }
   }
 
   /**
-   * Ensure module exports one HTTP method.
-   * @description Validates at least one method export is a function.
-   * @param module - Loaded route module object
-   * @param routePath - Path for error messages
-   * @param methods - Valid HTTP method names
-   * @throws {Deno.errors.InvalidData} When no method or non-function export
+   * Validate route module exports.
+   * @description Ensures method exports are functions and present.
+   * @param module - Imported route module
+   * @param routePath - Relative route file path
+   * @param methods - Supported HTTP methods
+   * @throws {TypeError} When a method export is not function
+   * @throws {Deno.errors.InvalidData} When no method is exported
    */
   static validateModule(
     module: Types.RouteModule,
