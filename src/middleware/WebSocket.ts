@@ -1,11 +1,10 @@
 import type * as Types from '@interfaces/index.ts'
-import type * as CoreTypes from '@core/index.ts'
 import * as Core from '@core/index.ts'
 import * as Middleware from '@middleware/index.ts'
 
 /**
  * WebSocket upgrade middleware.
- * @description Upgrades request on path, calls connect/message/close/error.
+ * @description Upgrades matching requests and binds lifecycle callbacks.
  */
 export class WebSocket {
   /**
@@ -18,77 +17,99 @@ export class WebSocket {
     const rawListener = options.listener ?? ''
     const listener = rawListener.length > 1 ? rawListener.replace(/\/+$/, '') : rawListener
     const allowedOrigins = options.allowedOrigins
-    return Middleware.WrapMware(
-      'WebSocket upgrade failed',
-      async (ctx: CoreTypes.Context, next) => {
-        if (!listener) {
-          return await next()
-        }
-        if (ctx.header('upgrade')?.toLowerCase() !== 'websocket') {
-          return await next()
-        }
-        if (ctx.request.method !== 'GET') {
-          return await next()
-        }
-        if (
-          listener !== '/' &&
-          ctx.pathname !== listener &&
-          !ctx.pathname.startsWith(listener + '/')
-        ) {
-          return await next()
-        }
-        if (!WebSocket.isOriginAllowed(ctx, allowedOrigins)) {
-          return await ctx.handleError(
-            403,
-            new Deno.errors.PermissionDenied(
-              'WebSocket handshake rejected because the Origin is not allowed'
-            )
-          )
-        }
-        let upgrade: ReturnType<typeof Deno.upgradeWebSocket>
-        try {
-          upgrade = Deno.upgradeWebSocket(ctx.request)
-        } catch (upgradeError) {
-          return await ctx.handleError(
-            400,
-            new Deno.errors.InvalidData(
-              `WebSocket handshake is malformed because ${
-                upgradeError instanceof Error ? upgradeError.message : String(upgradeError)
-              }`
-            )
-          )
-        }
-        const { socket, response } = upgrade
-        socket.addEventListener('open', (event) => {
-          options.onConnect?.(socket, event, ctx)
-        })
-        socket.addEventListener('message', (event) => {
-          options.onMessage?.(socket, event, ctx)
-        })
-        socket.addEventListener('close', (event) => {
-          options.onDisconnect?.(socket, event, ctx)
-        })
-        socket.addEventListener('error', (event) => {
-          options.onError?.(socket, event, ctx)
-        })
-        return response
+    return Middleware.Wrap.apply('websocket', async (ctx, next) => {
+      if (!listener) {
+        return await next()
       }
-    )
+      if (ctx.get.header('upgrade')?.toLowerCase() !== 'websocket') {
+        return await next()
+      }
+      if (ctx.get.method() !== 'GET') {
+        return await next()
+      }
+      if (
+        listener !== '/' &&
+        ctx.get.pathname() !== listener &&
+        !ctx.get.pathname().startsWith(`${listener}/`)
+      ) {
+        return await next()
+      }
+      if (!WebSocket.isOriginAllowed(ctx, allowedOrigins)) {
+        Core.Context.internalOf(ctx).emitEvent(
+          Core.Observability.internalEvent('websocket:rejected', { reason: 'origin' })
+        )
+        return await ctx.handleError(
+          403,
+          new Deno.errors.PermissionDenied(
+            'WebSocket handshake rejected because the Origin is not allowed'
+          )
+        )
+      }
+      const version = ctx.get.header('sec-websocket-version')?.trim()
+      if (version === undefined) {
+        Core.Context.internalOf(ctx).emitEvent(
+          Core.Observability.internalEvent('websocket:rejected', { reason: 'version' })
+        )
+        return await ctx.handleError(
+          400,
+          new Deno.errors.InvalidData('WebSocket handshake requires Sec-WebSocket-Version 13')
+        )
+      }
+      if (version !== '13') {
+        Core.Context.internalOf(ctx).emitEvent(
+          Core.Observability.internalEvent('websocket:rejected', { reason: 'version' })
+        )
+        return ctx.send.custom(null, {
+          status: 426,
+          headers: { 'Sec-WebSocket-Version': '13', 'Upgrade': 'websocket' }
+        })
+      }
+      let upgrade: ReturnType<typeof Deno.upgradeWebSocket>
+      try {
+        upgrade = Deno.upgradeWebSocket(ctx.get.request())
+      } catch (upgradeError) {
+        Core.Context.internalOf(ctx).emitEvent(
+          Core.Observability.internalEvent('websocket:rejected', { reason: 'malformed' })
+        )
+        return await ctx.handleError(
+          400,
+          new Deno.errors.InvalidData(
+            `WebSocket handshake is malformed because ${
+              upgradeError instanceof Error ? upgradeError.message : String(upgradeError)
+            }`
+          )
+        )
+      }
+      const socket = upgrade.socket
+      socket.addEventListener('open', (event) => {
+        options.onConnect?.(socket, event, ctx)
+      })
+      socket.addEventListener('message', (event) => {
+        options.onMessage?.(socket, event, ctx)
+      })
+      socket.addEventListener('close', (event) => {
+        options.onDisconnect?.(socket, event, ctx)
+      })
+      socket.addEventListener('error', (event) => {
+        options.onError?.(socket, event, ctx)
+      })
+      return upgrade.response
+    })
   }
 
   /**
-   * Decide whether handshake Origin is allowed.
-   * @description Validates Origin, missing Origin allowed only without configured policy.
-   * @param ctx - Request context
-   * @param allowedOrigins - Configured allowlist, '*', or undefined for same-origin
+   * Check whether handshake Origin is allowed.
+   * @description Missing Origin passes only when no policy is configured.
+   * @param ctx - Request context instance
+   * @param allowedOrigins - Configured allowlist, wildcard, or undefined for same-origin
    * @returns True when the handshake may proceed
    */
   private static isOriginAllowed(
-    ctx: CoreTypes.Context,
+    ctx: Parameters<Types.MiddlewareFn>[0],
     allowedOrigins: readonly string[] | '*' | undefined
   ): boolean {
-    const requestOrigin = ctx.header('origin')
-    if (!requestOrigin) {
+    const requestOrigin = ctx.get.header('origin')
+    if (requestOrigin === undefined) {
       return allowedOrigins === undefined
     }
     if (allowedOrigins === '*') {
@@ -98,7 +119,7 @@ export class WebSocket {
       return allowedOrigins.includes(requestOrigin)
     }
     try {
-      return new Core.API.URL(ctx.request.url).origin === requestOrigin
+      return new Core.API.URL(ctx.get.request().url).origin === requestOrigin
     } catch {
       return false
     }

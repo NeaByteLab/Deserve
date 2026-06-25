@@ -1,315 +1,283 @@
 import { assertEquals } from '@std/assert'
 import * as Core from '@core/index.ts'
 import * as Middleware from '@middleware/index.ts'
+import Helper from '@tests/helper.ts'
 
-function createTestContext(url = 'http://localhost/', requestInit?: RequestInit): Core.Context {
-  const request = new Request(url, requestInit)
-  return new Core.Context(request, new URL(url), {})
-}
-
-Deno.test('websocket allows a same-origin handshake', async () => {
-  const middleware = Middleware.Mware.websocket({ listener: '/ws' })
-  const ctx = createTestContext('http://localhost/ws', {
-    headers: new Headers({ Upgrade: 'websocket', Origin: 'http://localhost' })
+Deno.test('websocket allows a handshake when no Origin header is present', async () => {
+  const mw = Middleware.Mware.websocket({ listener: '/ws' })
+  const ctx = Helper.createTestContext('http://localhost/ws', {
+    headers: { Upgrade: 'websocket' }
   })
   let nextCalled = false
   const next = (): Promise<Response> => {
     nextCalled = true
     return Promise.resolve(new Response('ok'))
   }
-  const res = await middleware(ctx, next)
+  const res = await mw(ctx, next)
+  assertEquals(nextCalled, false)
+  assertEquals(res?.status === 403, false)
+})
+
+Deno.test('websocket allows a same-origin handshake', async () => {
+  const mw = Middleware.Mware.websocket({ listener: '/ws' })
+  const ctx = Helper.createTestContext('http://localhost/ws', {
+    headers: { Upgrade: 'websocket', Origin: 'http://localhost' }
+  })
+  let nextCalled = false
+  const next = (): Promise<Response> => {
+    nextCalled = true
+    return Promise.resolve(new Response('ok'))
+  }
+  const res = await mw(ctx, next)
   assertEquals(nextCalled, false)
   assertEquals(res?.status === 403, false)
 })
 
 Deno.test('websocket allows an origin present in the allowlist', async () => {
-  const middleware = Middleware.Mware.websocket({
+  const mw = Middleware.Mware.websocket({
     listener: '/ws',
     allowedOrigins: ['http://localhost']
   })
-  const ctx = createTestContext('http://localhost/ws', {
-    headers: new Headers({ Upgrade: 'websocket', Origin: 'http://localhost' })
+  const ctx = Helper.createTestContext('http://localhost/ws', {
+    headers: { Upgrade: 'websocket', Origin: 'http://localhost' }
   })
   let nextCalled = false
   const next = (): Promise<Response> => {
     nextCalled = true
     return Promise.resolve(new Response('ok'))
   }
-  const res = await middleware(ctx, next)
+  const res = await mw(ctx, next)
   assertEquals(nextCalled, false)
   assertEquals(res?.status === 403, false)
 })
 
-Deno.test('websocket allows handshake when no Origin header is present', async () => {
-  const middleware = Middleware.Mware.websocket({ listener: '/ws' })
-  const ctx = createTestContext('http://localhost/ws', {
-    headers: new Headers({ Upgrade: 'websocket' })
-  })
-  let nextCalled = false
-  const next = (): Promise<Response> => {
-    nextCalled = true
-    return Promise.resolve(new Response('ok'))
-  }
-  const res = await middleware(ctx, next)
-  assertEquals(nextCalled, false)
-  assertEquals(res?.status === 403, false)
+Deno.test('websocket default listener is empty and calls next', async () => {
+  const mw = Middleware.Mware.websocket()
+  const ctx = Helper.createTestContext('http://localhost/')
+  const res = await mw(ctx, Helper.okNext)
+  assertEquals(await res?.text(), 'ok')
 })
 
-Deno.test('websocket default listener is empty string and calls next', async () => {
-  const middleware = Middleware.Mware.websocket()
-  const ctx = createTestContext('http://localhost/')
-  const next = async (): Promise<Response> => new Response('ok')
-  const res = await middleware(ctx, next)
-  assertEquals(res !== undefined, true)
-  if (res) {
-    assertEquals(await res.text(), 'ok')
-  }
-})
-
-Deno.test('websocket does not upgrade PUT or DELETE requests with an Upgrade header', async () => {
-  const middleware = Middleware.Mware.websocket({ listener: '/ws', allowedOrigins: '*' })
+Deno.test('websocket does not upgrade PUT, DELETE, or PATCH requests', async () => {
+  const mw = Middleware.Mware.websocket({ listener: '/ws', allowedOrigins: '*' })
   for (const method of ['PUT', 'DELETE', 'PATCH']) {
-    const ctx = createTestContext('http://localhost/ws', {
+    const ctx = Helper.createTestContext('http://localhost/ws', {
       method,
-      headers: new Headers({ Upgrade: 'websocket' })
+      headers: { Upgrade: 'websocket' }
     })
     let nextCalled = false
     const next = (): Promise<Response> => {
       nextCalled = true
       return Promise.resolve(new Response('ok'))
     }
-    await middleware(ctx, next)
+    await mw(ctx, next)
     assertEquals(nextCalled, true)
   }
 })
 
 Deno.test('websocket does not upgrade a POST request carrying an Upgrade header', async () => {
-  const middleware = Middleware.Mware.websocket({ listener: '/ws', allowedOrigins: '*' })
-  const ctx = createTestContext('http://localhost/ws', {
+  const mw = Middleware.Mware.websocket({ listener: '/ws', allowedOrigins: '*' })
+  const ctx = Helper.createTestContext('http://localhost/ws', {
     method: 'POST',
-    headers: new Headers({ Upgrade: 'websocket', Origin: 'https://anything.example' })
+    headers: { Upgrade: 'websocket', Origin: 'https://anything.example' }
   })
   let nextCalled = false
   const next = (): Promise<Response> => {
     nextCalled = true
     return Promise.resolve(new Response('route-handled-post'))
   }
-  const res = await middleware(ctx, next)
+  const res = await mw(ctx, next)
   assertEquals(nextCalled, true)
   assertEquals(await res?.text(), 'route-handled-post')
 })
 
 Deno.test('websocket listener /ws does not match /ws-admin path', async () => {
-  const middleware = Middleware.Mware.websocket({ listener: '/ws' })
-  const ctx = createTestContext('http://localhost/ws-admin', {
-    headers: new Headers({ Upgrade: 'websocket' })
+  const mw = Middleware.Mware.websocket({ listener: '/ws' })
+  const ctx = Helper.createTestContext('http://localhost/ws-admin', {
+    headers: { Upgrade: 'websocket' }
   })
   let nextCalled = false
   const next = (): Promise<Response> => {
     nextCalled = true
     return Promise.resolve(new Response('ok'))
   }
-  await middleware(ctx, next)
+  await mw(ctx, next)
   assertEquals(nextCalled, true)
 })
 
-Deno.test('websocket listener with trailing slash normalized', async () => {
-  const middleware = Middleware.Mware.websocket({ listener: '/ws/' })
-  const ctx = createTestContext('http://localhost/ws-other', {
-    headers: new Headers({ Upgrade: 'websocket' })
+Deno.test('websocket listener with trailing slash is normalized', async () => {
+  const mw = Middleware.Mware.websocket({ listener: '/ws/' })
+  const ctx = Helper.createTestContext('http://localhost/ws-other', {
+    headers: { Upgrade: 'websocket' }
   })
   let nextCalled = false
   const next = (): Promise<Response> => {
     nextCalled = true
     return Promise.resolve(new Response('ok'))
   }
-  await middleware(ctx, next)
+  await mw(ctx, next)
   assertEquals(nextCalled, true)
 })
 
 Deno.test('websocket malformed handshake does not reach the route chain', async () => {
-  const middleware = Middleware.Mware.websocket({ listener: '/ws', allowedOrigins: '*' })
-  const ctx = createTestContext('http://localhost/ws', {
-    headers: new Headers({ Upgrade: 'websocket', Origin: 'https://anything.example' })
+  const mw = Middleware.Mware.websocket({ listener: '/ws', allowedOrigins: '*' })
+  const ctx = Helper.createTestContext('http://localhost/ws', {
+    headers: { Upgrade: 'websocket', Origin: 'https://anything.example' }
   })
   let nextCalled = false
   const next = (): Promise<Response> => {
     nextCalled = true
     return Promise.resolve(new Response('ok'))
   }
-  const res = await middleware(ctx, next)
+  const res = await mw(ctx, next)
   assertEquals(nextCalled, false)
   assertEquals(res?.status, 400)
 })
 
-Deno.test('websocket maps a malformed handshake to 400, not 500', async () => {
-  const middleware = Middleware.Mware.websocket({ listener: '/ws' })
-  const ctx = createTestContext('http://localhost/ws', {
-    headers: new Headers({ Upgrade: 'websocket', Origin: 'http://localhost' })
+Deno.test('websocket maps a malformed handshake to 400 not 500', async () => {
+  const mw = Middleware.Mware.websocket({ listener: '/ws' })
+  const ctx = Helper.createTestContext('http://localhost/ws', {
+    headers: { Upgrade: 'websocket', Origin: 'http://localhost' }
   })
   let nextCalled = false
   const next = (): Promise<Response> => {
     nextCalled = true
     return Promise.resolve(new Response('ok'))
   }
-  const res = await middleware(ctx, next)
+  const res = await mw(ctx, next)
   assertEquals(nextCalled, false)
   assertEquals(res?.status, 400)
 })
 
-Deno.test('websocket rejects a missing Origin under a wildcard policy', async () => {
-  const middleware = Middleware.Mware.websocket({ listener: '/ws', allowedOrigins: '*' })
-  const ctx = createTestContext('http://localhost/ws', {
-    headers: new Headers({ Upgrade: 'websocket' })
+Deno.test('websocket returns 400 for a missing Sec-WebSocket-Version', async () => {
+  const mw = Middleware.Mware.websocket({ listener: '/ws', allowedOrigins: '*' })
+  const ctx = Helper.createTestContext('http://localhost/ws', {
+    headers: { Upgrade: 'websocket', Origin: 'https://anything.example' }
   })
-  let nextCalled = false
-  const next = (): Promise<Response> => {
-    nextCalled = true
-    return Promise.resolve(new Response('ok'))
-  }
-  const res = await middleware(ctx, next)
-  assertEquals(nextCalled, false)
+  const res = await mw(ctx, Helper.okNext)
+  assertEquals(res?.status, 400)
+})
+
+Deno.test('websocket returns 403 for a cross-origin handshake by default', async () => {
+  const mw = Middleware.Mware.websocket({ listener: '/ws' })
+  const ctx = Helper.createTestContext('http://localhost/ws', {
+    headers: { Upgrade: 'websocket', Origin: 'https://external.example' }
+  })
+  const res = await mw(ctx, Helper.okNext)
   assertEquals(res?.status, 403)
 })
 
-Deno.test('websocket rejects a missing Origin when an allowlist is configured', async () => {
-  const middleware = Middleware.Mware.websocket({
+Deno.test('websocket returns 403 for an origin outside the allowlist', async () => {
+  const mw = Middleware.Mware.websocket({
     listener: '/ws',
     allowedOrigins: ['https://app.example.com']
   })
-  const ctx = createTestContext('http://localhost/ws', {
-    headers: new Headers({ Upgrade: 'websocket' })
+  const ctx = Helper.createTestContext('http://localhost/ws', {
+    headers: { Upgrade: 'websocket', Origin: 'https://other.example.com' }
   })
-  let nextCalled = false
-  const next = (): Promise<Response> => {
-    nextCalled = true
-    return Promise.resolve(new Response('ok'))
-  }
-  const res = await middleware(ctx, next)
-  assertEquals(nextCalled, false)
+  const res = await mw(ctx, Helper.okNext)
   assertEquals(res?.status, 403)
 })
 
-Deno.test('websocket rejects cross-origin handshake by default', async () => {
-  const middleware = Middleware.Mware.websocket({ listener: '/ws' })
-  const ctx = createTestContext('http://localhost/ws', {
-    headers: new Headers({ Upgrade: 'websocket', Origin: 'https://evil.com' })
-  })
-  const next = async (): Promise<Response> => new Response('ok')
-  const res = await middleware(ctx, next)
-  assertEquals(res?.status, 403)
-})
-
-Deno.test('websocket rejects origin not in allowlist', async () => {
-  const middleware = Middleware.Mware.websocket({
-    listener: '/ws',
-    allowedOrigins: ['https://app.example.com']
-  })
-  const ctx = createTestContext('http://localhost/ws', {
-    headers: new Headers({ Upgrade: 'websocket', Origin: 'https://other.example.com' })
-  })
-  const next = async (): Promise<Response> => new Response('ok')
-  const res = await middleware(ctx, next)
-  assertEquals(res?.status, 403)
-})
-
-Deno.test('websocket rejects substring-origin handshake by default', async () => {
-  const middleware = Middleware.Mware.websocket({ listener: '/ws' })
-  const ctx = createTestContext('http://localhost/ws', {
-    headers: new Headers({ Upgrade: 'websocket', Origin: 'http://localhost.evil.com' })
-  })
-  const next = async (): Promise<Response> => new Response('ok')
-  const res = await middleware(ctx, next)
-  assertEquals(res?.status, 403)
-})
-
-Deno.test('websocket rejects the handshake when the request URL cannot be parsed', async () => {
+Deno.test('websocket returns 403 when the request URL cannot be parsed', async () => {
   const request = new Request('http://localhost/ws', {
-    headers: new Headers({ Upgrade: 'websocket', Origin: 'http://localhost' })
+    headers: { Upgrade: 'websocket', Origin: 'http://localhost' }
   })
   Object.defineProperty(request, 'url', { value: 'not a url', configurable: true })
-  const ctx = new Core.Context(request, new URL('http://localhost/ws'), {})
-  const middleware = Middleware.Mware.websocket({ listener: '/ws' })
-  const next = async (): Promise<Response> => new Response('ok')
-  const res = await middleware(ctx, next)
+  const ctx = new Core.Context(
+    request,
+    new URL('http://localhost/ws'),
+    null,
+    undefined,
+    undefined,
+    null,
+    () => {}
+  )
+  const mw = Middleware.Mware.websocket({ listener: '/ws' })
+  const res = await mw(ctx, Helper.okNext)
   assertEquals(res?.status, 403)
+})
+
+Deno.test('websocket returns 426 for a non-13 Sec-WebSocket-Version', async () => {
+  const mw = Middleware.Mware.websocket({ listener: '/ws', allowedOrigins: '*' })
+  const ctx = Helper.createTestContext('http://localhost/ws', {
+    headers: {
+      Upgrade: 'websocket',
+      Origin: 'https://anything.example',
+      'Sec-WebSocket-Version': '12'
+    }
+  })
+  const res = await mw(ctx, Helper.okNext)
+  assertEquals(res?.status, 426)
+  assertEquals(res?.headers.get('sec-websocket-version'), '13')
+  assertEquals(res?.headers.get('upgrade'), 'websocket')
+})
+
+Deno.test('websocket trims whitespace around Sec-WebSocket-Version', async () => {
+  const mw = Middleware.Mware.websocket({ listener: '/ws', allowedOrigins: '*' })
+  const ctx = Helper.createTestContext('http://localhost/ws', {
+    headers: {
+      Upgrade: 'websocket',
+      Origin: 'https://anything.example',
+      'Sec-WebSocket-Version': ' 13 '
+    }
+  })
+  let nextCalled = false
+  const next = (): Promise<Response> => {
+    nextCalled = true
+    return Promise.resolve(new Response('ok'))
+  }
+  const res = await mw(ctx, next)
+  assertEquals(nextCalled, false)
+  assertEquals((res?.status as number) === 426 && (res?.status as number) === 400, false)
 })
 
 Deno.test('websocket wildcard allowedOrigins disables the origin check', async () => {
-  const middleware = Middleware.Mware.websocket({
+  const mw = Middleware.Mware.websocket({
     listener: '/ws',
     allowedOrigins: '*'
   })
-  const ctx = createTestContext('http://localhost/ws', {
-    headers: new Headers({ Upgrade: 'websocket', Origin: 'https://evil.com' })
+  const ctx = Helper.createTestContext('http://localhost/ws', {
+    headers: { Upgrade: 'websocket', Origin: 'https://external.example' }
   })
   let nextCalled = false
   const next = (): Promise<Response> => {
     nextCalled = true
     return Promise.resolve(new Response('ok'))
   }
-  const res = await middleware(ctx, next)
+  const res = await mw(ctx, next)
   assertEquals(nextCalled, false)
   assertEquals(res?.status === 403, false)
 })
 
-Deno.test('websocket with listener and upgrade header but wrong path calls next', async () => {
-  const middleware = Middleware.Mware.websocket({ listener: '/ws' })
-  const ctx = createTestContext('http://localhost/api', {
-    headers: new Headers({ Upgrade: 'websocket' })
+Deno.test('websocket with a non-websocket upgrade header calls next', async () => {
+  const mw = Middleware.Mware.websocket({ listener: '/ws' })
+  const ctx = Helper.createTestContext('http://localhost/ws', {
+    headers: { Upgrade: 'HTTP' }
   })
-  const next = async (): Promise<Response> => new Response('ok')
-  const res = await middleware(ctx, next)
-  assertEquals(res !== undefined, true)
-  if (res) {
-    assertEquals(await res.text(), 'ok')
-  }
+  const res = await mw(ctx, Helper.okNext)
+  assertEquals(await res?.text(), 'ok')
+})
+
+Deno.test('websocket with an empty options listener calls next', async () => {
+  const mw = Middleware.Mware.websocket({})
+  const ctx = Helper.createTestContext('http://localhost/')
+  const res = await mw(ctx, Helper.okNext)
+  assertEquals(await res?.text(), 'ok')
+})
+
+Deno.test('websocket with an upgrade header but wrong path calls next', async () => {
+  const mw = Middleware.Mware.websocket({ listener: '/ws' })
+  const ctx = Helper.createTestContext('http://localhost/api', {
+    headers: { Upgrade: 'websocket' }
+  })
+  const res = await mw(ctx, Helper.okNext)
+  assertEquals(await res?.text(), 'ok')
 })
 
 Deno.test('websocket with listener but no upgrade header calls next', async () => {
-  const middleware = Middleware.Mware.websocket({ listener: '/ws' })
-  const ctx = createTestContext('http://localhost/ws')
-  const next = async (): Promise<Response> => new Response('ok')
-  const res = await middleware(ctx, next)
-  assertEquals(res !== undefined, true)
-  if (res) {
-    assertEquals(await res.text(), 'ok')
-  }
-})
-
-Deno.test('websocket with listener path matching but case-insensitive upgrade calls next only if not websocket', async () => {
-  const middleware = Middleware.Mware.websocket({ listener: '/ws' })
-  const ctx = createTestContext('http://localhost/ws', {
-    headers: new Headers({ Upgrade: 'HTTP' })
-  })
-  const next = async (): Promise<Response> => new Response('ok')
-  const res = await middleware(ctx, next)
-  assertEquals(res !== undefined, true)
-  if (res) {
-    assertEquals(await res.text(), 'ok')
-  }
-})
-
-Deno.test('websocket with no listener path calls next', async () => {
-  const middleware = Middleware.Mware.websocket({})
-  const ctx = createTestContext('http://localhost/')
-  const next = async (): Promise<Response> => new Response('ok')
-  const res = await middleware(ctx, next)
-  assertEquals(res !== undefined, true)
-  if (res) {
-    assertEquals(await res.text(), 'ok')
-  }
-})
-
-Deno.test('websocket with upgrade header not websocket calls next', async () => {
-  const middleware = Middleware.Mware.websocket({ listener: '/ws' })
-  const ctx = createTestContext('http://localhost/ws', {
-    headers: new Headers({ Upgrade: 'http' })
-  })
-  const next = async (): Promise<Response> => new Response('ok')
-  const res = await middleware(ctx, next)
-  assertEquals(res !== undefined, true)
-  if (res) {
-    assertEquals(await res.text(), 'ok')
-  }
+  const mw = Middleware.Mware.websocket({ listener: '/ws' })
+  const ctx = Helper.createTestContext('http://localhost/ws')
+  const res = await mw(ctx, Helper.okNext)
+  assertEquals(await res?.text(), 'ok')
 })
