@@ -2,22 +2,22 @@ import type * as Types from '@interfaces/index.ts'
 import * as Core from '@core/index.ts'
 
 /**
- * Observability helpers for the routing layer.
- * @description Stateless boundary emit and OTel-aligned metric derivation.
+ * Request observability reporter.
+ * @description Emits request completion and error events.
  */
 export class Report {
   /**
-   * Emit boundary observability for completed request.
-   * @description Emits request:complete plus request:error when status exceeds.
-   * @param emit - Event reporter
-   * @param req - Incoming request
-   * @param response - Final response sent to the client
-   * @param startTime - performance.now() captured at request entry
-   * @param holder - Per-request holder with ctx and any framework Error
-   * @param timedOut - True when the response is the synthetic 503 timeout
+   * Report request completion and errors.
+   * @description Emits complete and error events with metadata.
+   * @param emit - Event emitter function
+   * @param req - Incoming request being reported
+   * @param response - Final response produced
+   * @param startTime - Request start timestamp in milliseconds
+   * @param holder - Request state holder
+   * @param timedOut - Whether request timed out
    */
   static reportRequest(
-    emit: Types.EventEmit,
+    emit: Types.EventFn,
     req: Request,
     response: Response,
     startTime: number,
@@ -25,39 +25,28 @@ export class Report {
     timedOut: boolean
   ): void {
     const frameworkError = holder.frameworkError ??
-      holder.ctx?.[Core.InternalContext].getFrameworkError() ?? null
+      (holder.ctx === null ? null : Core.Context.internalOf(holder.ctx).getFrameworkError())
     const channel: Types.EventChannel = timedOut || frameworkError !== null || holder.ctx === null
       ? 'internal'
       : 'external'
-    const baseMetadata = {
+    const metadata = {
       method: req.method,
       statusCode: response.status,
       url: req.url,
       durationMs: performance.now() - startTime,
-      ...(holder.clientIp !== undefined && { ip: holder.clientIp }),
       ...Report.requestMetrics(req, response, holder),
       ...(frameworkError !== null && { error: frameworkError })
     }
-    emit({
-      type: channel,
-      kind: 'request:complete',
-      metadata: baseMetadata,
-      timestamp: Date.now()
-    })
+    emit({ type: channel, kind: 'request:completed', metadata, timestamp: Date.now() })
     if (response.status >= 400) {
-      emit({
-        type: channel,
-        kind: 'request:error',
-        metadata: baseMetadata,
-        timestamp: Date.now()
-      })
+      emit({ type: channel, kind: 'request:failed', metadata, timestamp: Date.now() })
     }
   }
 
   /**
-   * Parse Content-Length into a byte count.
-   * @description Returns undefined for missing, chunked, or malformed values.
-   * @param value - Raw Content-Length header value or null
+   * Parse content-length header value.
+   * @description Returns undefined for invalid numeric values.
+   * @param value - Raw content-length header value
    * @returns Parsed byte count or undefined
    */
   private static contentLength(value: string | null): number | undefined {
@@ -72,12 +61,12 @@ export class Report {
   }
 
   /**
-   * Derive optional OTel-aligned request/response metrics.
-   * @description Forwards only values known for certain, omits the rest.
-   * @param req - Incoming request
-   * @param response - Final response sent to the client
-   * @param holder - Per-request holder carrying the matched route pattern
-   * @returns Partial metadata with route, server, user-agent, and sizes
+   * Collect metrics from request response.
+   * @description Gathers size, address, agent, and route data.
+   * @param req - Incoming request to inspect
+   * @param response - Final response to inspect
+   * @param holder - Request state holder
+   * @returns Assembled request metrics object
    */
   private static requestMetrics(
     req: Request,
@@ -87,14 +76,16 @@ export class Report {
     const userAgent = req.headers.get('user-agent') ?? undefined
     const requestSize = Report.contentLength(req.headers.get('content-length'))
     const responseSize = Report.contentLength(response.headers.get('content-length'))
-    let serverAddress: string | undefined
-    let serverPort: number | undefined
+    const clientIp = holder.ctx?.get.ip()
     const authority = holder.parsedUrl ?? Report.tryParseUrl(req.url)
-    if (authority !== undefined) {
-      serverAddress = authority.hostname || undefined
-      serverPort = authority.port === '' ? undefined : Number.parseInt(authority.port, 10)
-    }
+    const serverAddress = authority !== undefined && authority.hostname !== ''
+      ? authority.hostname
+      : undefined
+    const serverPort = authority !== undefined && authority.port !== ''
+      ? Number.parseInt(authority.port, 10)
+      : undefined
     return {
+      ...(clientIp !== undefined && { ip: clientIp }),
       ...(holder.routePattern !== undefined && { route: holder.routePattern }),
       ...(serverAddress !== undefined && { serverAddress }),
       ...(serverPort !== undefined && Number.isFinite(serverPort) && { serverPort }),
@@ -105,10 +96,10 @@ export class Report {
   }
 
   /**
-   * Parse a URL without throwing.
-   * @description Fallback for metrics when the URL is unparsed.
-   * @param url - Raw request URL
-   * @returns Parsed URL or undefined when malformed
+   * Parse URL string safely.
+   * @description Returns undefined when URL parsing fails.
+   * @param url - URL string to parse
+   * @returns Parsed URL or undefined
    */
   private static tryParseUrl(url: string): URL | undefined {
     try {

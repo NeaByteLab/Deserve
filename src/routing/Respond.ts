@@ -1,18 +1,17 @@
-import type * as Types from '@interfaces/index.ts'
 import * as Core from '@core/index.ts'
 
 /**
- * Response-building helpers for the routing layer.
- * @description Stateless construction of error, HEAD, and validated responses.
+ * Response helper utilities.
+ * @description Builds error and HEAD responses safely.
  */
 export class Respond {
   /**
-   * Verify a value is a genuine Response.
-   * @description Rejects prototype-only fakes whose slot access throws.
-   * @param value - Candidate returned by a handler or middleware
-   * @returns True only when the value is a real Response whose slots are readable
+   * Check value is a genuine Response.
+   * @description Verifies instance and readable status access.
+   * @param value - Value to test for Response
+   * @returns True when value is usable Response
    */
-  static isGenuineResponse(value: unknown): value is Response {
+  static isGenuine(value: unknown): value is Response {
     if (!(value instanceof Core.API.Response)) {
       return false
     }
@@ -26,34 +25,32 @@ export class Respond {
 
   /**
    * Build content-negotiated error response.
-   * @description Returns JSON or HTML with security headers by Accept.
-   * @param req - Incoming request
-   * @param statusCode - HTTP status code to emit
-   * @param label - Masked error label
-   * @returns Error Response with security headers
+   * @description Chooses JSON or text based on request.
+   * @param req - Incoming request for negotiation
+   * @param statusCode - HTTP status code to return
+   * @param label - Error label text
+   * @returns Negotiated error response
    */
   static negotiatedError(req: Request, statusCode: number, label: string): Response {
     return Core.Handler.negotiatedResponse(statusCode, label, Core.Handler.wantsJson(req.headers))
   }
 
   /**
-   * Build masked error response without Context.
-   * @description Content-negotiated fallback for faults escaping handleRequest.
-   * @param req - Incoming request
-   * @param statusCode - Masked status code to emit
-   * @returns Error Response with security headers
+   * Build safe server error response.
+   * @description Uses safe message for the status code.
+   * @param req - Incoming request for negotiation
+   * @param statusCode - HTTP status code to return
+   * @returns Negotiated safe error response
    */
   static safeServerError(req: Request, statusCode: number): Response {
-    const errorLabel = Core.Constant.serverErrorMessages[statusCode as Types.HttpStatusCode] ??
-      'Internal Server Error'
-    return Respond.negotiatedError(req, statusCode, errorLabel)
+    return Respond.negotiatedError(req, statusCode, Core.Handler.safeMessage(statusCode))
   }
 
   /**
-   * Build HEAD response preserving GET headers.
-   * @description Strips and cancels body, keeps existing Content-Length unchanged.
-   * @param response - The fully built GET-equivalent response
-   * @returns Bodyless response with preserved representation headers
+   * Convert response into HEAD response.
+   * @description Drops body and preserves status headers.
+   * @param response - Source response to convert
+   * @returns Promise resolving to bodyless response
    */
   static async toHeadResponse(response: Response): Promise<Response> {
     const headHeaders = new Core.API.Headers(response.headers)
