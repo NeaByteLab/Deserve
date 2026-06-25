@@ -1,36 +1,16 @@
 import type * as Types from '@interfaces/index.ts'
-import type { Context } from '@core/Context.ts'
 import * as Core from '@core/index.ts'
 
 /**
- * Handler utilities for routing layers.
- * @description Static helpers used by routing, middleware, and context layers.
+ * HTTP error and header helpers.
+ * @description Builds error responses, headers, and status errors.
  */
 export class Handler {
-  /** Well-known framework state keys */
-  static readonly stateKeys: Types.StateKeysMap = {
-    view: Handler.stateKey<Types.ViewEngine>('view'),
-    worker: Handler.stateKey<Types.WorkerRunHandle>('worker'),
-    session: Handler.stateKey<Types.DataRecord | null>('session'),
-    setSession: Handler.stateKey<(data: Types.DataRecord) => Promise<void>>('setSession'),
-    clearSession: Handler.stateKey<() => void>('clearSession'),
-    validated: Handler.stateKey<Types.DataRecord>('validated')
-  } as const
-  /** Reserved framework state key names, not writable by public setState */
-  static readonly reservedStateKeys: ReadonlySet<string> = new Set([
-    'view',
-    'worker',
-    'session',
-    'setSession',
-    'clearSession',
-    'validated'
-  ])
-
   /**
-   * Append Set-Cookie values to headers.
-   * @description Appends each cookie value as a Set-Cookie header.
-   * @param headers - Target Headers instance
-   * @param cookieValues - Cookie values to append
+   * Append Set-Cookie header values.
+   * @description Adds each cookie value as separate header.
+   * @param headers - Headers instance to mutate
+   * @param cookieValues - Cookie header strings to append
    */
   static appendCookies(headers: Headers, cookieValues: readonly string[]): void {
     for (const cookieValue of cookieValues) {
@@ -39,13 +19,13 @@ export class Handler {
   }
 
   /**
-   * Assert a value is a positive finite number.
-   * @description Single validator for positive-number construction options.
-   * @param value - Value to validate
-   * @param label - Option name surfaced in the error message
-   * @param unit - Optional unit suffix, e.g. "milliseconds"
-   * @returns The validated positive finite number
-   * @throws {Deno.errors.InvalidData} When the value is non-finite or <= 0
+   * Assert value is positive finite.
+   * @description Throws labeled error when value is invalid.
+   * @param value - Number value to validate
+   * @param label - Label used in error message
+   * @param unit - Optional unit used in message
+   * @returns Same value when valid
+   * @throws When value is not positive finite
    */
   static assertPositiveFinite(value: number, label: string, unit?: string): number {
     if (!Number.isFinite(value) || value <= 0) {
@@ -58,25 +38,25 @@ export class Handler {
   }
 
   /**
-   * Build error response with format.
-   * @description Tries middleware then JSON or HTML, masks error messages.
-   * @param ctx - Request context
-   * @param statusCode - HTTP status code
-   * @param error - Thrown error
-   * @param errorMiddleware - Optional custom handler
-   * @returns Error response
+   * Build error response with middleware.
+   * @description Uses middleware response when valid otherwise default.
+   * @param ctx - Request context instance
+   * @param statusCode - HTTP status code to send
+   * @param error - Caught error instance
+   * @param errorMiddleware - Optional error middleware handler
+   * @returns Promise resolving to error response
    */
   static async buildResponse(
-    ctx: Context,
+    ctx: Core.Context,
     statusCode: number,
     error: globalThis.Error,
     errorMiddleware: Types.ErrorMiddleware | null
   ): Promise<globalThis.Response> {
     if (errorMiddleware) {
       const customResponse = await errorMiddleware(ctx, {
-        url: ctx.url,
-        method: ctx.request.method,
-        pathname: ctx.pathname,
+        url: ctx.get.url().href,
+        method: ctx.get.method(),
+        pathname: ctx.get.pathname(),
         statusCode,
         error
       })
@@ -88,14 +68,43 @@ export class Handler {
   }
 
   /**
-   * Create StatusError with status code.
-   * @description Produces Error with immutable statusCode property attached.
-   * @param statusCode - HTTP status code
-   * @param message - Error message
-   * @returns Error with statusCode property
+   * Build content disposition header value.
+   * @description Sanitizes filename and adds UTF-8 fallback.
+   * @param filename - Download filename to encode
+   * @returns Content-Disposition header value
    */
-  static createStatusError(statusCode: number, message: string): Types.StatusError {
-    const error = new Error(message) as Types.StatusError
+  static contentDisposition(filename: string): string {
+    const baseName = filename.replace(Core.Constant.dispositionPathRegex, '')
+    const safeName = Handler.stripControlChars(baseName) || 'download'
+    const asciiName = Array.from(safeName, (char) => char.codePointAt(0)! > 127 ? '_' : char).join(
+      ''
+    )
+      .replace(Core.Constant.dispositionEscapeRegex, (match) => `\\${match}`)
+    const asciiFallback = asciiName || 'download'
+    let headerValue = `attachment; filename="${asciiFallback}"`
+    if (Core.Constant.dispositionNonAsciiRegex.test(safeName)) {
+      headerValue += `; filename*=UTF-8''${encodeURIComponent(safeName)}`
+    }
+    return headerValue
+  }
+
+  /**
+   * Create error with status code.
+   * @description Attaches non-writable status code property.
+   * @param statusCode - HTTP status code to attach
+   * @param message - Error message text
+   * @param cause - Optional cause detail strings
+   * @returns Error carrying status code
+   */
+  static createStatusError(
+    statusCode: number,
+    message: string,
+    cause?: readonly string[]
+  ): Types.StatusError {
+    const error =
+      (cause === undefined
+        ? new Error(message)
+        : new Error(message, { cause })) as Types.StatusError
     Object.defineProperty(error, 'statusCode', {
       value: statusCode,
       writable: false,
@@ -106,11 +115,11 @@ export class Handler {
   }
 
   /**
-   * Minimal HTML error page.
-   * @description Returns simple HTML with status and escaped message.
-   * @param statusCode - Status code and title
-   * @param message - Escaped message body
-   * @returns HTML string
+   * Build default error HTML page.
+   * @description Escapes message into simple HTML document.
+   * @param statusCode - HTTP status code to show
+   * @param message - Error message text
+   * @returns HTML error page string
    */
   static defaultErrorHtml(statusCode: number, message: string): string {
     const escapedMessage = Handler.escapeHtml(message)
@@ -126,49 +135,48 @@ export class Handler {
   }
 
   /**
-   * Build error response by Accept header.
-   * @description Single source of truth for safe error responses.
-   * @param ctx - Request context
-   * @param statusCode - HTTP status code
-   * @returns Error response with masked message
+   * Build negotiated error response.
+   * @description Sends JSON or HTML based on accept.
+   * @param ctx - Request context instance
+   * @param statusCode - HTTP status code to send
+   * @returns Negotiated error response
    */
-  static errorResponse(ctx: Context, statusCode: number): globalThis.Response {
+  static errorResponse(ctx: Core.Context, statusCode: number): globalThis.Response {
     const errorMessage = Handler.safeMessage(statusCode)
-    const wantsJson = Handler.wantsJson(ctx.request.headers)
-    const reasons = Handler.safeReasons(ctx[Core.InternalContext].getFrameworkError())
+    const wantsJson = Handler.wantsJson(ctx.get.request().headers)
     try {
       if (wantsJson) {
-        return ctx.send.json(Handler.problemDetails(statusCode, ctx.pathname, undefined, reasons), {
-          status: statusCode,
+        return ctx.send.json(Handler.problemDetails(statusCode, ctx.get.pathname()), {
+          status: statusCode as Types.HttpStatusCode,
           headers: { 'Content-Type': Core.Constant.problemJsonContentType }
         })
       }
       return ctx.send.html(Handler.defaultErrorHtml(statusCode, errorMessage), {
-        status: statusCode
+        status: statusCode as Types.HttpStatusCode
       })
     } catch {
-      return Handler.safeFallbackResponse(ctx, statusCode, errorMessage, wantsJson, reasons)
+      return Handler.negotiatedResponse(statusCode, errorMessage, wantsJson, ctx.get.pathname())
     }
   }
 
   /**
    * Escape HTML special characters.
-   * @description Replaces &, <, >, ", ' with HTML entities.
-   * @param text - Raw string
-   * @returns Escaped string safe for HTML content
+   * @description Replaces unsafe characters with HTML entities.
+   * @param text - Text to escape
+   * @returns Escaped HTML safe text
    */
   static escapeHtml(text: string): string {
     return text.replace(Core.Constant.htmlEscapeRegex, (ch) => Core.Constant.htmlEscapeMap[ch]!)
   }
 
   /**
-   * Extract status code from error.
-   * @description Prefers statusCode property, then Deno error class, else 500.
-   * @param error - Unknown value from catch block
-   * @returns Object with statusCode and Error instance
+   * Extract status and error value.
+   * @description Maps Deno errors to HTTP status codes.
+   * @param error - Unknown thrown value
+   * @returns Status code and error pair
    */
   static extractError(error: unknown): Types.ExtractedError {
-    if (Handler.isErrorWithStatus(error)) {
+    if (Handler.isStatusError(error)) {
       return { statusCode: error.statusCode, error }
     }
     if (error instanceof Error) {
@@ -178,53 +186,52 @@ export class Handler {
   }
 
   /**
-   * Check path is existing directory.
-   * @description Returns false when path is missing or not directory.
-   * @param resolvedDir - Absolute directory path
-   * @returns True when the path exists and is a directory
+   * Check path is a directory.
+   * @description Returns false when stat call fails.
+   * @param path - Filesystem path to check
+   * @returns True when path is directory
    */
-  static isDirectory(resolvedDir: string): boolean {
+  static isDirectory(path: string): boolean {
     try {
-      return Deno.statSync(resolvedDir).isDirectory
+      return Deno.statSync(path).isDirectory
     } catch {
       return false
     }
   }
 
   /**
-   * Narrow a value to a status-bearing Error.
-   * @description True for Errors whose statusCode is 400-599.
-   * @param value - Unknown value from a catch block
-   * @returns True when value is an Error with an in-range statusCode
+   * Check value carries HTTP status.
+   * @description Validates error with status in client range.
+   * @param value - Unknown value to inspect
+   * @returns True when value is status error
    */
-  static isErrorWithStatus(value: unknown): value is Types.StatusError {
+  static isStatusError(value: unknown): value is Types.StatusError {
     if (!(value instanceof Error) || !('statusCode' in value)) {
       return false
     }
-    const statusValue = (value as Types.StatusCodeCarrier).statusCode
+    const statusValue = (value as Types.StatusCarrier<unknown>).statusCode
     return typeof statusValue === 'number' && statusValue >= 400 && statusValue < 600
   }
 
   /**
-   * Build a content-negotiated error response.
-   * @description Single site for JSON or HTML error bodies.
-   * @param statusCode - HTTP status code to emit
-   * @param message - Safe masked message
-   * @param wantsJson - Whether the client prefers JSON
-   * @param pathname - Optional request pathname included in JSON bodies
-   * @returns Error response with security headers and the negotiated body
+   * Build response without context helpers.
+   * @description Produces JSON or HTML error directly.
+   * @param statusCode - HTTP status code to send
+   * @param message - Error message text
+   * @param wantsJson - Send JSON when true
+   * @param pathname - Optional request path instance
+   * @returns Negotiated error response
    */
   static negotiatedResponse(
     statusCode: number,
     message: string,
     wantsJson: boolean,
-    pathname?: string,
-    reasons?: readonly string[]
+    pathname?: string
   ): globalThis.Response {
-    const headers = new Core.API.Headers(Core.Constant.securityHeaderDefaults)
+    const headers = new Core.API.Headers()
     if (wantsJson) {
       headers.set('Content-Type', Core.Constant.problemJsonContentType)
-      const body = Handler.problemDetails(statusCode, pathname, message, reasons)
+      const body = Handler.problemDetails(statusCode, pathname, message)
       return new Core.API.Response(Core.API.jsonStringify(body), { status: statusCode, headers })
     }
     headers.set('Content-Type', 'text/html; charset=utf-8')
@@ -235,36 +242,31 @@ export class Handler {
   }
 
   /**
-   * Build structured error problem details.
-   * @description Returns problem body with type, title, status, optional instance.
-   * @param statusCode - HTTP status code
-   * @param pathname - Optional request pathname as instance
-   * @param title - Optional title overriding safe message
-   * @param reasons - Optional validation reasons added as errors
-   * @returns Problem details object
+   * Build problem details object.
+   * @description Includes instance path when provided.
+   * @param statusCode - HTTP status code to report
+   * @param pathname - Optional instance path value
+   * @param title - Optional problem title text
+   * @returns Problem details payload object
    */
   static problemDetails(
     statusCode: number,
     pathname?: string,
-    title?: string,
-    reasons?: readonly string[]
+    title?: string
   ): Types.ProblemDetails {
     const base: Types.ProblemDetails = {
       type: 'about:blank',
       title: title ?? Handler.safeMessage(statusCode),
       status: statusCode
     }
-    const withInstance = pathname === undefined ? base : { ...base, instance: pathname }
-    return reasons !== undefined && reasons.length > 0
-      ? { ...withInstance, errors: reasons }
-      : withInstance
+    return pathname === undefined ? base : { ...base, instance: pathname }
   }
 
   /**
-   * Resolve safe message for status.
-   * @description Returns known message or generic fallback for status.
-   * @param statusCode - HTTP status code
-   * @returns Safe user-facing error message
+   * Resolve safe status message text.
+   * @description Falls back by client or server range.
+   * @param statusCode - HTTP status code to map
+   * @returns Reason phrase for status
    */
   static safeMessage(statusCode: number): string {
     return (
@@ -274,42 +276,27 @@ export class Handler {
   }
 
   /**
-   * Extract safe reasons from error.
-   * @description Returns string causes only for 422 status errors.
-   * @param error - Error to inspect, or null
-   * @returns Reason strings, or undefined when none
+   * Strip control characters from text.
+   * @description Removes characters below 32 and delete.
+   * @param text - Text to sanitize
+   * @returns Text without control characters
    */
-  static safeReasons(error: Error | null): readonly string[] | undefined {
-    if (
-      error === null ||
-      !Handler.isErrorWithStatus(error) ||
-      error.statusCode !== 422 ||
-      !Array.isArray(error.cause)
-    ) {
-      return undefined
+  static stripControlChars(text: string): string {
+    let result = ''
+    for (const char of text) {
+      const code = char.codePointAt(0)!
+      if (code >= 32 && code !== 127) {
+        result += char
+      }
     }
-    const reasons = (error.cause as readonly unknown[]).filter(
-      (reason): reason is string => typeof reason === 'string'
-    )
-    return reasons.length > 0 ? reasons : undefined
+    return result
   }
 
   /**
-   * Create a branded state key.
-   * @description Returns type-branded string for compile-time safety.
-   * @template T - The value type this key maps to
-   * @param key - Raw string key
-   * @returns Branded StateKey
-   */
-  static stateKey<T>(key: string): Types.StateKey<T> {
-    return key as Types.StateKey<T>
-  }
-
-  /**
-   * Convert HeadersInit to record.
-   * @description Returns plain string record from any HeadersInit variant.
-   * @param init - Headers, array, or object
-   * @returns Key-value string record
+   * Convert headers init to record.
+   * @description Normalizes Headers, array, or object input.
+   * @param init - Optional headers init value
+   * @returns String record of header pairs
    */
   static toRecord(init?: HeadersInit): Types.StringRecord {
     if (!init) {
@@ -325,10 +312,10 @@ export class Handler {
   }
 
   /**
-   * Check client prefers JSON response.
-   * @description Returns true when Accept header includes application/json.
-   * @param headers - Request headers
-   * @returns True when JSON is preferred
+   * Check accept header wants JSON.
+   * @description Detects JSON or problem JSON accept values.
+   * @param headers - Request headers instance
+   * @returns True when client accepts JSON
    */
   static wantsJson(headers: Headers): boolean {
     const accept = headers.get('accept')
@@ -339,10 +326,10 @@ export class Handler {
   }
 
   /**
-   * Map standard error class to status.
-   * @description Whitelists unambiguous Deno error types, else returns 500.
-   * @param error - Error instance to classify
-   * @returns Canonical HTTP status code
+   * Map Deno error to status.
+   * @description Returns specific code or 500 default.
+   * @param error - Error instance to inspect
+   * @returns HTTP status code for error
    */
   private static denoErrorStatus(error: Error): number {
     if (error instanceof Deno.errors.NotFound) {
@@ -364,24 +351,5 @@ export class Handler {
       return 504
     }
     return 500
-  }
-
-  /**
-   * Build a guaranteed-valid error response.
-   * @description Emits baseline security headers when send path fails.
-   * @param ctx - Request context
-   * @param statusCode - HTTP status code
-   * @param message - Safe masked message
-   * @param wantsJson - Whether client prefers JSON
-   * @returns Safe error response
-   */
-  private static safeFallbackResponse(
-    ctx: Context,
-    statusCode: number,
-    message: string,
-    wantsJson: boolean,
-    reasons?: readonly string[]
-  ): globalThis.Response {
-    return Handler.negotiatedResponse(statusCode, message, wantsJson, ctx.pathname, reasons)
   }
 }
