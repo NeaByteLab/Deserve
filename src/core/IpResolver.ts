@@ -2,25 +2,24 @@ import type * as Types from '@interfaces/index.ts'
 import * as Core from '@core/index.ts'
 
 /**
- * Trusted-proxy aware client IP resolution.
- * @description Resolves the real visitor IP from the peer and forwarded headers.
+ * Trusted proxy IP resolver.
+ * @description Resolves client IP from forwarded headers.
  */
 export class IpResolver {
-  /** Trusted-proxy presets expanded to CIDR rules */
+  /** Preset CIDR rule groups by name */
   private static readonly presetRules: Record<string, readonly string[]> = {
     loopback: ['127.0.0.1/8', '::1/128'],
     linklocal: ['169.254.0.0/16', 'fe80::/10'],
     uniquelocal: ['10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16', 'fc00::/7']
   }
-  /** Single-IP forwarding header names */
+  /** Header names carrying a single IP */
   private static readonly singleIpHeaders: readonly string[] = ['cf-connecting-ip', 'x-real-ip']
 
   /**
-   * Compile a trust-proxy configuration into a tester.
-   * @description Expands presets and CIDRs, or wraps a predicate.
-   * @param config - Trust configuration or undefined
-   * @returns Trust tester, or null when nothing is trusted
-   * @throws {Deno.errors.InvalidData} When a rule is malformed
+   * Compile trust proxy configuration.
+   * @description Expands presets then builds matcher function.
+   * @param config - Trust proxy configuration value
+   * @returns Matcher function or null
    */
   static compile(config: Types.TrustProxyConfig | undefined): Types.IpMatcher | null {
     if (config === undefined) {
@@ -46,12 +45,12 @@ export class IpResolver {
   }
 
   /**
-   * Resolve the real client IP.
-   * @description Walks forwarded hops right-to-left through trusted proxies.
-   * @param directPeer - Direct TCP peer IP, or undefined
-   * @param headers - Request headers
-   * @param trust - Compiled trust tester, or null when none trusted
-   * @returns Real client IP, or undefined when peer is unknown
+   * Resolve client IP from headers.
+   * @description Walks forwarded chain skipping trusted hops.
+   * @param directPeer - Direct peer IP address
+   * @param headers - Request headers instance
+   * @param trust - Trusted proxy matcher or null
+   * @returns Resolved client IP or undefined
    */
   static resolve(
     directPeer: string | undefined,
@@ -79,10 +78,10 @@ export class IpResolver {
   }
 
   /**
-   * Build the forwarded address chain.
-   * @description Merges X-Forwarded-For and Forwarded header entries.
-   * @param headers - Request headers
-   * @returns Ordered client-to-proxy IP chain
+   * Build forwarded IP hop chain.
+   * @description Reads x-forwarded-for then forwarded header.
+   * @param headers - Request headers instance
+   * @returns Ordered forwarded IP chain
    */
   private static forwardedChain(headers: Headers): readonly string[] {
     const chain: string[] = []
@@ -121,9 +120,9 @@ export class IpResolver {
   }
 
   /**
-   * Normalize a forwarded token into a bare IP.
+   * Normalize forwarded token into IP.
    * @description Strips quotes, brackets, and trailing port.
-   * @param token - Raw forwarded token
+   * @param token - Raw forwarded token value
    * @returns Valid IP string or undefined
    */
   private static normalizeForwardedToken(token: string): string | undefined {
@@ -150,9 +149,9 @@ export class IpResolver {
   }
 
   /**
-   * Read a single-IP forwarding header.
-   * @description Returns the first valid configured single-IP header value.
-   * @param headers - Request headers
+   * Read single IP from headers.
+   * @description Checks known single IP header names.
+   * @param headers - Request headers instance
    * @returns Valid IP string or undefined
    */
   private static singleHeaderIp(headers: Headers): string | undefined {

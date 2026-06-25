@@ -1,16 +1,16 @@
 import type * as Types from '@interfaces/index.ts'
 
 /**
- * IP address parsing and matching utilities.
- * @description Canonical parsing, CIDR matching, shared across middleware.
+ * IP address parsing and matching.
+ * @description Parses IPv4 and IPv6 and compiles rules.
  */
 export class IpAddress {
   /**
-   * Test an IP against matchers.
-   * @description Returns true when any matcher accepts the IP.
-   * @param matchers - Compiled rule matchers
-   * @param ip - IP address string
-   * @returns True when any matcher accepts
+   * Check IP matches any matcher.
+   * @description Returns true on first matcher hit.
+   * @param matchers - Compiled IP matcher functions
+   * @param ip - IP address to test
+   * @returns True when any matcher matches
    */
   static anyMatch(matchers: readonly Types.IpMatcher[], ip: string): boolean {
     for (const matcher of matchers) {
@@ -22,11 +22,11 @@ export class IpAddress {
   }
 
   /**
-   * Compile a rule into a matcher.
-   * @description Handles wildcard, CIDR, and exact addresses.
-   * @param rule - Single rule string
-   * @returns Matcher for the rule
-   * @throws {Deno.errors.InvalidData} When the rule is malformed
+   * Compile rule into matcher function.
+   * @description Supports wildcard, exact, and CIDR rules.
+   * @param rule - IP or CIDR rule string
+   * @returns Matcher function for the rule
+   * @throws When rule or CIDR prefix invalid
    */
   static compileRule(rule: string): Types.IpMatcher {
     if (rule === '*') {
@@ -69,11 +69,10 @@ export class IpAddress {
   }
 
   /**
-   * Compile rule strings into matchers.
-   * @description Validates each rule into a test.
-   * @param rules - Rule strings or undefined
-   * @returns Compiled matcher list
-   * @throws {Deno.errors.InvalidData} When a rule is malformed
+   * Compile multiple rules into matchers.
+   * @description Returns empty array when no rules.
+   * @param rules - IP or CIDR rule strings
+   * @returns Array of compiled matcher functions
    */
   static compileRules(rules: readonly string[] | undefined): readonly Types.IpMatcher[] {
     if (!rules || rules.length === 0) {
@@ -83,20 +82,20 @@ export class IpAddress {
   }
 
   /**
-   * Test whether a string is a valid IP address.
-   * @description True only for non-empty strings that parse to an IP value.
-   * @param address - Candidate IP string
-   * @returns True when the address parses successfully
+   * Check address is valid IP.
+   * @description Parses address and checks success.
+   * @param address - IP address string to validate
+   * @returns True when address parses successfully
    */
   static isValid(address: string): boolean {
     return address.length > 0 && IpAddress.parse(address) !== null
   }
 
   /**
-   * Parse an IP string into a canonical value.
-   * @description Detects version and folds IPv4-mapped IPv6 to IPv4.
-   * @param address - IP address string
-   * @returns Parsed value and version, or null when invalid
+   * Parse address into value version.
+   * @description Maps IPv4 in IPv6 to version four.
+   * @param address - IP address string to parse
+   * @returns Parsed IP value or null
    */
   static parse(address: string): Types.ParsedIp | null {
     if (address.includes(':')) {
@@ -114,10 +113,10 @@ export class IpAddress {
   }
 
   /**
-   * Combine eight groups into a 128-bit value.
-   * @description Shifts each hextet into place.
-   * @param groups - Eight hextet values
-   * @returns Combined 128-bit value
+   * Combine groups into single value.
+   * @description Shifts each group by sixteen bits.
+   * @param groups - Bigint groups to combine
+   * @returns Combined bigint address value
    */
   private static groupsToValue(groups: readonly bigint[]): bigint {
     let combinedValue = 0n
@@ -128,10 +127,10 @@ export class IpAddress {
   }
 
   /**
-   * Parse IPv4 into a 32-bit value.
-   * @description Validates four 0-255 octets without leading zeros.
-   * @param address - IPv4 address string
-   * @returns Numeric value or null when invalid
+   * Parse IPv4 address into value.
+   * @description Validates four octets within byte range.
+   * @param address - IPv4 address string to parse
+   * @returns Bigint address value or null
    */
   private static parseIPv4(address: string): bigint | null {
     const parts = address.split('.')
@@ -153,10 +152,10 @@ export class IpAddress {
   }
 
   /**
-   * Parse IPv6 into a 128-bit value.
-   * @description Expands "::" and validates hextets, allows IPv4 suffix.
-   * @param address - IPv6 address string
-   * @returns Numeric value or null when invalid
+   * Parse IPv6 address into value.
+   * @description Expands compression and embedded IPv4 groups.
+   * @param address - IPv6 address string to parse
+   * @returns Bigint address value or null
    */
   private static parseIPv6(address: string): bigint | null {
     const zoneIndex = address.indexOf('%')
@@ -194,11 +193,10 @@ export class IpAddress {
     }
     const head: bigint[] = []
     const tail: bigint[] = []
-    const headTarget = groups
     if (!expand(headParts)) {
       return null
     }
-    head.push(...headTarget)
+    head.push(...groups)
     groups.length = 0
     if (!expand(tailParts)) {
       return null
