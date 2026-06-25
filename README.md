@@ -42,14 +42,14 @@ Create a routes directory and export HTTP method handlers. Start the server.
 import { Router } from 'jsr:@neabyte/deserve'
 
 // Create router pointing at routes directory
-const router = new Router({ routesDir: './routes' })
+const router = new Router({ routes: { directory: './routes' } })
 
 // Optional worker pool for CPU-bound work
 // const router = new Router({
-//   routesDir: './routes',
+//   routes: { directory: './routes' },
 //   worker: { scriptURL: import.meta.resolve('./worker.ts'), poolSize: 4 }
 // })
-// Read handle: ctx.getState('worker' as never)
+// Read handle: ctx.get.worker()
 
 // Start server on port 8000
 await router.serve(8000)
@@ -81,10 +81,10 @@ From the repo root (requires [Deno](https://deno.com/)).
 deno task check
 ```
 
-**Test** - run tests (under `tests/`, uses `--allow-read` for fixtures):
+**Test** - run tests (under `tests/`, uses `--allow-read --allow-net`):
 
 ```bash
-# Run tests in tests/ (uses --allow-read for fixtures)
+# Run tests in tests/ (uses --allow-read --allow-net)
 deno task test
 ```
 
