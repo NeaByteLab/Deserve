@@ -8,6 +8,92 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+#### Request And Response Surface
+
+- Reading a request now goes through a single frozen `ctx.get.*` accessor exposing `method`, `url`, `pathname`, `request`, `header`, `cookie`, `query`, `param`, `body`, `json`, `text`, `formData`, `blob`, `bytes`, `ip`, `session`, `validated`, and `worker`, so every read of the incoming request flows through one surface
+- Reading the client IP through `ctx.get.ip({ direct: true })` now returns the raw TCP peer, while `ctx.get.ip()` keeps returning the resolved client, so both the proxied and the direct address are reachable from the same call
+- Writing a response now goes through a single frozen `ctx.set.*` accessor for `header`, `headers`, `cookie`, and `session`, with `header` and `headers` returning the same accessor so writes can chain
+- The send helpers gained `ctx.send.empty(status)` for a body-less response and `ctx.send.download(body, filename, options)` for an attachment, the download helper sanitising the filename, stripping control characters, ASCII-escaping the name, adding a non-ASCII `filename*` fallback, defaulting the name to `download`, and serving `application/octet-stream`
+
+#### Static Serving
+
+- A static mount can now be backed by a callback as well as a directory, so `router.static(urlPath, source)` accepts either a serve-options object that serves files from a filesystem directory or a handler function that receives the request context and the path stripped of its mount prefix and returns the response itself, letting a mount point at a directory, an object store, or any other source behind the same call
+- Static serving now answers `HEAD` alongside `GET`, advertises that ranges are accepted, and turns away any other method with a `405` carrying an `Allow: GET, HEAD` header
+- Static serving now answers a conditional request by modification date, so every static response carries a `Last-Modified` header and a request whose `If-Modified-Since` is at or after that time is answered with an empty `304` instead of the body
+- Static serving now answers `If-Range`, so a range is served as a partial response only while the `If-Range` date still matches the file, the whole file is returned otherwise, and an `If-Range` value shaped like an entity tag is always treated as stale
+
+#### Cookies, Sessions, And Auth
+
+- Cookie serialization is now a dedicated helper that builds a single `Set-Cookie` string from a name, value, and attribute options, percent-encoding the name and value, refusing an empty name, requiring `expires` to be a real date and `maxAge` to be a finite number, and refusing `SameSite=None` unless `secure` is also set
+- A session write now drives the cookie straight through `ctx.set.cookie`, so writing data signs and sets the cookie and writing `null` clears it by sending the same cookie back with a zero `Max-Age`
+- Basic authentication now accepts an optional `realm`, and the `WWW-Authenticate` challenge it sends on a refusal is built from that realm, defaulting to `Secure Area`
+
+#### Validation And Websockets
+
+- A request can now be checked against a per-source contract before it reaches a handler, so the validation middleware takes a schema naming any of body, cookies, headers, or query, runs each named contract against the matching slice of the request, gathers every passing value into one validated record reachable through `ctx.get.validated()`, refuses a schema that names no source or an unsupported one, and turns a contract failure into a `422` whose message joins the collected reasons
+- A request arriving with an `Upgrade: websocket` header can now be turned into a live socket, so the WebSocket middleware upgrades only a `GET` whose path matches its configured listener prefix, passes everything else down the chain untouched, and binds connect, message, disconnect, and error callbacks onto the opened socket, refusing a disallowed origin with a `403` and a malformed handshake with a `400`
+- A WebSocket handshake that omits `Sec-WebSocket-Version` is now refused with a `400`, and one that names a version other than `13` is refused with a `426` carrying `Sec-WebSocket-Version: 13` and `Upgrade: websocket`
+
+#### Observability Events
+
+- The observability event set was expanded so an operator can watch the new lifecycle and rejection moments through `router.on()`. New events are `server:started`, `route:removed`, `route:ignored`, `view:invalidated`, `auth:failed`, `cors:blocked`, `ip:denied`, `body:rejected`, `validate:failed`, `websocket:rejected`, and `static:missing`, each carrying the detail relevant to that moment such as the denied IP, the rejected origin, the failing validation source and reasons, or the missing static path
+
+### Changed
+
+#### Rendering
+
+- The template rendering engine moved out of the framework and is now reached through an injected render function, so a route renders by resolving a template from the configured views directory, compiling, caching, and rendering it to an HTML response, and a render flowing through the engine emits `view:compiled` and `view:rendered`, a failed render emits `view:failed`, and a cache drop emits `view:invalidated`
+- Template files are watched in place, so creating or changing a `.dve` file in the views directory drops only that cached compilation and the next request re-reads and re-compiles it, while a missing views directory makes watching a quiet no-op
+
+#### Context And State
+
+- Request reading and response writing replaced the older flat properties and setter methods with the grouped `ctx.get.*` and `ctx.set.*` accessors, and reading a validated record, session, or worker handle that was never configured now fails with a clear "not supported" error rather than returning nothing
+- Reading the request body in a second, different format now answers with an "already read" failure rather than the previous body-consumed resource error
+- The branded per-request state store was dropped in favour of dedicated session, validated, and worker controllers installed onto the context, so framework wiring is no longer carried in a state map a handler could read or clobber
+
+#### Static Routing
+
+- A static mount no longer registers a catch-all route, so mounts are tracked on their own, each prefix is normalized with a leading slash and trimmed trailing slashes, and a request is matched against the longest prefix first so a more specific mount wins over a broader one
+- Static files are now consulted only after dynamic route matching, so a real route and its own `405`/`Allow` handling take precedence and a static mount is tried as a fallback before a `404`
+- A static response now emits a weak entity tag rather than a strong one, still derived from file size and modification time, and a missing static path is refused at registration time while an empty base path normalizes to the root
+- The set of file extensions the static server maps to a content type was narrowed to a focused list of common web types with explicit `charset=utf-8` on the text ones, JavaScript now served as `text/javascript`, and anything outside that list served as `application/octet-stream`
+
+#### Errors And Configuration
+
+- An error response is now built straight from the context send helpers instead of a separate response factory, and a negotiated or fallback error body keeps the structured problem-details shape carrying type, title, status, and the request path while no longer attaching the baseline security headers and no longer listing the individual validation reasons on a `422`
+- Router configuration was reshaped, so the routes directory and route-parameter limit now live under a `routes` option, view configuration is supplied under a single `views` option, hot reload can be turned off with `hotReload: false`, and the request timeout is named `timeoutMs`, while the URL and parameter length limits are always enforced against their defaults
+
+#### Shutdown And Middleware
+
+- A shutdown signal now announces itself as a `process:failed` event and the server listens on the full platform set, `SIGHUP`, `SIGINT`, and `SIGTERM` on Unix-like systems and `SIGBREAK` plus `SIGINT` on Windows, registering those listeners alongside an optional abort signal rather than choosing one or the other and removing every handler cleanly on the way out, emitting `server:stopped` once it has drained
+- The cross-origin middleware always sets `Vary: Origin` for a non-wildcard policy whether or not the origin matched, answers every preflight with an empty `204`, and attaches the allow headers only when the origin matches
+- Body-size limiting now reads the declared `content-length` alone, requiring an integer within range and skipping `GET` and `HEAD`, and no longer rewraps or streams the body to measure it
+- A worker that crashes or times out now rejects with the underlying failure cause while still respawning its slot, and the pool's `poolSize` is validated as a positive whole number with the event emitter supplied at creation
+- The default session cookie now configures `secure` as `false` by default and keys its options under `name`, and a custom rule that throws inside the cross-site request middleware is simply treated as non-matching
+
+#### Event Names
+
+- The lifecycle events were renamed for consistency, so `request:complete` became `request:completed`, `request:error` became `request:failed`, `route:loaded` became `route:added`, `route:reloaded` became `route:updated`, `route:skipped` became `route:ignored`, `reload:error` became `route:failed`, `server:shutdown` became `server:stopped`, `process:error` became `process:failed`, `worker:crash` became `worker:crashed`, `worker:respawn` became `worker:respawned`, `view:error` became `view:failed`, and `csrf:rule-error` became `csrf:failed`
+
+### Removed
+
+- The standalone process-fault sentinel was folded into the observability layer, so trapping unhandled rejections and uncaught errors and neutralizing self-directed process-termination calls now switches on only while at least one event listener is subscribed, switches off once the last one leaves, and surfaces each trapped moment as a `process:failed`
+- The separate response factory module was removed and its response-construction and attachment-disposition logic merged into the context send helpers and the core handler
+- The standalone rendering and validation source trees were removed, with rendering relocated into the core rendering and view classes and validation relocated into the middleware layer
+
+### Public API
+
+- `router.static(urlPath, source)` now takes either a `ServeOptions` object or a `StaticFn` handler, and both `ServeOptions` and `StaticFn` are exported from the package root
+- The security headers middleware class is now `SecurityHeaders`, renamed from `SecHeaders`, resolving its defaults from per-key entries, and the cross-origin middleware class is now `CORS`, renamed from `Cors`
+- `Validator` is exported from the middleware layer as a factory exposing `check(schema)` and `define`, and the validation middleware is built through `Validator.check(schema)`, while the `Mware` factory collection no longer carries a `validator` entry and `Mware.ip()` now takes its options as optional
+- The package root export list is now explicit instead of a wildcard, naming the middleware option and event types it surfaces and re-exporting the Typebox contract types, and it no longer re-exports `Define` or `Loader`
+- The `Wrap` middleware wrapper is exported from the package root, so a custom middleware can be wrapped with `Wrap.apply(label, middleware)` to catch its thrown errors, map them to a status, and prefix the chosen label onto the message, the same wrapper every built-in middleware uses, replacing the former `WrapMware` function
+- The `WebSocket` middleware is available through the `Mware.websocket(options)` factory, and its `WebSocketOptions` type, exposing `listener`, `allowedOrigins`, and the `onConnect`/`onMessage`/`onDisconnect`/`onError` callbacks, is exported from the package root
+- `SessionOptions` now requires a `secret` field in place of `cookieSecret`, the cookie name option moved from `cookieName` to `name`, and new `SessionController` and `SessionDefaults` shapes describe the session write surface and its defaults
+- The `Observability`, `Rendering`, and `Validation` interface modules were consolidated into the core interface module, and the routing interfaces gained `RouteEntry`, `StaticMount`, and a `ServeHandler` type while dropping the older handler-options, listen-address, and state-key shapes
+
 ---
 
 ## [0.14.0] - 2026-06-16
