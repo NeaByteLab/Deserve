@@ -1,84 +1,98 @@
 import type * as Types from '@interfaces/index.ts'
-import type * as CoreTypes from '@core/index.ts'
+import * as Core from '@core/index.ts'
 import * as Middleware from '@middleware/index.ts'
 
 /**
- * Basic Auth middleware for users.
- * @description Validates Authorization header, constant-time compare.
+ * HTTP Basic Authentication middleware.
+ * @description Validates Authorization header against user list.
  */
 export class BasicAuth {
   /**
    * Create Basic Auth middleware.
-   * @description Validates Authorization header against the user list.
-   * @param options - List of username/password pairs
-   * @returns Middleware that returns 401 when invalid
+   * @description Builds middleware checking credentials against users.
+   * @param options - Basic auth configuration with users
+   * @returns Middleware function enforcing authentication
    * @throws {Deno.errors.InvalidData} When users array is empty
    */
   static create(options: Types.BasicAuthOptions): Types.MiddlewareFn {
-    if (!options.users || options.users.length === 0) {
+    if (options.users.length === 0) {
       throw new Deno.errors.InvalidData('BasicAuth requires at least one user in the users array')
     }
     const users = options.users
-    return Middleware.WrapMware('BasicAuth error', async (ctx: CoreTypes.Context, next) => {
-      const authHeader = ctx.header('authorization')
-      const spaceIndex = authHeader ? authHeader.indexOf(' ') : -1
+    const challenge = `Basic realm="${options.realm ?? 'Secure Area'}"`
+    return Middleware.Wrap.apply('basicAuth', async (ctx, next) => {
+      const authHeader = ctx.get.header('authorization')
+      const spaceIndex = authHeader === undefined ? -1 : authHeader.indexOf(' ')
       const scheme = spaceIndex > 0 ? authHeader!.slice(0, spaceIndex) : ''
       if (scheme.toLowerCase() !== 'basic') {
-        ctx.setHeader('WWW-Authenticate', 'Basic realm="Secure Area"')
+        Core.Context.internalOf(ctx).emitEvent(
+          Core.Observability.internalEvent('auth:failed', { reason: 'missing' })
+        )
+        ctx.set.header('WWW-Authenticate', challenge)
         return await ctx.handleError(
           401,
           new Deno.errors.PermissionDenied('Missing or invalid Authorization header')
         )
       }
-      try {
-        const credentials = atob(authHeader!.slice(spaceIndex + 1).trim())
-        const colonIndex = credentials.indexOf(':')
-        if (colonIndex <= 0) {
-          ctx.setHeader('WWW-Authenticate', 'Basic realm="Secure Area"')
-          return await ctx.handleError(
-            401,
-            new Deno.errors.PermissionDenied('Malformed Basic Auth credentials')
-          )
-        }
-        let isValid = false
-        for (const user of users) {
-          if (BasicAuth.constantTimeEqual(credentials, `${user.username}:${user.password}`)) {
-            isValid = true
-          }
-        }
-        if (!isValid) {
-          ctx.setHeader('WWW-Authenticate', 'Basic realm="Secure Area"')
-          return await ctx.handleError(
-            401,
-            new Deno.errors.PermissionDenied('Invalid username or password')
-          )
-        }
-        return await next()
-      } catch (error) {
-        ctx.setHeader('WWW-Authenticate', 'Basic realm="Secure Area"')
+      const credentials = BasicAuth.decodeCredentials(authHeader!.slice(spaceIndex + 1).trim())
+      if (credentials === null || credentials.indexOf(':') <= 0) {
+        Core.Context.internalOf(ctx).emitEvent(
+          Core.Observability.internalEvent('auth:failed', { reason: 'malformed' })
+        )
+        ctx.set.header('WWW-Authenticate', challenge)
         return await ctx.handleError(
           401,
-          new Deno.errors.PermissionDenied(
-            `BasicAuth failed because ${error instanceof Error ? error.message : 'unknown error'}`
-          )
+          new Deno.errors.PermissionDenied('Malformed Basic Auth credentials')
         )
       }
+      let isAuthorized = false
+      for (const user of users) {
+        if (BasicAuth.constantTimeEqual(credentials, `${user.username}:${user.password}`)) {
+          isAuthorized = true
+        }
+      }
+      if (!isAuthorized) {
+        Core.Context.internalOf(ctx).emitEvent(
+          Core.Observability.internalEvent('auth:failed', { reason: 'invalid' })
+        )
+        ctx.set.header('WWW-Authenticate', challenge)
+        return await ctx.handleError(
+          401,
+          new Deno.errors.PermissionDenied('Invalid username or password')
+        )
+      }
+      return await next()
     })
   }
 
   /**
-   * Constant-time string comparison for credentials.
-   * @description Compares two strings in constant time.
-   * @param inputStr - First string
-   * @param expectedStr - Second string
-   * @returns True when equal
+   * Compare two strings in constant time.
+   * @description Prevents timing attacks during credential check.
+   * @param inputValue - Provided credential string
+   * @param expectedValue - Expected credential string
+   * @returns True when both strings match exactly
    */
-  private static constantTimeEqual(inputStr: string, expectedStr: string): boolean {
-    const maxLength = Math.max(inputStr.length, expectedStr.length)
-    let mismatch = inputStr.length ^ expectedStr.length
-    for (let i = 0; i < maxLength; i++) {
-      mismatch |= (inputStr.charCodeAt(i) || 0) ^ (expectedStr.charCodeAt(i) || 0)
+  private static constantTimeEqual(inputValue: string, expectedValue: string): boolean {
+    const maxLength = Math.max(inputValue.length, expectedValue.length)
+    let mismatch = inputValue.length ^ expectedValue.length
+    for (let charIndex = 0; charIndex < maxLength; charIndex++) {
+      mismatch |= (inputValue.charCodeAt(charIndex) || 0) ^
+        (expectedValue.charCodeAt(charIndex) || 0)
     }
     return mismatch === 0
+  }
+
+  /**
+   * Decode base64 credential string.
+   * @description Returns null when base64 decoding fails.
+   * @param encoded - Base64 encoded credential pair
+   * @returns Decoded string or null on failure
+   */
+  private static decodeCredentials(encoded: string): string | null {
+    try {
+      return atob(encoded)
+    } catch {
+      return null
+    }
   }
 }

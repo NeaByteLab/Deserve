@@ -3,15 +3,16 @@ import * as Core from '@core/index.ts'
 import * as Middleware from '@middleware/index.ts'
 
 /**
- * CORS middleware for cross-origin requests.
- * @description Handles preflight and sets Allow-Origin and related headers.
+ * Cross-Origin Resource Sharing middleware.
+ * @description Sets CORS headers and handles preflight requests.
  */
-export class Cors {
+export class CORS {
   /**
-   * Create CORS middleware with options.
-   * @description Handles preflight, sets Allow-Origin and related headers.
-   * @param options - Origin, methods, headers, credentials, maxAge
-   * @returns Middleware function
+   * Create CORS middleware.
+   * @description Builds middleware applying configured CORS policy.
+   * @param options - CORS configuration options
+   * @returns Middleware function applying CORS headers
+   * @throws {Deno.errors.InvalidData} When credentials used with wildcard origin
    */
   static create(options: Types.CorsOptions = {}): Types.MiddlewareFn {
     const allowedOrigins = options.origin ?? '*'
@@ -26,59 +27,76 @@ export class Cors {
     const maxAge = options.maxAge ?? 86400
     if (credentials && allowedOrigins === '*') {
       throw new Deno.errors.InvalidData(
-        'CORS credentials cannot be used with wildcard origin "*", specify explicit origin(s)'
+        'CORS credentials cannot be used with wildcard origin "*", specify explicit origins'
       )
     }
-    const hasVaryOrigin = allowedOrigins !== '*'
+    const varyOrigin = allowedOrigins !== '*'
     const methodsHeader = methods.join(', ')
     const headersHeader = allowedHeaders.join(', ')
     const maxAgeHeader = maxAge.toString()
     const exposedHeader = exposedHeaders.length > 0 ? exposedHeaders.join(', ') : null
-    return Middleware.WrapMware('CORS error', async (ctx, next) => {
-      const requestOrigin = ctx.header('origin')
-      if (!requestOrigin) {
+    return Middleware.Wrap.apply('cors', async (ctx, next) => {
+      const requestOrigin = ctx.get.header('origin')
+      if (requestOrigin === undefined) {
         return await next()
       }
-      let matchedOrigin: string | null = null
-      if (allowedOrigins === '*') {
-        matchedOrigin = '*'
-      } else if (typeof allowedOrigins === 'string') {
-        matchedOrigin = allowedOrigins === requestOrigin ? requestOrigin : null
-      } else if (allowedOrigins.includes(requestOrigin)) {
-        matchedOrigin = requestOrigin
+      const matchedOrigin = CORS.matchOrigin(allowedOrigins, requestOrigin)
+      if (varyOrigin) {
+        ctx.set.header('Vary', 'Origin')
       }
-      if (ctx.request.method === 'OPTIONS') {
-        if (hasVaryOrigin) {
-          ctx.setHeader('Vary', 'Origin')
-        }
-        if (matchedOrigin) {
-          ctx.setHeader('Access-Control-Allow-Origin', matchedOrigin)
-          ctx.setHeader('Access-Control-Allow-Methods', methodsHeader)
-          ctx.setHeader('Access-Control-Allow-Headers', headersHeader)
-          ctx.setHeader('Access-Control-Max-Age', maxAgeHeader)
+      if (ctx.get.method() === 'OPTIONS') {
+        if (matchedOrigin !== null) {
+          ctx.set.header('Access-Control-Allow-Origin', matchedOrigin)
+          ctx.set.header('Access-Control-Allow-Methods', methodsHeader)
+          ctx.set.header('Access-Control-Allow-Headers', headersHeader)
+          ctx.set.header('Access-Control-Max-Age', maxAgeHeader)
           if (credentials) {
-            ctx.setHeader('Access-Control-Allow-Credentials', 'true')
+            ctx.set.header('Access-Control-Allow-Credentials', 'true')
           }
-          if (exposedHeader) {
-            ctx.setHeader('Access-Control-Expose-Headers', exposedHeader)
+          if (exposedHeader !== null) {
+            ctx.set.header('Access-Control-Expose-Headers', exposedHeader)
           }
-          return ctx.send.custom(null, { status: 204 })
+        } else {
+          Core.Context.internalOf(ctx).emitEvent(
+            Core.Observability.internalEvent('cors:blocked', { origin: requestOrigin })
+          )
         }
-        return ctx.send.custom(null, { status: 403 })
+        return ctx.send.empty(204)
       }
-      if (hasVaryOrigin) {
-        ctx.setHeader('Vary', 'Origin')
-      }
-      if (matchedOrigin) {
-        ctx.setHeader('Access-Control-Allow-Origin', matchedOrigin)
+      if (matchedOrigin !== null) {
+        ctx.set.header('Access-Control-Allow-Origin', matchedOrigin)
         if (credentials) {
-          ctx.setHeader('Access-Control-Allow-Credentials', 'true')
+          ctx.set.header('Access-Control-Allow-Credentials', 'true')
         }
-        if (exposedHeader) {
-          ctx.setHeader('Access-Control-Expose-Headers', exposedHeader)
+        if (exposedHeader !== null) {
+          ctx.set.header('Access-Control-Expose-Headers', exposedHeader)
         }
+      } else {
+        Core.Context.internalOf(ctx).emitEvent(
+          Core.Observability.internalEvent('cors:blocked', { origin: requestOrigin })
+        )
       }
       return await next()
     })
+  }
+
+  /**
+   * Match request origin against allowed set.
+   * @description Returns matched origin value or null.
+   * @param allowedOrigins - Allowed origin or origin list
+   * @param requestOrigin - Origin from incoming request
+   * @returns Matched origin string or null
+   */
+  private static matchOrigin(
+    allowedOrigins: string | readonly string[],
+    requestOrigin: string
+  ): string | null {
+    if (allowedOrigins === '*') {
+      return '*'
+    }
+    if (typeof allowedOrigins === 'string') {
+      return allowedOrigins === requestOrigin ? requestOrigin : null
+    }
+    return allowedOrigins.includes(requestOrigin) ? requestOrigin : null
   }
 }

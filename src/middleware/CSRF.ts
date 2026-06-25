@@ -1,34 +1,33 @@
 import type * as Types from '@interfaces/index.ts'
-import type * as CoreTypes from '@core/index.ts'
 import * as Core from '@core/index.ts'
 import * as Middleware from '@middleware/index.ts'
 
 /**
- * CSRF middleware for state-changing requests.
- * @description Verifies Origin and Sec-Fetch-Site headers, denies by default.
+ * Cross-Site Request Forgery protection middleware.
+ * @description Validates origin and sec-fetch-site headers.
  */
 export class CSRF {
   /**
-   * Create CSRF middleware with options.
-   * @description Validates unsafe methods via Origin or Sec-Fetch-Site.
-   * @param options - Allowed origin and sec-fetch-site rules
-   * @returns Middleware function
+   * Create CSRF middleware.
+   * @description Builds middleware blocking forged cross-site requests.
+   * @param options - CSRF configuration options
+   * @returns Middleware function enforcing CSRF protection
    */
   static create(options: Types.CsrfOptions = {}): Types.MiddlewareFn {
     const originRule = options.origin
     const secFetchRule = options.secFetchSite ?? ['same-origin']
-    return Middleware.WrapMware('CSRF error', async (ctx, next) => {
-      const method = ctx.request.method
+    return Middleware.Wrap.apply('csrf', async (ctx, next) => {
+      const method = ctx.get.method()
       if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') {
         return await next()
       }
-      const allowedOrigin = originRule ?? new Core.API.URL(ctx.request.url).origin
-      const origin = ctx.header('origin')
-      const secFetchSite = ctx.header('sec-fetch-site')
-      const isOriginValid = origin !== undefined &&
-        CSRF.matches(origin, allowedOrigin, ctx, 'origin')
+      const allowedOrigin = originRule ?? new Core.API.URL(ctx.get.url().href).origin
+      const requestOrigin = ctx.get.header('origin')
+      const secFetchSite = ctx.get.header('sec-fetch-site')
+      const isOriginValid = requestOrigin !== undefined &&
+        CSRF.matchesRule(requestOrigin, allowedOrigin, 'origin', ctx)
       const isSecFetchValid = secFetchSite !== undefined &&
-        CSRF.matches(secFetchSite, secFetchRule, ctx, 'secFetchSite')
+        CSRF.matchesRule(secFetchSite, secFetchRule, 'secFetchSite', ctx)
       if (isOriginValid || isSecFetchValid) {
         return await next()
       }
@@ -40,27 +39,27 @@ export class CSRF {
   }
 
   /**
-   * Check header value against allow rule.
-   * @description Supports exact string, string list, or predicate function.
-   * @param value - Incoming header value
-   * @param rule - Allowed string, list, or predicate
-   * @param ctx - Request context instance
-   * @param ruleLabel - Rule identifier for error events
-   * @returns True when the value is allowed
+   * Test value against a CSRF rule.
+   * @description Supports string, list, or predicate rules.
+   * @param value - Header value being checked
+   * @param rule - String, list, or predicate rule
+   * @param ruleName - Rule name for error reporting
+   * @param ctx - Request context for predicate rules
+   * @returns True when value satisfies the rule
    */
-  private static matches(
+  private static matchesRule(
     value: string,
     rule: string | readonly string[] | Types.CsrfRulePredicate,
-    ctx: CoreTypes.Context,
-    ruleLabel: 'origin' | 'secFetchSite'
+    ruleName: Types.CsrfRuleName,
+    ctx: Core.Context
   ): boolean {
     if (typeof rule === 'function') {
       try {
         return rule(value, ctx) === true
       } catch (ruleError) {
-        ctx[Core.InternalContext].emitEvent(
-          Core.Observability.internalEvent('csrf:rule-error', {
-            rule: ruleLabel,
+        Core.Context.internalOf(ctx).emitEvent(
+          Core.Observability.internalEvent('csrf:failed', {
+            rule: ruleName,
             error: ruleError instanceof Error ? ruleError : new Error(String(ruleError))
           })
         )
