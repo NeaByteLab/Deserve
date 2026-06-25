@@ -62,18 +62,18 @@
     "test": "deno test tests/ --allow-read --allow-net"
   },
   "imports": {
+    "@neabyte/dve": "jsr:@neabyte/dve@^0.1.0",
     "@neabyte/fast-router": "jsr:@neabyte/fast-router@^0.1.0",
     "@neabyte/superwatcher": "jsr:@neabyte/superwatcher@^0.1.1",
     "@neabyte/typebox": "jsr:@neabyte/typebox@^0.1.1",
     "@neabyte/utils-core": "jsr:@neabyte/utils-core@^0.2.0",
     "@std/assert": "jsr:@std/assert@^1.0.19",
+    "@neabyte/deserve": "./src/index.ts",
     "@app/": "./src/",
     "@core/": "./src/core/",
     "@interfaces/": "./src/interfaces/",
     "@middleware/": "./src/middleware/",
-    "@rendering/": "./src/rendering/",
     "@routing/": "./src/routing/",
-    "@validation/": "./src/validation/",
     "@tests/": "./tests/"
   },
   "publish": {
