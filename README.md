@@ -4,28 +4,14 @@
 
 Build HTTP server effortlessly with zero configuration for productivity.
 
-[![Deno](https://img.shields.io/badge/deno-2.7.0+-000000?logo=deno&logoColor=white)](https://deno.com) [![JSR](https://jsr.io/badges/@neabyte/deserve)](https://jsr.io/@neabyte/deserve) [![CI](https://github.com/NeaByteLab/Deserve/actions/workflows/ci.yaml/badge.svg)](https://github.com/NeaByteLab/Deserve/actions/workflows/ci.yaml) [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Deno](https://img.shields.io/badge/deno-2.8.3+-000000?logo=deno&logoColor=white)](https://deno.com) [![JSR](https://jsr.io/badges/@neabyte/deserve)](https://jsr.io/@neabyte/deserve) [![CI](https://github.com/NeaByteLab/Deserve/actions/workflows/ci.yaml/badge.svg)](https://github.com/NeaByteLab/Deserve/actions/workflows/ci.yaml) [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 </div>
-
-## Features
-
-- **[Zero Config](https://docs-deserve.neabyte.com/getting-started/installation)** - No build step, point at routes and serve.
-- **[File-Based Routing](https://docs-deserve.neabyte.com/core-concepts/file-based-routing)** - Route files in a folder mirror the URL.
-- **[Context](https://docs-deserve.neabyte.com/core-concepts/context-object)** - Read request data and respond through one object.
-- **[Middleware](https://docs-deserve.neabyte.com/middleware/global)** - Run global or per-path logic before handlers.
-- **[Validation](https://docs-deserve.neabyte.com/middleware/validation/overview)** - Check body, query, and params before handlers.
-- **[Static Files](https://docs-deserve.neabyte.com/static-file/basic)** - Serve directories with optional cache and etag.
-- **[Rendering](https://docs-deserve.neabyte.com/rendering/)** - Build dynamic HTML from templates with streaming.
-- **[Error Handling](https://docs-deserve.neabyte.com/error-handling/default-behavior)** - Catch every error with custom or default responses.
-- **[Observability](https://docs-deserve.neabyte.com/middleware/observability/overview)** - Subscribe to lifecycle, request, and error events.
-- **[Hot Reload](https://docs-deserve.neabyte.com/core-concepts/hot-reload)** - Routes and templates reload without a restart.
-- **[Worker Pool](https://docs-deserve.neabyte.com/core-concepts/worker-pool)** - Offload CPU-bound work to keep server responsive.
 
 ## Installation
 
 > [!NOTE]
-> **Prerequisites:** [Deno](https://deno.com/) 2.7.0 or later.
+> **Prerequisites:** [Deno](https://deno.com/) 2.8.3 or later.
 
 ```bash
 # Add Deserve from JSR
@@ -96,7 +82,7 @@ Full documentation (EN / ID): **[docs-deserve.neabyte.com](https://docs-deserve.
 
 ### DVE Editor (Syntax Highlighting)
 
-- **Cursor / VS Code extension**: See [editor/README.md](editor/README.md)
+- **Cursor / VS Code extension**: See [DVE Editor](https://github.com/NeaByteLab/DVE/tree/main/editor)
 
 ## Contributing
 
