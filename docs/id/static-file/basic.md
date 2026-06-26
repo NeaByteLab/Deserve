@@ -4,20 +4,20 @@ description: "Sajikan file statis dari sebuah direktori dengan static handler De
 
 # Penyajian Static Dasar
 
-Sajikan file statis (HTML, CSS, JS, images) menggunakan method `static()`.
+Method `router.static()` menyajikan file dari sebuah folder di bawah prefix URL, dengan caching, byte range, dan keamanan path bawaan. Cara ini mencakup HTML, CSS, JavaScript, gambar, font, dan aset lain di disk.
 
 ## Penggunaan Dasar
 
-Sajikan file statis dari direktori:
+Pasang sebuah folder di bawah prefix URL:
 
-![Memanggil router.static dengan prefix garis miring static dan path titik garis miring public mendaftarkan pola garis miring static garis miring bintang bintang, lalu tiap request prefix garis miring static-nya dipotong dari ctx.pathname dan sisanya digabung di bawah public, jadi garis miring static memetakan ke public garis miring index titik html, garis miring static garis miring css garis miring style titik css memetakan ke public garis miring css garis miring style titik css, dan garis miring static garis miring titik env ditolak dengan 404 sebelum pembacaan apa pun karena segmennya diawali titik](/diagrams/static-url-to-file.png)
+![Sebuah request ke garis miring static garis miring css garis miring style titik css cocok dengan mount garis miring static, prefix garis miring static-nya dipotong menjadi css garis miring style titik css, dan disajikan dari folder public, sementara request ke garis miring static garis miring titik env ditolak dengan 404 sebelum pembacaan apa pun karena segmennya diawali titik](/diagrams/static-url-to-file.png)
 
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
 const router = new Router()
 
-// Sajikan ./public di path /static
+// Sajikan ./public di bawah prefix /static
 router.static('/static', {
   path: './public',
   etag: true,
@@ -27,43 +27,38 @@ router.static('/static', {
 await router.serve(8000)
 ```
 
-Ini menyajikan file dari direktori `public/` di path URL `/static`:
+Mount itu memetakan setiap URL di bawah `/static` ke sebuah file di `public/`:
 
-- `GET /static/index.html` → menyajikan `public/index.html`
-- `GET /static/css/style.css` → menyajikan `public/css/style.css`
-- `GET /static/.env` → ditolak dengan **404** sebelum pembacaan apa pun
-
+- `GET /static/index.html` menyajikan `public/index.html`
+- `GET /static/css/style.css` menyajikan `public/css/style.css`
+- `GET /static/.env` ditolak dengan **404** sebelum pembacaan apa pun
 
 ## Cara Kerja
 
-Deserve memakai implementasi penyajian file statis kustom:
+Sebuah static mount bukan file route. Ia adalah registry terpisah yang diperiksa router hanya setelah dynamic route meleset, jadi urutan pencocokannya tetap:
 
-1. **Route Matching**: Membuat route dengan pola `${urlPath}/**` untuk mencocokkan semua file
-2. **Path Extraction**: Membaca `ctx.pathname` langsung untuk mendapat full request path, karena pola `/**` FastRouter hanya menangkap segment pertama
-3. **File Resolution**: Memetakan path URL ke path file system memakai opsi `path`
-4. **Priority**: Static route diregistrasi untuk semua HTTP method sebelum dynamic route
+1. Entry middleware berjalan lebih dulu.
+2. Sebuah dynamic route yang cocok menangani request dan static tidak pernah berjalan.
+3. Saat path cocok dengan sebuah rute di bawah method lain, router membalas **405 Method Not Allowed** dengan header `Allow`, dan static tetap tidak pernah berjalan.
+4. Tanpa kecocokan rute sama sekali, router menelusuri static mount dan menyajikan yang pertama yang prefix-nya mencakup path.
 
-### Perilaku Pola Wildcard
+Sebuah request mempertahankan prefix-nya sampai sebuah mount cocok, lalu prefix dipotong dan sisanya menjadi path file di bawah folder. Jadi `GET /static/css/style.css` memotong `/static` dan meresolusi `css/style.css` di dalam `public/`.
 
-Ketika `urlPath` adalah `/`, Deserve membuat pola `/**`. Untuk path resolution, Deserve memakai `ctx.pathname` daripada mengandalkan parameter wildcard, karena:
+### Pencocokan Prefix
 
-- Pola `/**` FastRouter hanya menangkap **segment pertama** dari request path alih-alih full path (misalnya `"styles"` untuk `/styles/ui.css`)
-- Untuk menyajikan file bersarang dengan benar, Deserve mengekstrak full path dari `ctx.pathname` dan menghapus `/` awal untuk mendapat path file relatif
+Mount diurutkan prefix terpanjang dulu, jadi yang paling spesifik menang. Mount pada `/admin/assets` dicoba sebelum mount pada `/admin`, yang membuat fallback luas dan folder fokus hidup berdampingan. Mount pada `/` bertindak sebagai catch-all yang mencakup setiap path tersisa. Beberapa mount dan urutan dispatch-nya ada di [Banyak Direktori](/id/static-file/multiple).
 
-**Contoh:**
+### Method yang Didukung
 
-- Request: `GET /styles/ui.css`
-- Pattern: `/**` cocok dari path yang dikonfigurasi
-- File path: Diekstrak dari `ctx.pathname` → `"styles/ui.css"`
-- Resolved: `static/styles/ui.css`
+Sebuah static mount menjawab `GET` dan `HEAD` saja. Method lain apa pun pada path yang dicakup mount mengembalikan **405 Method Not Allowed** dengan `Allow: GET, HEAD`. Sebuah request `HEAD` menjalankan jalur yang sama dengan `GET` dan mengembalikan header dengan body kosong.
 
 ## Opsi Static File
 
-Method `static()` menerima object `ServeOptions`:
+Argumen kedua adalah object `ServeOptions`. Hanya `path` yang wajib:
 
 ### `path`
 
-Path direktori file system untuk menyajikan file:
+Direktori filesystem untuk menyajikan, relatif ke current working directory atau absolut. Path kosong melempar saat mount:
 
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
@@ -71,17 +66,17 @@ import { Router } from '@neabyte/deserve'
 const router = new Router()
 // ---cut---
 router.static('/static', {
-  path: './public' // Sajikan file dari folder public/
+  path: './public' // Sajikan file dari folder public
 })
 
 router.static('/assets', {
-  path: '/absolute/path/to/assets' // Path absolut juga didukung
+  path: '/absolute/path/to/assets' // Path absolut juga bisa
 })
 ```
 
 ### `etag`
 
-Aktifkan pembuatan ETag untuk caching. Tag adalah hash SHA-256 dari ukuran file dan waktu modifikasi, bukan isi file penuh, jadi tetap murah dihitung:
+Mengaktifkan pembuatan ETag, dan default aktif saat dihilangkan. Tag adalah validator lemah yang dibangun dari hash SHA-256 ukuran file dan waktu modifikasi, bukan isi file, jadi tetap murah dihitung:
 
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
@@ -90,15 +85,15 @@ const router = new Router()
 // ---cut---
 router.static('/static', {
   path: './public',
-  etag: true // Generate ETag dari size dan mtime
+  etag: true // Bangun ETag dari size dan mtime
 })
 ```
 
-Saat aktif, client yang mengirim header `If-None-Match` yang cocok menerima response `304 Not Modified` tanpa body.
+Saat client mengirim `If-None-Match` yang cocok, response-nya **304 Not Modified** tanpa body. Client yang mengirim `If-Modified-Since` mendapat 304 yang sama saat file tidak lebih baru dari tanggal itu.
 
 ### `cacheControl`
 
-Atur Cache-Control max-age dalam detik. Deserve mengirimnya sebagai `public, max-age=<detik>`, hanya berlaku saat nilainya `0` atau lebih:
+Mengatur `Cache-Control` max-age dalam detik, dikirim sebagai `public, max-age=<detik>`. Berlaku hanya saat nilainya `0` atau lebih, dan dihilangkan selain itu:
 
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
@@ -107,54 +102,61 @@ const router = new Router()
 // ---cut---
 router.static('/static', {
   path: './public',
-  cacheControl: 86400 // Cache 1 hari (86400 detik)
+  cacheControl: 86400 // Cache selama satu hari
 })
 
 router.static('/assets', {
   path: './assets',
-  cacheControl: 31536000 // Cache 1 tahun
+  cacheControl: 31536000 // Cache selama satu tahun
+})
+```
+
+## Handler Kustom
+
+Sebagai ganti opsi, `static()` menerima sebuah fungsi berbentuk `(ctx, urlPath) => Response`. Fungsi itu menerima [context](/id/core-concepts/context-object) dan path dengan prefix mount yang sudah dipotong, yang cocok untuk peta aset in-memory atau file yang dihasilkan:
+
+```typescript twoslash
+import { Router, type Context } from '@neabyte/deserve'
+
+const router = new Router()
+// ---cut---
+// Sajikan aset dari peta berdasarkan path terpotong
+router.static('/cdn', (ctx: Context, urlPath: string) => {
+  const assets: Record<string, string> = { 'logo.svg': '<svg></svg>' }
+  const body = assets[urlPath]
+  if (body === undefined) {
+    return ctx.send.empty(404)
+  }
+  return ctx.send.custom(body, { headers: { 'Content-Type': 'image/svg+xml' } })
 })
 ```
 
 ## Permintaan Byte-Range
 
-Response statis mendukung satu [byte range](https://www.rfc-editor.org/rfc/rfc7233) sehingga klien bisa mengambil sebagian berkas, yang diandalkan oleh penggeser video atau unduhan yang bisa dilanjutkan. Setiap response statis mengumumkan `Accept-Ranges: bytes`, dan request yang membawa satu header `Range` kontigu dijawab dengan jendela yang cocok:
+Response statis mendukung satu [byte range](https://www.rfc-editor.org/rfc/rfc7233) sehingga klien bisa mengambil sebagian berkas, yang diandalkan oleh penggeser video atau unduhan yang bisa dilanjutkan. Setiap response statis mengumumkan `Accept-Ranges: bytes`:
 
-- **Satu range valid** mengembalikan **206 Partial Content** dengan header `Content-Range: bytes start-end/size` dan hanya byte itu yang dialirkan dari disk.
-- **Range tak terpenuhi** yang menyebut jendela melewati ukuran berkas mengembalikan **416 Range Not Satisfiable** dengan `Content-Range: bytes */size`.
-- **Range yang tidak ada, multi-bagian, atau tidak valid** kembali menyajikan berkas penuh seperti sebelumnya.
+- Satu range valid mengembalikan **206 Partial Content** dengan `Content-Range: bytes start-end/size`, mengalirkan hanya byte itu dari disk.
+- Range melewati ukuran berkas mengembalikan **416 Range Not Satisfiable** dengan `Content-Range: bytes */size`.
+- Range yang tidak ada, multi-bagian, atau malformed kembali menyajikan berkas penuh.
 
-Hanya byte di dalam jendela yang diminta yang dibaca, dan handle berkas dilepas begitu jendela terkirim, error, atau dibatalkan.
+Header `If-Range` yang membawa tanggal mempertahankan range hanya saat berkas tidak berubah, selain itu berkas penuh dikirim. `If-Range` yang membawa entity tag diperlakukan sebagai basi, jadi berkas penuh dikirim. Handle berkas dilepas begitu jendela terkirim, error, atau dibatalkan.
 
 ## Resolusi File dan Keamanan
 
-Penyajian static memetakan path URL ke file di bawah direktori yang dikonfigurasi, dengan beberapa aturan bawaan:
+Sebuah mount memetakan URL ke file di bawah folder-nya dengan beberapa aturan tetap:
 
-- **Index fallback** - request ke root route menyajikan `index.html` dari direktori.
-- **Content type** - tipe dipilih dari ekstensi file. Aset web umum seperti HTML, CSS, JavaScript, JSON, images, fonts, dan dokumen sudah dipetakan langsung, dan ekstensi tidak dikenal memakai `application/octet-stream`.
-- **Dotfiles diblokir** - segment path apa pun yang namanya diawali `.` ditolak dengan **404**, jadi file seperti `.env`, `.git/config`, atau `..` di awal tidak pernah disajikan. Aturan melihat nama segment, bukan ekstensi, jadi file biasa seperti `report.env` tetap disajikan.
-- **Directory traversal diblokir** - real path hasil resolusi harus tetap di dalam direktori dasar. Path yang lolos keluar, misalnya dibangun dari `..`, ditolak dengan **404**.
+- **Index fallback** - request ke root mount menyajikan `index.html` dari folder.
+- **Content type** - tipe berasal dari ekstensi file. Aset web umum seperti HTML, CSS, JavaScript, JSON, gambar, font, dan dokumen sudah dipetakan langsung, dan ekstensi tidak dikenal memakai `application/octet-stream`.
+- **Dotfiles diblokir** - segmen path apa pun yang namanya diawali `.` ditolak dengan **404**, jadi `.env`, `.git/config`, atau `..` di awal tidak pernah disajikan. Aturan membaca nama segmen, bukan ekstensi, jadi file biasa seperti `report.env` tetap disajikan.
+- **Traversal diblokir** - real path hasil resolusi harus tetap di dalam folder. Path yang lolos keluar lewat `..` atau symlink ditolak dengan **404**.
 
-File yang hilang atau diblokir mengembalikan 404 lewat [error handler terpusat](/id/error-handling/object-details).
+Sebuah miss atau path yang diblokir memancarkan event `static:missing` di [bus observability](/id/middleware/observability/overview) dan mengembalikan **404** lewat [error handler terpusat](/id/error-handling/object-details), handler yang sama yang diatur dengan `router.catch()` yang membentuk setiap error lain. Tidak ada hook error per-mount, jadi satu handler mencakup static, rute, dan middleware sekaligus.
 
 ## Pemecahan Masalah
 
-### File Tidak Ditemukan
+Beberapa miss umum dan apa yang perlu diperiksa:
 
-- Periksa `path` benar (relatif ke current working directory atau absolut)
-- Verifikasi permission file
-- Pastikan file ada di direktori
-- Periksa path URL cocok dengan pola route (`/static/file.css` untuk `router.static('/static', ...)`)
-
-### Error 404
-
-- Verifikasi static route diregistrasi sebelum memanggil `router.serve()`
-- Periksa path file cocok dengan struktur URL
-- Pastikan file ada di path hasil resolusi
-
-### Masalah Caching
-
-- Verifikasi `etag` dan `cacheControl` diatur dengan benar
-- Periksa tab Network di DevTools browser untuk header ETag dan Cache-Control
-- Bersihkan cache browser untuk testing
-- Pakai response `304 Not Modified` (terlihat saat ETag cocok)
+- **404 pada file yang ada** - pastikan `path` menunjuk folder yang benar dan URL mempertahankan prefix mount, jadi `/static/app.css` untuk mount pada `/static`.
+- **404 pada dotfile** - ini disengaja, karena segmen apa pun yang diawali `.` diblokir.
+- **Sebuah rute menang atas file statis** - dynamic route pada path yang sama diprioritaskan, jadi ganti nama salah satu atau pindahkan static mount ke prefix yang berbeda.
+- **Caching tidak diterapkan** - periksa header `ETag` dan `Cache-Control` di panel network browser, dan pastikan `etag` serta `cacheControl` diatur.

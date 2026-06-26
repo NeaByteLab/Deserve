@@ -29,7 +29,7 @@ import type { Context } from '@neabyte/deserve'
 const cache = new Map<string, unknown>()
 
 export async function GET(ctx: Context): Promise<Response> {
-  const key = ctx.pathname
+  const key = ctx.get.pathname()
 
   // Sajikan nilai cache ketika ada
   const hit = cache.get(key)
@@ -64,7 +64,7 @@ const ttlMs = 30_000
 const cache = new Map<string, { value: unknown, expiresAt: number }>()
 
 export function GET(ctx: Context): Response {
-  const key = ctx.pathname
+  const key = ctx.get.pathname()
   const entry = cache.get(key)
 
   // Entri segar menang, yang lama dibuang
@@ -96,4 +96,4 @@ Dua kasus menuntut lebih dari map lokal-proses. Sebuah cache yang harus bertahan
 
 ## Berbagi Per-Request
 
-Caching lintas request adalah satu kebutuhan, mengoper sebuah nilai sepanjang satu request adalah kebutuhan lain. Sebuah nilai yang dihitung di middleware dan dibaca handler tak masuk cache sama sekali, ia masuk [`ctx.state`](/id/core-concepts/context-object#berbagi-state), yang hidup persis satu request dan hilang saat response dikirim.
+Caching lintas request adalah satu kebutuhan, mengoper sebuah nilai sepanjang satu request adalah kebutuhan lain. Sebuah nilai yang dihitung di middleware dan dibaca handler tak masuk cache sama sekali. Untuk identitas per-pengguna [session](/id/middleware/session) bertanda tangan membawanya lewat `ctx.set.session()` dan `ctx.get.session()`, dan untuk input tervalidasi [middleware validate](/id/middleware/validation/overview) menyerahkannya lewat `ctx.get.validated()`. Apa pun selain itu handler turunkan ulang dari request yang sudah dipegangnya.

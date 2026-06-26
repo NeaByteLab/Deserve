@@ -6,6 +6,10 @@ description: "Batasi cakupan middleware ke prefix path supaya hanya berjalan unt
 
 Middleware spesifik rute berlaku untuk pola rute tertentu, memungkinkan fungsi yang menyasar rute tertentu seperti autentikasi untuk rute API atau logging untuk rute admin.
 
+Pencocokan sadar batas: `router.use('/api', fn)` berjalan untuk `/api` dan `/api/users`, tapi tidak untuk `/apiv2`, karena pathname harus sama dengan prefix atau dilanjut dengan `/`.
+
+![Pencocokan prefix Route-Specific: router.use('/api', fn) cocok dengan /api persis dan /api/users pada slash batas, tapi melewati /apiv2 dan /admin karena bukan kecocokan batas dari prefix](/diagrams/middleware-route-matching.png)
+
 ## Penggunaan Dasar
 
 Terapkan middleware ke pola rute tertentu memakai method `use()` dengan path rute:
@@ -17,7 +21,7 @@ const router = new Router()
 
 // Berjalan untuk path yang diawali /api
 router.use('/api', async (ctx, next) => {
-  console.log(`API request: ${ctx.request.method} ${ctx.url}`)
+  console.log(`API request: ${ctx.get.method()} ${ctx.get.pathname()}`)
   return await next()
 })
 
@@ -29,8 +33,7 @@ await router.serve(8000)
 Middleware berlaku untuk rute yang diawali pola yang ditentukan:
 
 ```typescript twoslash
-import type { MiddlewareFn } from '@neabyte/deserve'
-import { Router } from '@neabyte/deserve'
+import { Router, type MiddlewareFn } from '@neabyte/deserve'
 
 const router = new Router()
 declare const middleware: MiddlewareFn
@@ -57,23 +60,13 @@ declare function isValidToken(token: string): boolean
 // ---cut---
 // Wajibkan bearer token di bawah /api
 router.use('/api', async (ctx, next) => {
-  const authHeader = ctx.header('authorization')
+  const authHeader = ctx.get.header('authorization')
   if (!authHeader) {
-    return ctx.send.text(
-      'API requires authentication',
-      {
-        status: 401
-      }
-    )
+    return ctx.send.text('API requires authentication', { status: 401 })
   }
   const token = authHeader.replace('Bearer ', '')
   if (!isValidToken(token)) {
-    return ctx.send.text(
-      'Invalid token',
-      {
-        status: 401
-      }
-    )
+    return ctx.send.text('Invalid token', { status: 401 })
   }
   return await next()
 })
@@ -88,14 +81,9 @@ const router = new Router()
 // ---cut---
 // Izinkan hanya peran admin di bawah /admin
 router.use('/admin', async (ctx, next) => {
-  const userRole = ctx.header('x-user-role')
+  const userRole = ctx.get.header('x-user-role')
   if (userRole !== 'admin') {
-    return ctx.send.text(
-      'Admin access required',
-      {
-        status: 403
-      }
-    )
+    return ctx.send.text('Admin access required', { status: 403 })
   }
   return await next()
 })
@@ -110,7 +98,7 @@ const router = new Router()
 // ---cut---
 // Catat akses di bawah /public
 router.use('/public', async (ctx, next) => {
-  console.log(`Public access: ${ctx.request.method} ${ctx.url}`)
+  console.log(`Public access: ${ctx.get.method()} ${ctx.get.pathname()}`)
   return await next()
 })
 ```
@@ -145,21 +133,16 @@ const router = new Router()
 // ---cut---
 // Auth berjalan lebih dulu di bawah /api
 router.use('/api', async (ctx, next) => {
-  const authHeader = ctx.header('authorization')
+  const authHeader = ctx.get.header('authorization')
   if (!authHeader) {
-    return ctx.send.text(
-      'Unauthorized',
-      {
-        status: 401
-      }
-    )
+    return ctx.send.text('Unauthorized', { status: 401 })
   }
   return await next()
 })
 
 // Logging berjalan setelah auth lolos
 router.use('/api', async (ctx, next) => {
-  console.log(`API: ${ctx.request.method} ${ctx.url}`)
+  console.log(`API: ${ctx.get.method()} ${ctx.get.pathname()}`)
   return await next()
 })
 ```
@@ -187,14 +170,9 @@ router.use('/api/users', async (ctx, next) => {
 
 // Mempersempit lagi dan cek peran
 router.use('/api/users/admin', async (ctx, next) => {
-  const role = ctx.header('x-user-role')
+  const role = ctx.get.header('x-user-role')
   if (role !== 'admin') {
-    return ctx.send.text(
-      'Admin access required',
-      {
-        status: 403
-      }
-    )
+    return ctx.send.text('Admin access required', { status: 403 })
   }
   return await next()
 })
@@ -203,6 +181,8 @@ router.use('/api/users/admin', async (ctx, next) => {
 ## Urutan Eksekusi Middleware
 
 Middleware berjalan sesuai urutan penambahannya:
+
+![Eksekusi Route-Specific untuk GET /api/users dalam satu rantai: logger global berjalan, auth /api berjalan pada kecocokan prefix, penjaga /admin dilewati karena tidak cocok tanpa memakai giliran, logger /api/users berjalan, lalu route handler dieksekusi, semua dalam urutan pendaftaran](/diagrams/middleware-route-chain.png)
 
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'

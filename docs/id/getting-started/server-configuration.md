@@ -6,11 +6,11 @@ description: "Konfigurasi cara server Deserve listen, shutdown dengan baik, dan 
 
 > **Referensi**: [Dokumentasi API Deno.serve](https://docs.deno.com/api/deno/~/Deno.serve)
 
-Konfigurasi server Deserve dengan hostname binding dan graceful shutdown.
+Konfigurasi server Deserve dengan hostname binding, graceful shutdown, dan proteksi proses. Setiap opsi berada di objek [`RouterOptions`](/id/getting-started/routes-configuration) yang dioper ke `new Router(...)`.
 
 ## Setup Server Dasar
 
-Cara paling sederhana memulai server:
+Cara paling sederhana memulai server. `Router` memindai `./routes` secara default, jadi tidak perlu konfigurasi untuk setup dasar:
 
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
@@ -23,9 +23,9 @@ await router.serve(8000)
 
 Ini memulai server di `0.0.0.0:8000`, yang mencakup semua interface.
 
-## Method Serve yang Diperluas
+## Method Serve
 
-Method `serve` Deserve yang diperluas mendukung tiga parameter:
+`router.serve()` menerima tiga parameter opsional:
 
 ```typescript
 // Signature method
@@ -33,6 +33,8 @@ async serve(port?: number): Promise<void>
 async serve(port?: number, hostname?: string): Promise<void>
 async serve(port?: number, hostname?: string, signal?: AbortSignal): Promise<void>
 ```
+
+Ketika `port` dihilangkan, server membaca `PORT` dari environment dan jatuh ke `8000`. Ketika `hostname` dihilangkan, ia bind ke `0.0.0.0`.
 
 ## Hostname Binding
 
@@ -69,38 +71,40 @@ await router.serve(8000, '0.0.0.0')
 
 ## Request Timeout
 
-Request timeout diatur saat membuat router. Ketika middleware dan route handler tidak selesai dalam waktu itu, server membalas dengan **503 Service Unavailable**:
+Request timeout diatur dengan `timeoutMs` pada opsi router. Ketika middleware dan route handler tidak selesai dalam waktu itu, server membalas dengan **503 Service Unavailable**:
 
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
 // ---cut---
 const router = new Router({
-  requestTimeoutMs: 30_000
+  timeoutMs: 30_000
 })
 await router.serve(8000)
 ```
 
-Hilangkan `requestTimeoutMs` untuk tanpa timeout (default).
+Hilangkan `timeoutMs` untuk tanpa timeout (default). Daftar lengkap opsi router ada di [Konfigurasi Routes](/id/getting-started/routes-configuration).
 
 ## Batas Iterasi Template
 
-Opsi `maxIterations` membatasi iterasi per blok <code v-pre>{{#each}}</code> di template DVE, yang mencegah event loop kelaparan akibat satu perulangan tak terbatas. Default-nya `100_000`:
+Opsi `views.maxIterations` membatasi iterasi per blok <code v-pre>{{#each}}</code> di template DVE, yang mencegah event loop kelaparan akibat satu perulangan tak terbatas. Default-nya `100_000`:
 
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
 // ---cut---
 const router = new Router({
-  viewsDir: './views',
-  maxIterations: 50_000
+  views: {
+    directory: './views',
+    maxIterations: 50_000
+  }
 })
 await router.serve(8000)
 ```
 
-Jika template melewati batas, server membalas dengan **400 Bad Request**. Dua batas pendamping, `maxRenderIterations` untuk anggaran perulangan seluruh halaman dan `maxOutputSize` untuk total karakter keluaran, berperilaku sama dan tercantum di [Konfigurasi Rute](/id/getting-started/routes-configuration#opsi-konfigurasi). Perilaku rendering lengkap ada di [Performa dan Batas](/id/rendering/performance#batas-iterasi). Untuk dataset besar, gunakan [`streamRender`](/id/rendering/streaming). Untuk rendering berat CPU, pertimbangkan mengalihkan ke [worker pool](/id/core-concepts/worker-pool).
+Jika template melewati batas, server membalas dengan **400 Bad Request**. Dua batas pendamping, `views.maxRenderIterations` untuk anggaran perulangan seluruh halaman dan `views.maxOutputSize` untuk total karakter keluaran, berperilaku sama dan tercantum di [Konfigurasi Routes](/id/getting-started/routes-configuration#views). Perilaku rendering lengkap ada di [Performa dan Batas](/id/rendering/performance#batas-iterasi). Untuk dataset besar, gunakan [`ctx.render`](/id/core-concepts/context-object#merender-template) dengan `stream: true`. Untuk rendering berat CPU, pertimbangkan mengalihkan ke [worker pool](/id/recipes/worker-pool).
 
 ## Resolusi IP Klien
 
-Opsi `trustProxy` mengontrol cara IP klien asli diresolusi ketika server berjalan di balik proxy atau load balancer. Tanpa itu, `ctx.ip` mengembalikan peer TCP langsung:
+Opsi `trustProxy` mengontrol cara IP klien asli diresolusi ketika server berjalan di balik proxy atau load balancer. Tanpa itu, `ctx.get.ip()` mengembalikan peer TCP langsung:
 
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
@@ -114,7 +118,7 @@ const router = new Router({
 await router.serve(8000)
 ```
 
-Ketika peer langsung cocok dengan aturan tepercaya, Deserve membaca header forwarded untuk menemukan IP pengunjung asli. Ia memeriksa `CF-Connecting-IP` dan `X-Real-IP` lebih dulu, lalu menelusuri rantai `X-Forwarded-For` dan `Forwarded` RFC 7239 dari kanan ke kiri melewati hop tepercaya.
+Ketika peer langsung cocok dengan aturan tepercaya, Deserve membaca header forwarded untuk menemukan IP pengunjung asli. Ia memeriksa `CF-Connecting-IP` dan `X-Real-IP` lebih dulu, lalu menelusuri rantai `X-Forwarded-For` dan `Forwarded` [RFC 7239](https://datatracker.ietf.org/doc/html/rfc7239) dari kanan ke kiri melewati hop tepercaya.
 
 `trustProxy` menerima nilai-nilai ini:
 
@@ -122,16 +126,16 @@ Ketika peer langsung cocok dengan aturan tepercaya, Deserve membaca header forwa
 - **IP persis atau rentang CIDR** - misalnya `'10.0.0.0/8'`
 - **Sebuah predikat** - `(ip: string) => boolean`
 
-IP yang diresolusi tersedia di konteks request:
+IP yang diresolusi tersedia di konteks request lewat `ctx.get.ip()`:
 
 ```typescript twoslash
 import type { Context } from '@neabyte/deserve'
 // ---cut---
 export function GET(ctx: Context): Response {
   // IP pengunjung asli setelah trustProxy
-  const client = ctx.ip
+  const client = ctx.get.ip()
   // Peer TCP langsung, abaikan header forwarded
-  const peer = ctx.directIp
+  const peer = ctx.get.ip({ direct: true })
   return ctx.send.json({
     client,
     peer
@@ -139,7 +143,7 @@ export function GET(ctx: Context): Response {
 }
 ```
 
-Tanpa aturan `trustProxy` yang cocok, `ctx.ip` dan `ctx.directIp` mengembalikan alamat peer langsung yang sama. [Middleware pembatasan IP](/id/middleware/ip) memakai `ctx.ip` untuk aturan izin dan tolaknya.
+Tanpa aturan `trustProxy` yang cocok, `ctx.get.ip()` dan `ctx.get.ip({ direct: true })` mengembalikan alamat peer langsung yang sama. [Middleware pembatasan IP](/id/middleware/ip) memakai `ctx.get.ip()` untuk aturan izin dan tolaknya.
 
 ## Graceful Shutdown
 
@@ -158,14 +162,14 @@ ac.abort()
 
 ### Penanganan Sinyal Proses
 
-Tanpa `AbortSignal`, router mendengarkan `SIGINT` dan `SIGTERM` sendiri (hanya `SIGINT` di Windows) dan menyelesaikan request berjalan dengan rapi pada salah satunya. Tidak perlu menyiapkan sinyal secara manual:
+Tanpa `AbortSignal`, router mendengarkan `SIGINT`, `SIGTERM`, dan `SIGHUP` sendiri (hanya `SIGINT` dan `SIGBREAK` di Windows) dan menyelesaikan request berjalan dengan rapi pada salah satunya. Tidak perlu menyiapkan sinyal secara manual:
 
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
 const router = new Router()
 
-// SIGINT dan SIGTERM menuntaskan request otomatis
+// Sinyal menuntaskan request otomatis
 await router.serve(8000, '127.0.0.1')
 ```
 
@@ -173,7 +177,7 @@ Berikan `AbortSignal` ketika shutdown perlu dikendalikan dari kode alih-alih dar
 
 ## Proteksi Proses
 
-Router yang sedang melayani memasang sentinel proses yang menjaga service tetap hidup melewati kesalahan yang biasanya menjatuhkannya. Ini penting karena Deserve menjalankan banyak hal dalam satu proses - watcher [hot reload](/id/core-concepts/multi-service#hot-reload), [worker pool](/id/core-concepts/worker-pool), dan sering beberapa [service berdampingan](/id/core-concepts/multi-service). Satu dependensi yang memanggil `Deno.exit()` semestinya tidak menjatuhkan semua service sekaligus.
+Router yang sedang melayani memasang sentinel proses yang menjaga service tetap hidup melewati kesalahan yang biasanya menjatuhkannya. Ini penting karena Deserve menjalankan banyak hal dalam satu proses - watcher [hot reload](/id/core-concepts/hot-reload), [worker pool](/id/recipes/worker-pool), dan sering beberapa [service berdampingan](/id/core-concepts/multi-service). Satu dependensi yang memanggil `Deno.exit()` semestinya tidak menjatuhkan semua service sekaligus.
 
 ### Apa yang Diblokir
 
@@ -186,7 +190,7 @@ Selama server berjalan, panggilan terminasi ini dicegat dan diubah jadi no-op:
 
 ### Tidak Diam
 
-Setiap panggilan yang diblokir dilaporkan, tidak pernah ditelan dalam diam. Sentinel memancarkan event [`process:error`](/id/middleware/observability/events#process) dengan `origin: 'process:exit'` dan pesan yang menyebut panggilan yang diblokir, misalnya `Blocked Deno.exit(0) - process termination is not permitted from application code`. Unhandled rejection dan uncaught error muncul dengan cara yang sama dengan `origin: 'unhandledrejection'` atau `'uncaughterror'`.
+Setiap panggilan yang diblokir dilaporkan, tidak pernah ditelan dalam diam. Sentinel memancarkan event [`process:failed`](/id/middleware/observability/events) dengan `origin: 'process:exit'` dan pesan yang menyebut panggilan yang diblokir, misalnya `Blocked Deno.exit(0) process termination is not permitted from application code`. Unhandled rejection dan uncaught error muncul dengan cara yang sama dengan `origin: 'unhandledrejection'` atau `'uncaughterror'`.
 
 Berlangganan untuk melihatnya:
 
@@ -196,7 +200,7 @@ import { Router } from '@neabyte/deserve'
 const router = new Router()
 // ---cut---
 router.on((event) => {
-  if (event.kind === 'process:error') {
+  if (event.kind === 'process:failed') {
     const { origin, error } = event.metadata as { origin: string; error: Error }
     // Catat kesalahan yang diblokir atau tak tertangkap
     console.error(`[${origin}]`, error.message)
@@ -204,7 +208,7 @@ router.on((event) => {
 })
 ```
 
-Lihat [Pelaporan Error](/id/middleware/observability/errors) untuk pola lengkapnya.
+Lihat [Pelaporan Error](/id/error-handling/object-details) untuk pola lengkapnya.
 
 ### Model Ancaman
 

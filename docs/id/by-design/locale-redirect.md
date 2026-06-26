@@ -14,14 +14,14 @@ Pilihan bahasa adalah keputusan produk, bukan aturan transport. Locale mana yang
 
 ## Membaca Preferensi
 
-Browser mengirim daftar bahasanya di header [`Accept-Language`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Accept-Language), dibaca lewat [`ctx.header`](/id/core-concepts/context-object#akses-data-request). Sebuah pencocokan kecil terhadap locale yang didukung aplikasi memberi targetnya, lalu [`ctx.send.redirect`](/id/response/redirect) mengirim pengunjung ke sana.
+Browser mengirim daftar bahasanya di header [`Accept-Language`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Accept-Language), dibaca lewat [`ctx.get.header`](/id/core-concepts/context-object#ctx-get-header-key). Sebuah pencocokan kecil terhadap locale yang didukung aplikasi memberi targetnya, lalu [`ctx.send.redirect`](/id/response/redirect) mengirim pengunjung ke sana.
 
 ```typescript twoslash
 import type { Context } from '@neabyte/deserve'
 // ---cut---
 export function GET(ctx: Context): Response {
   // Baca petunjuk bahasa browser
-  const header = ctx.header('accept-language') ?? ''
+  const header = ctx.get.header('accept-language') ?? ''
   const supported = ['en', 'id']
 
   // Cocokkan locale didukung atau default
@@ -37,7 +37,7 @@ Sebuah 302 menjaga redirect tetap sementara, jadi kunjungan berikutnya tetap bis
 
 ## Berbagi Pilihan dengan Rute Berikutnya
 
-Ketika beberapa rute butuh locale yang diresolusi, middleware bisa meresolusinya sekali dan menyimpannya di [`ctx.state`](/id/core-concepts/context-object#berbagi-state) alih-alih redirect, jadi tiap handler membaca nilai yang sama.
+Ketika beberapa rute butuh locale yang diresolusi, middleware bisa meresolusinya sekali dan menyimpannya di [session](/id/middleware/session) bertanda tangan alih-alih redirect, jadi tiap handler membaca nilai yang sama lewat `ctx.get.session()`.
 
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
@@ -46,15 +46,16 @@ const router = new Router()
 // ---cut---
 router.use(async (ctx, next) => {
   // Resolusi locale sekali per request
-  const header = ctx.header('accept-language') ?? ''
+  const header = ctx.get.header('accept-language') ?? ''
   const preferred = header.split(',')[0]?.slice(0, 2) ?? 'en'
 
   // Bagikan ke route handler
-  ctx.state.locale = ['en', 'id'].includes(preferred) ? preferred : 'en'
+  const locale = ['en', 'id'].includes(preferred) ? preferred : 'en'
+  await ctx.set.session({ locale })
   return await next()
 })
 
 await router.serve(8000)
 ```
 
-Bentuk redirect mengirim pengunjung ke URL terlokalisasi, sementara bentuk state menjaga satu URL dan mengoper locale ke dalam. Keduanya tinggal di file rute polos, jadi aturannya ada di mana bahasa penting dan tak di tempat lain.
+Bentuk redirect mengirim pengunjung ke URL terlokalisasi, sementara bentuk session menjaga satu URL dan mengoper locale ke dalam. Keduanya tinggal di file rute polos, jadi aturannya ada di mana bahasa penting dan tak di tempat lain.

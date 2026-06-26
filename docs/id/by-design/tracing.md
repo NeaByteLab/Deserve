@@ -17,14 +17,14 @@ Jadi keputusannya adalah berhenti di data, bukan di transport. Deserve memancark
 Ketiga ini duduk di luar framework dengan sengaja:
 
 - **Auto-instrumentasi** - Deserve tidak membungkus library atau membuka span untuk panggilan keluar. Tiap request memancarkan satu event selesai, dan sebuah span dibangun darinya di listener.
-- **Propagasi konteks trace** - tak ada header `traceparent` yang dibaca atau ditulis. Sebuah handler yang butuh konteks terdistribusi membaca header lewat [`ctx.header('traceparent')`](/id/core-concepts/context-object#akses-data-request) dan meneruskannya.
+- **Propagasi konteks trace** - tak ada header `traceparent` yang dibaca atau ditulis. Sebuah handler yang butuh konteks terdistribusi membaca header lewat [`ctx.get.header('traceparent')`](/id/core-concepts/context-object#ctx-get-header-key) dan meneruskannya.
 - **Hierarki span** - event-nya datar, satu per request, bukan pohon induk-anak. Span bersarang dirakit di backend, atau di listener, dari data yang disediakan event.
 
 Yang memang dibawa adalah data yang dibutuhkan sebuah span, sudah dikumpulkan dan dinamai agar cocok.
 
 ## Datanya Sudah Ada
 
-Setiap request memancarkan `request:complete`, dan sebuah request dengan status `400` atau lebih tinggi juga memancarkan `request:error`. Keduanya membawa amplop yang sama, dan metadata-nya adalah kebenaran tempat sebuah span dibangun:
+Setiap request memancarkan `request:completed`, dan sebuah request dengan status `400` atau lebih tinggi juga memancarkan `request:failed`. Keduanya membawa amplop yang sama, dan metadata-nya adalah kebenaran tempat sebuah span dibangun:
 
 - **`timestamp`** - waktu pembuatan event dalam milidetik epoch, jangkar mulai span.
 - **`durationMs`** - durasi request terukur, panjang span.
@@ -42,13 +42,13 @@ Listener ini mengubah tiap request selesai jadi rekaman berbentuk span dan menye
 import { Router } from '@neabyte/deserve'
 
 const router = new Router({
-  routesDir: './routes'
+  routes: { directory: './routes' }
 })
 declare function exportSpan(span: Record<string, unknown>): void
 // ---cut---
 router.on((event) => {
   // Bangun span dari tiap request selesai
-  if (event.kind === 'request:complete') {
+  if (event.kind === 'request:completed') {
     const m = event.metadata as {
       method: string
       url: string
@@ -83,14 +83,14 @@ Kunci atribut di atas adalah nama span HTTP OpenTelemetry, jadi rekaman itu masu
 
 ## Melanjutkan Trace yang Masuk
 
-Distributed tracing menghubungkan span lintas layanan lewat header `traceparent`. Deserve tidak menguraikannya, jadi sebuah handler yang bergabung ke trace yang ada membaca header dari [Context](/id/core-concepts/context-object#akses-data-request) dan membawanya maju.
+Distributed tracing menghubungkan span lintas layanan lewat header `traceparent`. Deserve tidak menguraikannya, jadi sebuah handler yang bergabung ke trace yang ada membaca header dari [Context](/id/core-concepts/context-object#ctx-get-header-key) dan membawanya maju.
 
 ```typescript twoslash
 import type { Context } from '@neabyte/deserve'
 // ---cut---
 export async function GET(ctx: Context): Promise<Response> {
   // Baca konteks trace hulu bila ada
-  const traceparent = ctx.header('traceparent')
+  const traceparent = ctx.get.header('traceparent')
 
   // Teruskan pada panggilan keluar
   const upstream = await fetch('https://api.internal/data', {
@@ -101,7 +101,7 @@ export async function GET(ctx: Context): Promise<Response> {
 }
 ```
 
-`ctx.state` yang sama dipakai untuk [berbagi state](/id/core-concepts/context-object#berbagi-state) menahan sebuah span ID lintas middleware dan handler ketika satu listener membuka span lebih awal dan lain menutupnya.
+Untuk span ID yang harus hidup lintas middleware dan handler, [session](/id/middleware/session) bertanda tangan membawanya ketika satu listener membuka span lebih awal dan lain membacanya balik.
 
 ## Ke Mana Datanya Pergi
 

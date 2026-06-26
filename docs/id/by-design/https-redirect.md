@@ -38,21 +38,21 @@ await router.serve(8000)
 
 ## Membaca Skema Asli
 
-Ketika aplikasi memang perlu tahu apakah klien memakai HTTPS, jawabannya ada di header forwarded yang diatur proxy, bukan di koneksi lokal. Proxy tepercaya menambahkan [`X-Forwarded-Proto`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Forwarded-Proto), dibaca lewat [`ctx.header`](/id/core-concepts/context-object#akses-data-request).
+Ketika aplikasi memang perlu tahu apakah klien memakai HTTPS, jawabannya ada di header forwarded yang diatur proxy, bukan di koneksi lokal. Proxy tepercaya menambahkan [`X-Forwarded-Proto`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Forwarded-Proto), dibaca lewat [`ctx.get.header`](/id/core-concepts/context-object#ctx-get-header-key).
 
 ```typescript twoslash
 import type { Context } from '@neabyte/deserve'
 // ---cut---
 export function GET(ctx: Context): Response {
   // Skema yang benar-benar dipakai klien
-  const proto = ctx.header('x-forwarded-proto') ?? 'http'
+  const proto = ctx.get.header('x-forwarded-proto') ?? 'http'
   return ctx.send.json({
     secure: proto === 'https'
   })
 }
 ```
 
-Percayai header ini hanya di belakang proxy yang dikonfigurasi lewat [`trustProxy`](/id/getting-started/server-configuration#resolusi-ip-klien), batas kepercayaan yang sama diandalkan [`ctx.ip`](/id/by-design/request-id#ip-adalah-sumber-kebenaran). Klien yang tak tepercaya bisa mengatur header apa pun, jadi nilainya tak berarti tanpa batas itu.
+Percayai header ini hanya di belakang proxy yang dikonfigurasi lewat [`trustProxy`](/id/getting-started/server-configuration#resolusi-ip-klien), batas kepercayaan yang sama diandalkan [`ctx.get.ip()`](/id/core-concepts/context-object#ctx-get-ip-options). Klien yang tak tepercaya bisa mengatur header apa pun, jadi nilainya tak berarti tanpa batas itu.
 
 ## Menyajikan HTTPS Langsung
 

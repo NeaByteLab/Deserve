@@ -16,18 +16,17 @@ Satu jawaban bawaan akan cocok dengan satu selera dan melawan setiap selera lain
 
 Sebuah limiter butuh empat hal, dan masing-masing sudah ada:
 
-- **Kunci per klien** - baca `ctx.ip` untuk IP pengunjung yang diresolusi, atau `ctx.header('x-api-key')` untuk API key. Lihat [IP Klien](/id/core-concepts/context-object#ip-klien).
+- **Kunci per klien** - baca `ctx.get.ip()` untuk IP pengunjung yang diresolusi, atau `ctx.get.header('x-api-key')` untuk API key. Lihat [`ctx.get.ip()`](/id/core-concepts/context-object#ctx-get-ip-options).
 - **Tempat berjalan lebih awal** - [middleware global](/id/middleware/global) berjalan sebelum setiap route handler dan bisa menghentikan request dengan mengembalikan `Response`.
 - **Cara memblokir** - kembalikan `ctx.send.text(...)` atau `ctx.send.json(...)` dengan status `429` untuk mengakhiri request di situ.
-- **Cara memberitahu** - `ctx.setHeader(...)` menambah header rate limit standar supaya klien bisa mundur.
+- **Cara memberitahu** - `ctx.set.header(...)` menambah header rate limit standar supaya klien bisa mundur.
 
 ## Limiter Fixed Window
 
 Middleware ini menghitung request per IP dalam jendela waktu tetap. Ketika hitungannya melewati batas, request berhenti dengan `429`.
 
 ```typescript twoslash
-import type { Context } from '@neabyte/deserve'
-import { Router } from '@neabyte/deserve'
+import { Router, type Context } from '@neabyte/deserve'
 
 const router = new Router()
 // ---cut---
@@ -40,7 +39,7 @@ const hits = new Map<string, { count: number, resetAt: number }>()
 
 router.use(async (ctx, next) => {
   // Pilih kunci klien
-  const key = ctx.ip ?? 'unknown'
+  const key = ctx.get.ip() ?? 'unknown'
   const now = Date.now()
   const entry = hits.get(key)
 
@@ -59,7 +58,7 @@ router.use(async (ctx, next) => {
   // Lewat batas, blokir dengan 429
   if (entry.count > maxRequests) {
     const retryAfter = Math.ceil((entry.resetAt - now) / 1000)
-    ctx.setHeader('Retry-After', String(retryAfter))
+    ctx.set.header('Retry-After', String(retryAfter))
     return ctx.send.text(
       'Too Many Requests',
       {
@@ -82,8 +81,7 @@ await router.serve(8000)
 Klien berperilaku lebih baik ketika bisa melihat anggarannya. Header standar melaporkan batas, sisa hit, dan kapan jendela reset. Atur di setiap response, bukan hanya saat diblokir.
 
 ```typescript twoslash
-import type { Context } from '@neabyte/deserve'
-import { Router } from '@neabyte/deserve'
+import { Router, type Context } from '@neabyte/deserve'
 
 const router = new Router()
 const windowMs = 60_000
@@ -91,7 +89,7 @@ const maxRequests = 100
 const hits = new Map<string, { count: number, resetAt: number }>()
 // ---cut---
 router.use(async (ctx, next) => {
-  const key = ctx.ip ?? 'unknown'
+  const key = ctx.get.ip() ?? 'unknown'
   const now = Date.now()
   let entry = hits.get(key)
 
@@ -108,7 +106,7 @@ router.use(async (ctx, next) => {
   const remaining = Math.max(0, maxRequests - entry.count)
 
   // Laporkan anggaran di setiap response
-  ctx.setHeaders({
+  ctx.set.headers({
     'X-RateLimit-Limit': String(maxRequests),
     'X-RateLimit-Remaining': String(remaining),
     'X-RateLimit-Reset': String(Math.ceil(entry.resetAt / 1000))
@@ -135,15 +133,14 @@ router.use(async (ctx, next) => {
 Form login butuh batas lebih ketat ketimbang halaman publik. Middleware per-path menerapkan aturan ke satu prefix dan membiarkan sisanya tak tersentuh.
 
 ```typescript twoslash
-import type { Context } from '@neabyte/deserve'
-import { Router } from '@neabyte/deserve'
+import { Router, type Context } from '@neabyte/deserve'
 
 const router = new Router()
 declare function isOverLimit(key: string): boolean
 // ---cut---
 // Jaga hanya rute auth
 router.use('/auth', async (ctx, next) => {
-  const key = ctx.ip ?? 'unknown'
+  const key = ctx.get.ip() ?? 'unknown'
   if (isOverLimit(key)) {
     return ctx.send.json(
       {
@@ -162,11 +159,11 @@ Ini bentuk per-path yang sama dibahas di [middleware global](/id/middleware/glob
 
 ## Membentuk Response Blokir
 
-Contoh di atas mengembalikan `429` langsung dari middleware. Untuk mengarahkan setiap blokir lewat satu tempat, lempar di dalam [`WrapMware`](/id/middleware/global#membungkus-middleware-dengan-penanganan-error) dan bentuk balasannya dengan [`router.catch()`](/id/error-handling/object-details). Itu memisahkan aturan batas dan format error, yang membantu saat beberapa middleware berbagi satu gaya response.
+Contoh di atas mengembalikan `429` langsung dari middleware. Untuk mengarahkan setiap blokir lewat satu tempat, lempar di dalam [`Wrap.apply`](/id/middleware/global#membungkus-middleware-dengan-penanganan-error) dan bentuk balasannya dengan [`router.catch()`](/id/error-handling/object-details). Itu memisahkan aturan batas dan format error, yang membantu saat beberapa middleware berbagi satu gaya response.
 
 ## Mengamati Limiter Bekerja
 
-Limiter memblokir request, dan [event observability](/id/middleware/observability/overview) melaporkan apa yang terjadi. Sebuah request yang diblokir selesai dengan status `429`, jadi ia tiba sebagai event `request:error`. Berlangganan sekali untuk menghitung blokir atau melacak kunci mana yang menyentuh batas.
+Limiter memblokir request, dan [event observability](/id/middleware/observability/overview) melaporkan apa yang terjadi. Sebuah request yang diblokir selesai dengan status `429`, jadi ia tiba sebagai event `request:failed`. Berlangganan sekali untuk menghitung blokir atau melacak kunci mana yang menyentuh batas.
 
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
@@ -175,7 +172,7 @@ const router = new Router()
 // ---cut---
 router.on((event) => {
   // Catat setiap request yang diblokir
-  if (event.kind === 'request:error' && event.metadata.statusCode === 429) {
+  if (event.kind === 'request:failed' && event.metadata.statusCode === 429) {
     console.log('Rate limited:', event.metadata.ip, event.metadata.url)
   }
 })

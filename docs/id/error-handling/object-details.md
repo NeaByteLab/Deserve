@@ -4,17 +4,17 @@ description: "Sesuaikan response error dengan router.catch() dan objek ErrorInfo
 
 # Detail Objek Error
 
-Deserve menyediakan penanganan error untuk error eksekusi rute, error validasi, error tidak ditemukan, error berkas statis, dan response error khusus.
+Setiap kesalahan di Deserve mengalir lewat satu tempat. Lemparan route handler, kegagalan validasi, rute yang hilang, dan error berkas statis semua tiba di handler yang sama, tempat balasan khusus mengambil alih dari [response default](/id/error-handling/default-behavior).
 
 ## Penanganan Error Dasar
 
 Tangani error dengan method `router.catch()`:
 
 ```typescript twoslash
-import { Router } from '@neabyte/deserve'
+import { Router, type HttpStatusCode } from '@neabyte/deserve'
 
 const router = new Router({
-  routesDir: './routes'
+  routes: { directory: './routes' }
 })
 
 // Tangkap error dari rute mana pun
@@ -28,7 +28,7 @@ router.catch((ctx, error) => {
       method: error.method,
       url: error.url
     },
-    { status: error.statusCode }
+    { status: error.statusCode as HttpStatusCode }
   )
 })
 
@@ -46,7 +46,7 @@ Error handler menerima objek context dan objek error dengan properti ini:
 - **`error.error`** - instance Error asli
 
 ```typescript twoslash
-import { Router } from '@neabyte/deserve'
+import { Router, type HttpStatusCode } from '@neabyte/deserve'
 
 const router = new Router()
 // ---cut---
@@ -61,7 +61,7 @@ router.catch((ctx, error) => {
       method: error.method,
       url: error.url
     },
-    { status: error.statusCode }
+    { status: error.statusCode as HttpStatusCode }
   )
 })
 ```
@@ -121,7 +121,7 @@ import type { Context } from '@neabyte/deserve'
 // ---cut---
 export async function POST(ctx: Context): Promise<Response> {
   try {
-    const data = await ctx.body()
+    const data = await ctx.get.body()
     // Proses data...
     return ctx.send.json({
       success: true
@@ -141,26 +141,23 @@ export async function POST(ctx: Context): Promise<Response> {
 
 ## Error Validasi
 
-Kembalikan status code yang sesuai untuk error validasi:
+Kontrak [validasi](/id/middleware/validation/overview) yang ditolak melempar **422 Unprocessable Entity** dan menjaga alasan kegagalan di `error.error.cause` sebagai array string. `router.catch` yang sama menanganinya, jadi membaca alasan itu mengubah kegagalan menjadi response tingkat field:
 
 ```typescript twoslash
-import type { Context, DataRecord } from '@neabyte/deserve'
+import { Router } from '@neabyte/deserve'
+
+const router = new Router()
 // ---cut---
-export async function POST(ctx: Context): Promise<Response> {
-  const data = await ctx.body() as DataRecord
-  if (!data.email) {
+router.catch((ctx, error) => {
+  if (error.statusCode === 422 && Array.isArray(error.error.cause)) {
+    // Munculkan tiap alasan validasi
     return ctx.send.json(
-      {
-        error: 'Email is required'
-      },
-      {
-        status: 400
-      }
+      { error: 'Validation failed', reasons: error.error.cause },
+      { status: 422 }
     )
   }
-  // Proses data valid...
-  return ctx.send.json({
-    success: true
-  })
-}
+  return null
+})
 ```
+
+Bagaimana sebuah kontrak menghasilkan alasan itu ada di [Membaca Data Tervalidasi](/id/middleware/validation/reading-data#cara-kegagalan-muncul), yang menjaga aturan validasi di satu tempat dan pembentukan response di sini.

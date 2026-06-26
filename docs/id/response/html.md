@@ -4,7 +4,7 @@ description: "Kirim response HTML dengan ctx.send.html()."
 
 # Response HTML
 
-Method `ctx.send.html()` membuat response HTML.
+Method `ctx.send.html()` membuat response HTML. Method ini mengatur `Content-Type: text/html; charset=utf-8` otomatis.
 
 ## Penggunaan Dasar
 
@@ -19,6 +19,8 @@ export function GET(ctx: Context): Response {
 ```
 
 ## HTML Dinamis
+
+Sebuah template literal membangun markup saat runtime:
 
 ```typescript twoslash
 import type { Context } from '@neabyte/deserve'
@@ -39,6 +41,8 @@ export function GET(ctx: Context): Response {
 }
 ```
 
+Untuk halaman lebih besar, render sebuah [template DVE](/id/rendering/) dengan `ctx.render()` alih-alih membangun HTML dengan tangan.
+
 ## Dengan Status Code
 
 ```typescript twoslash
@@ -47,23 +51,29 @@ import type { Context } from '@neabyte/deserve'
 export function GET(ctx: Context): Response {
   // Halaman Not Found dengan status 404
   const html = '<html><body><h1>Not Found</h1></body></html>'
-  return ctx.send.html(
-    html,
-    {
-      status: 404
-    }
-  )
+  return ctx.send.html(html, { status: 404 })
 }
 ```
 
-## Header Kustom
+## Dengan Header Kustom
+
+Header yang diatur lewat `ctx.set.header()` digabung ke response:
 
 ```typescript twoslash
 import type { Context } from '@neabyte/deserve'
 // ---cut---
 export function GET(ctx: Context): Response {
   // Atur header sebelum kirim
-  ctx.setHeader('X-Frame-Options', 'DENY')
+  ctx.set.header('X-Frame-Options', 'DENY')
   return ctx.send.html('<html><body>Content</body></html>')
 }
 ```
+
+## Tanda Tangan Method
+
+```typescript
+ctx.send.html(html: string, options?: SendInit): Response
+```
+
+- **html** - body response string HTML
+- **options** - `status` dan `headers` opsional

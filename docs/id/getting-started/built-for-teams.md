@@ -25,7 +25,7 @@ routes/
 
 Tidak ada registry untuk dicek silang, tidak ada decorator untuk dilacak. Path di disk adalah path di jaringan, dibahas di [File-based Routing](/id/core-concepts/file-based-routing).
 
-![Folder adalah peta: createPattern mengubah tiap path berkas langsung menjadi pola URL, jadi routes/index.ts menjadi GET /, routes/users/index.ts menjadi GET /users, routes/users/[id].ts menjadi GET /users/:id, dan berkas berawalan underscore dilewati sebagai privat](/diagrams/team-folder-map.png)
+![Folder adalah peta: tiap path berkas langsung memetakan ke pola URL, jadi routes/index.ts menjadi GET /, routes/users/index.ts menjadi GET /users, routes/users/[id].ts menjadi GET /users/:id, dan berkas berawalan underscore dilewati sebagai privat](/diagrams/team-folder-map.png)
 
 ## Junior Merilis di Hari Pertama
 
@@ -57,7 +57,8 @@ import type { Context } from '@neabyte/deserve'
 
 // Nama metode adalah verb HTTP
 export async function POST(ctx: Context): Promise<Response> {
-  const order = await ctx.body()
+  // Baca body JSON yang sudah diparsing
+  const order = await ctx.get.body()
   return ctx.send.json(
     {
       created: true,
@@ -68,7 +69,7 @@ export async function POST(ctx: Context): Promise<Response> {
 }
 ```
 
-Reviewer membaca `POST` dan tahu verb-nya, membaca `ctx.body()` dan tahu input-nya, membaca `ctx.send.json()` dan tahu output-nya. Pola yang sama berlaku di setiap berkas, yang merupakan [pengalaman pengembang](/id/core-concepts/philosophy#keyakinan-inti) yang dituju framework. Detail ada di [Request Handling](/id/core-concepts/request-handling) dan [Objek Context](/id/core-concepts/context-object).
+Reviewer membaca `POST` dan tahu verb-nya, membaca `ctx.get.body()` dan tahu input-nya, membaca `ctx.send.json()` dan tahu output-nya. Pola yang sama berlaku di setiap berkas, yang merupakan [pengalaman pengembang](/id/core-concepts/philosophy#keyakinan-inti) yang dituju framework. Detail ada di [Request Handling](/id/core-concepts/request-handling) dan [Objek Context](/id/core-concepts/context-object).
 
 ## Aturan Bersama di Satu Tempat
 
@@ -112,10 +113,10 @@ Tim yang lebih besar sering memecah aplikasi menjadi beberapa service. Deserve m
 import { Router } from '@neabyte/deserve'
 
 const api = new Router({
-  routesDir: './services/api/routes'
+  routes: { directory: './services/api/routes' }
 })
 const auth = new Router({
-  routesDir: './services/auth/routes'
+  routes: { directory: './services/auth/routes' }
 })
 
 // Tiap service punya folder dan port
@@ -127,7 +128,7 @@ await Promise.all([
 
 Tiap service punya folder, port, dan file watcher sendiri, jadi tim bergerak paralel tanpa saling mengganggu. Pola lengkapnya, termasuk kode bersama dan error handler bersama, ada di [Multi-Service](/id/core-concepts/multi-service).
 
-![Banyak tangan, satu proses: satu proses Deno menjalankan router API milik dev A di port 3001 dan router Auth milik dev B di port 3002, masing-masing dengan routesDir dan file watcher sendiri, jadi kedua developer bekerja paralel tanpa deployment terpisah atau lapisan jaringan](/diagrams/team-many-hands.png)
+![Banyak tangan, satu proses: satu proses Deno menjalankan router API milik dev A di port 3001 dan router Auth milik dev B di port 3002, masing-masing dengan direktori routes dan file watcher sendiri, jadi kedua developer bekerja paralel tanpa deployment terpisah atau lapisan jaringan](/diagrams/team-many-hands.png)
 
 ## Langkah Berikutnya
 

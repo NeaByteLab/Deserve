@@ -4,11 +4,11 @@ description: "Sajikan aset statis dari beberapa direktori di bawah prefix URL be
 
 # Beberapa Direktori
 
-Sajikan file statis dari beberapa direktori dengan konfigurasi berbeda per path. Setiap pemanggilan berbagi opsi dan aturan resolusi yang sama seperti di [Penyajian Static Dasar](/id/static-file/basic).
+Beberapa panggilan `router.static()` bisa berjalan berdampingan, masing-masing mengikat satu prefix URL ke foldernya sendiri dengan kebijakan cache sendiri. Opsi dan aturan resolusi per mount dibahas di [Penyajian Static Dasar](/id/static-file/basic), dan halaman ini fokus pada bagaimana banyak mount berbagi satu router.
 
 ## Penggunaan Dasar
 
-Konfigurasi beberapa direktori static:
+Pasang tiap prefix dengan folder dan cache-nya sendiri:
 
 ![Tiga panggilan static masing-masing mengikat satu prefix url ke foldernya sendiri dengan kebijakan cache sendiri, di mana garis miring admin menyajikan folder admin garis miring dist dengan etag aktif dan cache satu hari, garis miring uploads menyajikan folder uploads dengan etag nonaktif dan tanpa cache, dan garis miring docs menyajikan folder docs garis miring build dengan etag aktif dan cache satu jam](/diagrams/static-multiple-dirs.png)
 
@@ -17,7 +17,7 @@ import { Router } from '@neabyte/deserve'
 
 const router = new Router()
 
-// Tiap path punya folder dan cache sendiri
+// Tiap prefix punya folder dan cache sendiri
 router.static('/admin', {
   path: './admin/dist',
   etag: true,
@@ -37,79 +37,67 @@ router.static('/docs', {
 await router.serve(8000)
 ```
 
+## Bagaimana Mount Dipilih
+
+Setiap mount masuk ke satu registry yang diurutkan prefix terpanjang dulu. Sebuah request menelusuri daftar itu dan prefix pertama yang mencakup path menang, jadi mount paling spesifik selalu diutamakan atas yang lebih luas:
+
+![Satu request memilih prefix static yang diawalinya, jadi request di bawah garis miring uploads cocok dengan mount garis miring uploads dan disajikan dari folder uploads dengan prefix itu etag nonaktif dan tanpa cache, sementara tail yang sama di bawah garis miring docs malah cocok dengan mount garis miring docs dan disajikan dari docs garis miring build dengan etag aktif dan cache satu jam, membuktikan prefix yang cocok menentukan folder sekaligus kebijakan cache](/diagrams/static-prefix-dispatch.png)
+
+Prefix yang cocok menentukan folder sekaligus kebijakan cache, jadi dua mount bisa berbagi tail path dan tetap meresolusi ke file berbeda. Mount pada `/` duduk di akhir sebagai catch-all yang mencakup apa pun yang tidak dicakup prefix sebelumnya.
+
 ## Pola Umum
 
-![Satu request memilih prefix static yang diawalinya, jadi GET garis miring uploads garis miring img garis miring a titik png cocok dengan pola garis miring uploads, prefiksnya dipotong, dan disajikan dari folder uploads dengan etag nonaktif dan tanpa cache, sementara tail yang sama pada GET garis miring docs garis miring img garis miring a titik png malah cocok dengan pola garis miring docs dan disajikan dari docs garis miring build dengan etag aktif dan cache satu jam, membuktikan prefix yang cocok menentukan folder sekaligus kebijakan cache](/diagrams/static-prefix-dispatch.png)
+### Situs Dengan Root Catch-All
 
-### Website + Panel Admin
+Mount `/` yang luas dan mount `/admin` yang fokus hidup berdampingan karena prefix yang lebih panjang dicocokkan lebih dulu. Request ke `/admin/index.html` meresolusi lewat mount admin, sementara `/style.css` jatuh ke mount root:
 
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
 const router = new Router()
 // ---cut---
-// Website utama
-router.static('/', {
-  path: './public',
-  etag: true,
-  cacheControl: 86400
-})
-
-// Panel admin
+// Panel admin, dicocokkan lebih dulu
 router.static('/admin', {
   path: './admin/dist',
   etag: true,
   cacheControl: 86400
 })
+
+// Root catch-all, dicocokkan terakhir
+router.static('/', {
+  path: './public',
+  etag: true,
+  cacheControl: 86400
+})
 ```
 
-### Aset + Uploads
+### Aset Berumur Panjang dan Upload Segar
+
+Folder aset ber-fingerprint di-cache selama setahun, sementara folder upload pengguna mematikan cache agar file yang diganti selalu diambil segar:
 
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
 const router = new Router()
 // ---cut---
-// Aset statis dengan cache jangka panjang
+// Aset ber-fingerprint di-cache setahun
 router.static('/assets', {
   path: './public/assets',
   etag: true,
-  cacheControl: 31536000 // 1 tahun
+  cacheControl: 31536000
 })
 
-// Upload pengguna tanpa cache
+// Upload pengguna tetap tanpa cache
 router.static('/uploads', {
   path: './uploads',
   etag: false,
-  cacheControl: 0 // Tanpa cache
+  cacheControl: 0
 })
 ```
 
-### Development + Production
+## Struktur Direktori
 
-```typescript twoslash
-import { Router } from '@neabyte/deserve'
-
-const router = new Router()
-// ---cut---
-// File development - cache pendek
-router.static('/dev', {
-  path: './dev',
-  etag: true,
-  cacheControl: 0 // Tanpa cache untuk dev
-})
-
-// Build production - cache panjang
-router.static('/', {
-  path: './dist',
-  etag: true,
-  cacheControl: 31536000 // 1 tahun
-})
-```
-
-## Contoh Struktur Direktori
-
-### Aplikasi Full-Stack
+Sebuah tata letak yang cocok dengan mount di atas:
 
 ```
 .
@@ -122,118 +110,31 @@ router.static('/', {
 │   └── dist/
 │       ├── index.html
 │       └── assets/
-├── uploads/
-│   ├── images/
-│   └── documents/
-└── docs/
-    └── build/
-        ├── index.html
-        └── assets/
+└── uploads/
+    ├── images/
+    └── documents/
 ```
 
-### Frontend Microservices
+## Rute Diprioritaskan
 
-```
-.
-├── main.ts
-├── web/
-│   └── dist/
-├── api/
-│   └── docs/
-├── admin/
-│   └── build/
-└── mobile/
-    └── public/
-```
-
-## Contoh Konfigurasi
-
-### Strategi Caching Berbeda
+Static mount berjalan hanya setelah dynamic route meleset, jadi sebuah rute selalu menang pada path bersama. Sebuah file route di `/admin` menangani `GET /admin` sebelum static mount `/admin` melihatnya, yang merupakan urutan pencocokan yang dirinci di [Penyajian Static Dasar](/id/static-file/basic#cara-kerja). Jaga API dan folder statis pada prefix berbeda untuk menghindari kejutan:
 
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
 const router = new Router()
 // ---cut---
-// Aset cache jangka panjang (1 tahun)
-router.static('/assets', {
-  path: './public/assets',
-  etag: true,
-  cacheControl: 31536000
-})
-
-// Cache jangka menengah (1 hari)
-router.static('/images', {
-  path: './public/images',
-  etag: true,
-  cacheControl: 86400
-})
-
-// Tanpa cache untuk upload dinamis
-router.static('/uploads', {
-  path: './uploads',
-  etag: false,
-  cacheControl: 0
-})
-```
-
-### Pengaturan ETag Berbeda
-
-```typescript twoslash
-import { Router } from '@neabyte/deserve'
-
-const router = new Router()
-// ---cut---
-// Aktifkan ETag untuk caching efisien
+// API di bawah /api, aset di bawah /static
 router.static('/static', {
-  path: './public',
-  etag: true,
-  cacheControl: 86400
+  path: './public'
 })
-
-// Matikan ETag untuk file yang sering berubah
-router.static('/reports', {
-  path: './reports',
-  etag: false,
-  cacheControl: 3600
+router.static('/admin', {
+  path: './admin/dist'
 })
 ```
 
 ## Pemecahan Masalah
 
-### Konflik Route
-
-Route diregistrasi untuk semua HTTP method (`GET`, `POST`, dll.). Pastikan static route tidak bentrok dengan dynamic route:
-
-```typescript twoslash
-import { Router } from '@neabyte/deserve'
-
-const router = new Router()
-// ---cut---
-router.static(
-  '/',
-  {
-    path: './public'
-  }
-)
-router.static(
-  '/admin',
-  {
-    path: './admin/dist'
-  }
-)
-```
-
-### File Tidak Ditemukan
-
-- Periksa nilai `path` benar (relatif ke cwd atau absolut)
-- Verifikasi struktur direktori cocok dengan konfigurasi
-- Pastikan file ada di direktori yang ditentukan
-- Periksa path URL cocok dengan pola route
-
-### Masalah Performa
-
-- Aktifkan `etag: true` untuk caching efisien
-- Atur nilai `cacheControl` sesuai tipe konten
-- Aset statis: cache panjang (31536000 = 1 tahun)
-- Konten dinamis: cache pendek atau tanpa cache (0 atau 3600)
+- **Folder salah disajikan** - prefix yang lebih luas cocok lebih dulu hanya saat ia memang lebih panjang, jadi pastikan mount spesifik punya prefix yang lebih panjang.
+- **Sebuah rute membayangi file** - dynamic route pada path yang sama disajikan sebelum static mount, jadi pindahkan salah satu ke prefix berbeda.
+- **404 lintas sebuah mount** - periksa path folder dan bahwa URL mempertahankan prefix mount, karena setiap miss mengembalikan 404 lewat [error handler terpusat](/id/error-handling/object-details).

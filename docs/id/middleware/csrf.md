@@ -102,4 +102,4 @@ type CsrfRulePredicate = (value: string, ctx: Context) => boolean
 
 Ketika request diblokir, middleware menghasilkan **403** dan pesan `Request blocked by CSRF protection`. Kegagalan itu dialirkan ke [error handler terpusat](/id/error-handling/object-details), jadi bentuk response di sana atau andalkan [perilaku default](/id/error-handling/default-behavior).
 
-Aturan `origin` atau `secFetchSite` kustom yang melempar gagal pemeriksaannya sendiri dan jatuh aman ke penolakan, dan kesalahannya muncul sebagai event [`csrf:rule-error`](/id/middleware/observability/events#middleware) yang menyebut aturan mana yang rusak alih-alih tetap tersembunyi.
+Aturan `origin` atau `secFetchSite` kustom yang melempar gagal pemeriksaannya sendiri dan jatuh aman ke penolakan, dan kesalahannya muncul sebagai event [`csrf:failed`](/id/middleware/observability/events) yang menyebut aturan mana yang rusak alih-alih tetap tersembunyi.

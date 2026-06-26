@@ -18,7 +18,10 @@ const router = new Router()
 // Izinkan hanya alamat terdaftar
 router.use(
   Mware.ip({
-    whitelist: ['127.0.0.1', '192.168.1.0/24']
+    whitelist: [
+      '127.0.0.1',
+      '192.168.1.0/24'
+    ]
   })
 )
 
@@ -37,7 +40,10 @@ const router = new Router()
 // Tolak alamat terdaftar, izinkan lainnya
 router.use(
   Mware.ip({
-    blacklist: ['203.0.113.5', '198.51.100.0/24']
+    blacklist: [
+      '203.0.113.5',
+      '198.51.100.0/24'
+    ]
   })
 )
 ```
@@ -75,8 +81,8 @@ Aturan yang tidak valid melempar `Deno.errors.InvalidData` saat middleware dibua
 - **Blacklist ada** - IP yang cocok dengan blacklist ditolak, sisanya lolos.
 - **Tidak ada yang diatur** - setiap request lolos.
 
-Middleware membaca IP klien yang diresolusi dari `ctx.ip`. Di balik proxy, atur [`trustProxy`](/id/getting-started/server-configuration#resolusi-ip-klien) supaya IP pengunjung asli yang dipakai.
+Middleware membaca IP klien yang diresolusi dari `ctx.get.ip()`. Di balik proxy, atur [`trustProxy`](/id/getting-started/server-configuration#resolusi-ip-klien) supaya IP pengunjung asli yang dipakai.
 
 ## Penanganan Error
 
-Ketika request ditolak, middleware menghasilkan **403** dan pesan `Access denied by IP restriction`. Kegagalan itu dialirkan ke [error handler terpusat](/id/error-handling/object-details), jadi bentuk response di sana atau andalkan [perilaku default](/id/error-handling/default-behavior).
+Ketika request ditolak, middleware menghasilkan **403** dan pesan `Access denied by IP restriction`. Kegagalan itu dialirkan ke [error handler terpusat](/id/error-handling/object-details), jadi bentuk response di sana atau andalkan [perilaku default](/id/error-handling/default-behavior). Event `ip:denied` juga menyala dengan alamat IP yang ditolak, dibahas di [Referensi Event](/id/middleware/observability/events).

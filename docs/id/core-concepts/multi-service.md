@@ -19,14 +19,14 @@ import { Router } from '@neabyte/deserve'
 
 // Satu Router per service
 const api = new Router({
-  routesDir: './services/api/routes'
+  routes: { directory: './services/api/routes' }
 })
 const auth = new Router({
-  routesDir: './services/auth/routes'
+  routes: { directory: './services/auth/routes' }
 })
 const web = new Router({
-  routesDir: './services/web/routes',
-  viewsDir: './services/web/views'
+  routes: { directory: './services/web/routes' },
+  views: { directory: './services/web/views' }
 })
 
 // Jalankan setiap service bersama
@@ -41,11 +41,11 @@ Itu seluruh entry point-nya.
 
 ## Isolasi Router
 
-Setiap `Router` berjalan dalam isolasi tingkat request. Masing-masing punya radix-tree router, middleware stack, instance Superwatcher, dan template engine opsional sendiri. Mereka tidak berbagi state internal kecuali dihubungkan secara eksplisit, sementara proses di bawahnya tetap dibagi, dan itulah yang membuat [berbagi kode dan state](#berbagi-kode-dan-state) di bawah ini bisa dilakukan.
+Setiap `Router` berjalan dalam isolasi tingkat request. Masing-masing punya radix-tree router, middleware stack, file watcher, dan template engine opsional sendiri. Mereka tidak berbagi state internal kecuali dihubungkan secara eksplisit, sementara proses di bawahnya tetap dibagi, dan itulah yang membuat [berbagi kode dan state](#berbagi-kode-dan-state) di bawah ini bisa dilakukan.
 
 Kesalahan terkurung di dua tingkat. Sebuah throw di dalam satu handler menjadi error response untuk satu request itu, jadi sisa service itu dan setiap service lain tetap melayani. Kesalahan yang lebih dalam yang lolos dari handler, seperti unhandled rejection atau upaya keluar dari proses, dijebak di seluruh proses oleh [proteksi proses](/id/getting-started/server-configuration#proteksi-proses) dan dimunculkan sebagai event alih-alih shutdown, jadi tidak ada service yang mati.
 
-![Setiap router punya FastRouter, middleware, dan watcher sendiri secara terisolasi, dengan router Web juga memegang DVE engine](/diagrams/router-isolation.png)
+![Setiap router punya tabel rute, middleware, dan watcher sendiri secara terisolasi, dengan router Web juga memegang DVE engine](/diagrams/router-isolation.png)
 
 Jika sebuah rute di API melempar, hanya request itu yang mendapat 500. Auth dan Web, serta setiap request API lain, tetap melayani normal.
 
@@ -139,7 +139,8 @@ import { sessions } from '../../../shared/sessions.ts'
 
 // Auth menyimpan session saat login
 export async function POST(ctx: Context): Promise<Response> {
-  const body = (await ctx.json()) as { username?: string }
+  // Baca body JSON dari request
+  const body = (await ctx.get.json()) as { username?: string }
   const id = crypto.randomUUID()
   sessions.set(id, {
     username: body?.username,
@@ -158,16 +159,13 @@ import { sessions } from '../../../shared/sessions.ts'
 
 // API membaca store yang sama langsung
 export function GET(ctx: Context): Response {
-  const id = ctx.header('x-session-id')
+  // Baca session ID dari header
+  const id = ctx.get.header('x-session-id')
   const session = id ? sessions.get(id) : undefined
   if (!session) {
     return ctx.send.json(
-      {
-        error: 'Not authenticated'
-      },
-      {
-        status: 401
-      }
+      { error: 'Not authenticated' },
+      { status: 401 }
     )
   }
   return ctx.send.json({
@@ -209,7 +207,8 @@ import { emit } from '../../../../shared/bus.ts'
 
 // Pancarkan event setelah membuat user
 export async function POST(ctx: Context): Promise<Response> {
-  const user = await ctx.json()
+  // Baca body JSON dari request
+  const user = await ctx.get.json()
   emit('user:created', user)
   return ctx.send.json({
     created: true
@@ -279,7 +278,7 @@ import { Mware, Router } from '@neabyte/deserve'
 
 // API mendapat CORS dan body limit
 const api = new Router({
-  routesDir: './services/api/routes'
+  routes: { directory: './services/api/routes' }
 })
 api.use(Mware.cors({
   origin: '*'
@@ -290,7 +289,7 @@ api.use(Mware.bodyLimit({
 
 // Auth mendapat security headers
 const auth = new Router({
-  routesDir: './services/auth/routes'
+  routes: { directory: './services/auth/routes' }
 })
 auth.use(Mware.securityHeaders({
   xFrameOptions: 'DENY'
@@ -298,8 +297,8 @@ auth.use(Mware.securityHeaders({
 
 // Web berjalan tanpa middleware
 const web = new Router({
-  routesDir: './services/web/routes',
-  viewsDir: './services/web/views'
+  routes: { directory: './services/web/routes' },
+  views: { directory: './services/web/views' }
 })
 
 // Jalankan setiap service bersama
@@ -325,7 +324,8 @@ export function logger(service: string): MiddlewareFn {
     const response = await next()
     const duration = Date.now() - start
     const status = response?.status ?? 0
-    console.log(`[${service}] ${ctx.request.method} ${ctx.pathname} ${status} ${duration}ms`)
+    // Baca method dan path dari ctx.get
+    console.log(`[${service}] ${ctx.get.method()} ${ctx.get.pathname()} ${status} ${duration}ms`)
     return response
   }
 }
@@ -347,21 +347,21 @@ Satu error handler berlaku dengan [`router.catch()`](/id/error-handling/object-d
 ```typescript twoslash
 // shared/errors.ts
 // Satu bentuk error handler untuk semua
-import type { Context, ErrorInfo, ErrorMiddleware } from '@neabyte/deserve'
+import type { Context, ErrorInfo, ErrorMiddleware, HttpStatusCode } from '@neabyte/deserve'
 
 export function errorHandler(service: string): ErrorMiddleware {
-  return (ctx: Context, error: ErrorInfo): Response | null => {
+  return (ctx: Context, info: ErrorInfo): Response | null => {
     console.error(
-      `[${service}] ${error.method} ${error.pathname} ${error.statusCode} - ${error.error?.message}`
+      `[${service}] ${info.method} ${info.pathname} ${info.statusCode} - ${info.error?.message}`
     )
     return ctx.send.json(
       {
         service,
-        error: error.error?.message ?? 'Unknown error',
-        statusCode: error.statusCode,
-        path: error.pathname
+        error: info.error?.message ?? 'Unknown error',
+        statusCode: info.statusCode,
+        path: info.pathname
       },
-      { status: error.statusCode }
+      { status: info.statusCode as HttpStatusCode }
     )
   }
 }
@@ -369,50 +369,51 @@ export function errorHandler(service: string): ErrorMiddleware {
 
 ### Membungkus Middleware dengan Label
 
-`WrapMware` menandai middleware individual dengan label, jadi saat middleware itu melempar, log error menyertakan label dan menunjuk langsung middleware mana di service mana yang gagal. Signature dan perilaku dasarnya dibahas di [Global Middleware](/id/middleware/global#membungkus-middleware-dengan-penanganan-error), dan ia bertindak sebagai satu lapisan dalam [Defense in Depth](/id/error-handling/defense-in-depth):
+`Wrap.apply` menandai middleware individual dengan label, jadi saat middleware itu melempar, log error menyertakan label dan menunjuk langsung middleware mana di service mana yang gagal. Signature dan perilaku dasarnya dibahas di [Global Middleware](/id/middleware/global#membungkus-middleware-dengan-penanganan-error), dan ia bertindak sebagai satu lapisan dalam [Defense in Depth](/id/error-handling/defense-in-depth):
 
 ```typescript
 // main.ts
-import { Router, WrapMware } from '@neabyte/deserve'
+import { Router, Wrap } from '@neabyte/deserve'
 import { logger } from './shared/logger.ts'
 import { errorHandler } from './shared/errors.ts'
 
 // Beri label tiap middleware untuk log error
-const apiAuth = WrapMware('APIAuth', async (ctx, next) => {
-  if (!ctx.header('authorization')) {
+const apiAuth = Wrap.apply('APIAuth', async (ctx, next) => {
+  // Baca header authorization
+  if (!ctx.get.header('authorization')) {
     throw new Error('Missing API key')
   }
   return await next()
 })
 
-const authRateLimit = WrapMware('AuthRateLimit', async (ctx, next) => {
+const authRateLimit = Wrap.apply('AuthRateLimit', async (ctx, next) => {
   // logika rate limit
   return await next()
 })
 
-const webCache = WrapMware('WebCache', async (ctx, next) => {
+const webCache = Wrap.apply('WebCache', async (ctx, next) => {
   // logika cache
   return await next()
 })
 
 // Sambungkan logger, middleware, error handler
 const api = new Router({
-  routesDir: './services/api/routes'
+  routes: { directory: './services/api/routes' }
 })
 api.use(logger('API'))
 api.use(apiAuth)
 api.catch(errorHandler('API'))
 
 const auth = new Router({
-  routesDir: './services/auth/routes'
+  routes: { directory: './services/auth/routes' }
 })
 auth.use(logger('Auth'))
 auth.use(authRateLimit)
 auth.catch(errorHandler('Auth'))
 
 const web = new Router({
-  routesDir: './services/web/routes',
-  viewsDir: './services/web/views'
+  routes: { directory: './services/web/routes' },
+  views: { directory: './services/web/views' }
 })
 web.use(logger('Web'))
 web.use(webCache)
@@ -430,7 +431,7 @@ Ketika `apiAuth` melempar, log terbaca `[API] GET /users 500 - APIAuth - Missing
 
 ### OpenTelemetry
 
-Karena setiap request sudah mengalir lewat middleware bersama, memasang OpenTelemetry mengikuti pola yang sama. Satu middleware OTel berlaku ke setiap service, jadi semua span dari semua port menuju satu collector, yang memberi distributed tracing, dashboard latensi, dan metrik error rate di seluruh sistem tanpa menginstrumentasi tiap service secara terpisah:
+Karena setiap request sudah mengalir lewat middleware bersama, memasang [OpenTelemetry](https://opentelemetry.io/) mengikuti pola yang sama. Satu middleware OTel berlaku ke setiap service, jadi semua span dari semua port menuju satu collector, yang memberi distributed tracing, dashboard latensi, dan metrik error rate di seluruh sistem tanpa menginstrumentasi tiap service secara terpisah:
 
 ![Satu middleware OTel mengumpulkan span dari setiap service dan mengekspornya ke OTel Collector, lalu ke Jaeger, Grafana, atau Datadog](/diagrams/observability.png)
 
@@ -450,8 +451,8 @@ export function otelMiddleware(service: string): MiddlewareFn {
     console.log(JSON.stringify({
       traceId: crypto.randomUUID(),
       service,
-      method: ctx.request.method,
-      path: ctx.pathname,
+      method: ctx.get.method(),
+      path: ctx.get.pathname(),
       status,
       durationMs: Math.round(duration * 100) / 100,
       timestamp: new Date().toISOString()
@@ -479,7 +480,7 @@ Tim bisa bekerja di service berbeda pada saat bersamaan, dengan satu orang meref
 Semua service berjalan di satu container. Satu image, satu proses, semua port:
 
 ```dockerfile
-FROM denoland/deno:2.7.0
+FROM denoland/deno:2.8.3
 
 WORKDIR /app
 COPY . .
@@ -492,7 +493,7 @@ CMD ["deno", "run", "-A", "main.ts"]
 
 ### Reverse Proxy
 
-Letakkan Nginx atau Caddy di depan untuk mengarahkan domain ke setiap port service:
+Letakkan [Nginx](https://nginx.org/) atau [Caddy](https://caddyserver.com/) di depan untuk mengarahkan domain ke setiap port service:
 
 ![Reverse proxy seperti Nginx atau Caddy memetakan tiap hostname ke port per-service: api.example.com ke 3001, auth.example.com ke 3002, dan example.com ke 3003](/diagrams/reverse-proxy.png)
 

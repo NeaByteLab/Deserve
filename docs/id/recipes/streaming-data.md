@@ -4,9 +4,9 @@ description: 'Dorong data ke klien chunk demi chunk dengan Server-Sent Events da
 
 # Streaming Data
 
-Sebuah respons streaming mengirim body-nya potongan demi potongan dari waktu ke waktu alih-alih satu blob jadi, jadi bytes pertama mencapai klien jauh sebelum pekerjaan selesai. Deserve meneruskan [`ReadableStream`](https://developer.mozilla.org/en-US/docs/Web/API/ReadableStream) langsung lewat `ctx.send.stream()` ke respons native, jadi tiap `controller.enqueue()` meninggalkan server sebagai chunk-nya sendiri. Resep ini mencakup dua format yang paling sering muncul di produksi - [Server-Sent Events](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events) untuk dorongan langsung dan [NDJSON](https://github.com/ndjson/ndjson-spec) untuk dataset besar yang dibaca baris demi baris.
+Sebuah respons streaming mengirim body-nya potongan demi potongan dari waktu ke waktu alih-alih satu blob jadi, jadi bytes pertama mencapai klien jauh sebelum pekerjaan selesai. Deserve meneruskan [`ReadableStream`](https://developer.mozilla.org/en-US/docs/Web/API/ReadableStream) langsung lewat `ctx.send.custom()` ke respons native, jadi tiap `controller.enqueue()` meninggalkan server sebagai chunk-nya sendiri. Resep ini mencakup dua format yang paling sering muncul di produksi - [Server-Sent Events](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events) untuk dorongan langsung dan [NDJSON](https://github.com/ndjson/ndjson-spec) untuk dataset besar yang dibaca baris demi baris.
 
-Untuk satu stream ter-buffer atau signature method-nya, lihat [respons stream](/id/response/stream). Untuk streaming HTML ter-render, lihat [streaming rendering](/id/rendering/streaming).
+Untuk satu stream ter-buffer atau signature method-nya, lihat [respons stream](/id/response/custom). Untuk streaming HTML ter-render, lihat [streaming rendering](/id/rendering/streaming).
 
 ## Struktur Proyek
 
@@ -42,19 +42,19 @@ export function GET(ctx: Context): Response {
       controller.close()
     }
   })
-  return ctx.send.stream(
+  return ctx.send.custom(
     stream,
     {
       headers: {
-        'Cache-Control': 'no-cache'
+        'Cache-Control': 'no-cache',
+        'Content-Type': 'text/event-stream'
       }
-    },
-    'text/event-stream'
+    }
   )
 }
 ```
 
-Argumen ketiga menetapkan tipe konten sementara argumen kedua membawa header `Cache-Control: no-cache` yang menghentikan proxy mem-buffer feed. Sebuah `Content-Type` per panggilan yang diset begini menang atas header konteks generik mana pun, jadi stream event mempertahankan tipenya bahkan bersama header lain.
+Header `Content-Type: text/event-stream` memberi tahu browser untuk memperlakukan respons sebagai sumber event, sementara `Cache-Control: no-cache` menghentikan proxy mem-buffer feed.
 
 ### Membaca Dari Browser
 
@@ -91,11 +91,15 @@ export function GET(ctx: Context): Response {
       controller.close()
     }
   })
-  return ctx.send.stream(stream, undefined, 'application/x-ndjson')
+  return ctx.send.custom(stream, {
+    headers: {
+      'Content-Type': 'application/x-ndjson'
+    }
+  })
 }
 ```
 
-Memberikan `undefined` untuk opsi mempertahankan default, sementara argumen ketiga melabeli body `application/x-ndjson` jadi klien tahu harus memecah pada newline.
+Memberikan header `Content-Type: application/x-ndjson` memberi tahu klien untuk memecah pada newline.
 
 ### Membaca Dari Klien
 
@@ -146,7 +150,11 @@ export function GET(ctx: Context): Response {
       }
     }
   })
-  return ctx.send.stream(stream, undefined, 'text/event-stream')
+  return ctx.send.custom(stream, {
+    headers: {
+      'Content-Type': 'text/event-stream'
+    }
+  })
 }
 ```
 

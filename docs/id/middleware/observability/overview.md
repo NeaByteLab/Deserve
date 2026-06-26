@@ -18,7 +18,7 @@ Hook bergaya middleware ini duduk di samping router dan mengawasi semua yang ter
 import { Router } from '@neabyte/deserve'
 
 const router = new Router({
-  routesDir: './routes'
+  routes: { directory: './routes' }
 })
 
 // Terima setiap event siklus hidup dan error
@@ -41,13 +41,13 @@ Setiap event berbagi amplop yang sama:
 ```typescript
 {
   type: 'internal' | 'external', // kanal asal
-  kind: string,                  // nama event, seperti 'request:complete'
+  kind: string,                  // nama event, seperti 'request:completed'
   metadata: { ... },             // field spesifik per jenis
   timestamp: number              // milidetik epoch
 }
 ```
 
-- **`type`** - `external` untuk lalu lintas klien normal, `internal` untuk kesalahan framework. Sebuah event request bernilai `internal` ketika kesalahan framework, timeout 503 sintetis, atau context request yang hilang yang memicunya, selain itu `external`. Setiap jenis lain selalu `internal`.
+- **`type`** - `external` untuk lalu lintas klien normal, `internal` untuk kesalahan framework. Sebuah event request bernilai `internal` ketika kesalahan framework, timeout 503 sintetis, atau context request yang hilang yang memicunya, selain itu `external`. Jenis `process:failed` adalah satu-satunya pengecualian yang selalu tetap `external`, karena proses yang crash berada di luar kanal request. Setiap jenis lain selalu `internal`.
 - **`kind`** - diskriminan yang dipakai untuk membedakan event.
 - **`metadata`** - field readonly yang bergantung pada jenis.
 - **`timestamp`** - kapan event dibuat.
@@ -60,27 +60,27 @@ Observability bus melaporkan aktivitas framework seperti request, rute, view, da
 
 ## Jejak Audit Bawaan
 
-Setiap subsistem melapor di bus yang sama, dari sinyal [server](/id/middleware/observability/events#server) dan [rute](/id/middleware/observability/events#rute) sampai kesalahan [worker](/id/middleware/observability/events#worker), [middleware](/id/middleware/observability/events#middleware), dan [proses](/id/middleware/observability/events#process). Masing-masing tiba sebagai amplop `{ type, kind, metadata, timestamp }` yang sama, terstruktur dan bercap waktu pada saat ia menyala. Sebuah listener sederhana berubah menjadi jejak audit yang mencatat dirinya sendiri selama server berjalan, tanpa kabel tambahan.
+Setiap subsistem melapor di bus yang sama, dari sinyal [server](/id/middleware/observability/events#server) dan [rute](/id/middleware/observability/events#rute) sampai kesalahan [worker](/id/middleware/observability/events#worker), [middleware keamanan](/id/middleware/observability/events#middleware-keamanan), dan [proses](/id/middleware/observability/events#process). Masing-masing tiba sebagai amplop `{ type, kind, metadata, timestamp }` yang sama, terstruktur dan bercap waktu pada saat ia menyala. Sebuah listener sederhana berubah menjadi jejak audit yang mencatat dirinya sendiri selama server berjalan, tanpa kabel tambahan.
 
-Itu mencakup hal yang biasanya diminta oleh kerja kepatuhan dan keamanan:
+Itu mencakup hal yang biasanya diminta oleh kerja kepatuhan dan keamanan, dan tiap kontrol memetakan ke perilaku yang sudah disediakan bus:
 
-- **[SOC 2](https://www.aicpa-cima.com/topic/audit-assurance/audit-and-assurance-greater-than-soc-2)**, **[ISO/IEC 27001](https://www.iso.org/standard/27001)**, dan **[PCI DSS](https://www.pcisecuritystandards.org/document_library/)** meminta event relevan-keamanan tercatat. Cookie yang dirusak (`session:invalid`), panggilan terminasi yang diblokir (`process:error`), dan aturan CSRF yang gagal (`csrf:rule-error`) semua menyala sendiri.
-- **Garis waktu** dapat direkonstruksi karena aliran event terurut dan setiap event membawa `timestamp` dalam milidetik epoch.
-- **Setiap request** dapat dilacak asalnya lewat `method`, `url`, `statusCode`, `durationMs`, dan `ip` opsional pada `request:complete`.
-- **[SIEM](https://csrc.nist.gov/glossary/term/security_information_and_event_management)** dapat menyerap aliran ini karena satu `router.on()` meneruskan seluruh permukaan ke kolektor mana pun.
+- **[SOC 2](https://www.aicpa-cima.com/topic/audit-assurance/audit-and-assurance-greater-than-soc-2) (pemantauan CC7)** ingin event relevan-keamanan tertangkap. Cookie yang dirusak (`session:invalid`), panggilan terminasi yang diblokir (`process:failed`), dan aturan CSRF yang gagal (`csrf:failed`) semua menyala sendiri.
+- **[ISO/IEC 27001](https://www.iso.org/standard/27001) (logging A.8.15)** ingin log event yang bertahan dari waktu ke waktu. Setiap event membawa `timestamp` dalam milidetik epoch dan tiba terurut, jadi garis waktu direkonstruksi dengan rapi.
+- **[PCI DSS](https://www.pcisecuritystandards.org/document_library/) (jejak audit Persyaratan 10)** ingin tiap aksi terkait dengan sumbernya. `request:completed` melaporkan `method`, `url`, `statusCode`, `durationMs`, dan `ip` opsional ketika alamatnya diketahui.
+- **[SIEM](https://csrc.nist.gov/glossary/term/security_information_and_event_management) dan alerting real-time** ingin aliran untuk diserap. Satu `router.on()` meneruskan seluruh permukaan ke mana pun log atau alert pergi.
 
-Field `type` menjaga kanal kesalahan tetap bersih. Lalu lintas klien normal bernilai `external`, sementara kesalahan framework, timeout 503 sintetis, atau context request yang hilang menandai event `internal`. Pipeline alert kesalahan menyaring `internal` dan tidak pernah tenggelam dalam request rutin.
+Field `type` menjaga kanal kesalahan tetap bersih. Lalu lintas klien normal bernilai `external`, sementara kesalahan framework, timeout 503 sintetis, atau context request yang hilang menandai event `internal`. Pipeline alert kesalahan menyaring `internal` untuk menangkap kesalahan framework tanpa tenggelam dalam request rutin, lalu menyertakan `process:failed` berdasarkan kind, karena kesalahan proses selalu menumpang kanal `external`:
 
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
 const router = new Router({
-  routesDir: './routes'
+  routes: { directory: './routes' }
 })
 // ---cut---
 router.on((event) => {
-  // Teruskan hanya kesalahan framework
-  if (event.type === 'internal') {
+  // Teruskan kesalahan framework dan proses
+  if (event.type === 'internal' || event.kind === 'process:failed') {
     console.log(JSON.stringify({ at: event.timestamp, ...event }))
   }
 })

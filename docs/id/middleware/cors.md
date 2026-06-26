@@ -80,7 +80,7 @@ origin: '*'
 
 ### `methods`
 
-Tentukan metode HTTP yang diizinkan:
+Tentukan metode HTTP yang diizinkan. Default ke ketujuh metode yang didukung:
 
 ```typescript
 methods: [
@@ -95,7 +95,7 @@ methods: [
 
 ### `allowedHeaders`
 
-Tentukan header yang diizinkan:
+Tentukan header yang diizinkan. Default ke `Content-Type`, `Authorization`, dan `X-Requested-With`:
 
 ```typescript
 allowedHeaders: [
@@ -126,7 +126,7 @@ credentials: true // Izinkan cookie dan header authorization
 
 ### `maxAge`
 
-Atur durasi cache preflight dalam detik:
+Atur durasi cache preflight dalam detik. Default ke `86400` (24 jam):
 
 ```typescript
 maxAge: 3600 // Cache request preflight selama 1 jam
@@ -147,10 +147,10 @@ Setiap opsi punya default, jadi `Mware.cors()` tanpa argumen mengizinkan origin 
 
 ## Cara Kerja
 
-- **Tanpa header Origin** - request lolos tanpa disentuh, karena bukan lintas-origin.
-- **Preflight OPTIONS** - origin yang cocok mendapat **204 No Content** dengan header CORS, dan origin yang tidak cocok mendapat **403 Forbidden**.
-- **Request sebenarnya** - origin yang cocok menerima `Access-Control-Allow-Origin` plus kredensial dan header yang diekspos saat dikonfigurasi.
-- **Header Vary** - `Vary: Origin` ditambahkan setiap kali `origin` bukan wildcard `'*'`, jadi cache tetap benar.
+- **Tanpa header Origin** - request lolos tanpa disentuh, karena bukan lintas-origin
+- **Preflight OPTIONS** - origin yang cocok mendapat **204 No Content** dengan header CORS. Origin yang tidak cocok juga mendapat **204** tapi tanpa header CORS, jadi browser memblokir request sebenarnya. Event `cors:blocked` menyala untuk origin yang tidak cocok
+- **Request sebenarnya** - origin yang cocok menerima `Access-Control-Allow-Origin` plus kredensial dan header yang diekspos saat dikonfigurasi. Origin yang tidak cocok tidak mendapat header CORS dan event `cors:blocked` menyala
+- **Header Vary** - `Vary: Origin` ditambahkan setiap kali `origin` bukan wildcard `'*'`, jadi cache tetap benar
 
 ## Kredensial dan Wildcard
 
@@ -168,49 +168,6 @@ router.use(
     credentials: true
   })
 )
-```
-
-## Contoh Lengkap
-
-```typescript twoslash
-import { Mware, Router } from '@neabyte/deserve'
-
-const router = new Router({
-  routesDir: './routes'
-})
-
-// CORS produksi dengan opsi lengkap
-router.use(
-  Mware.cors({
-    origin: [
-      'http://localhost:3000',
-      'http://localhost:5173',
-      'https://yourdomain.com'
-    ],
-    methods: [
-      'GET',
-      'POST',
-      'PUT',
-      'DELETE',
-      'PATCH',
-      'OPTIONS'
-    ],
-    allowedHeaders: [
-      'Content-Type',
-      'Authorization',
-      'X-Requested-With',
-      'X-Custom-Header'
-    ],
-    exposedHeaders: [
-      'X-Total-Count',
-      'X-Page-Count'
-    ],
-    credentials: true,
-    maxAge: 3600
-  })
-)
-
-await router.serve(8000)
 ```
 
 ## Header CORS Umum

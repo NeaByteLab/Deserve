@@ -14,18 +14,18 @@ Metrik itu adalah detail satu handler, bukan kebijakan seluruh framework. Satu r
 
 ## Durasi Sudah Diukur
 
-Setiap event `request:complete` membawa `durationMs`, waktu terukur untuk seluruh request, di samping `route` dan `method`. Untuk dashboard dan log itulah angka yang dibaca, tanpa header dan tanpa kode per-rute. Lihat [Request Logging](/id/middleware/observability/logging) untuk mengubahnya jadi baris log.
+Setiap event `request:completed` membawa `durationMs`, waktu terukur untuk seluruh request, di samping `route` dan `method`. Untuk dashboard dan log itulah angka yang dibaca, tanpa header dan tanpa kode per-rute. Lihat [Request Logging](/id/middleware/observability/logging) untuk mengubahnya jadi baris log.
 
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
 const router = new Router({
-  routesDir: './routes'
+  routes: { directory: './routes' }
 })
 // ---cut---
 router.on((event) => {
   // Baca durasi request terukur
-  if (event.kind === 'request:complete') {
+  if (event.kind === 'request:completed') {
     const { route, durationMs } = event.metadata as { route?: string, durationMs: number }
     console.log(`${route ?? 'unknown'} took ${Math.round(durationMs)}ms`)
   }
@@ -36,7 +36,7 @@ await router.serve(8000)
 
 ## Mengirim Header Ketika Diinginkan
 
-Untuk sebuah rute yang memang mau metrik itu di DevTools, header-nya adalah satu panggilan [`ctx.setHeader`](/id/core-concepts/context-object#header-response). Ukur kerjanya, lalu tulis sebuah entri `Server-Timing` dengan nama dan durasi dalam milidetik.
+Untuk sebuah rute yang memang mau metrik itu di DevTools, header-nya adalah satu panggilan [`ctx.set.header`](/id/core-concepts/context-object#ctx-set-header-key-value). Ukur kerjanya, lalu tulis sebuah entri `Server-Timing` dengan nama dan durasi dalam milidetik.
 
 ```typescript twoslash
 import type { Context } from '@neabyte/deserve'
@@ -48,7 +48,7 @@ export async function GET(ctx: Context): Promise<Response> {
   const ms = (performance.now() - start).toFixed(1)
 
   // Paparkan ke DevTools untuk rute ini
-  ctx.setHeader('Server-Timing', `db;dur=${ms}`)
+  ctx.set.header('Server-Timing', `db;dur=${ms}`)
   return ctx.send.json(data)
 }
 

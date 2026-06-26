@@ -21,14 +21,14 @@ Handler upload tinggal di [direktori routes](/id/core-concepts/file-based-routin
 
 ## Membaca Upload
 
-Sebuah request multipart mengalir lewat `ctx.formData()`, dan tiap field bernama kembali dari `form.get()`. Field teks mengembalikan string sementara field file mengembalikan `File`:
+Sebuah request multipart mengalir lewat `ctx.get.formData()`, dan tiap field bernama kembali dari `form.get()`. Field teks mengembalikan string sementara field file mengembalikan `File`:
 
 ```typescript twoslash
 import type { Context } from '@neabyte/deserve'
 
 // POST /api/upload dengan form multipart
 export async function POST(ctx: Context): Promise<Response> {
-  const form = await ctx.formData()
+  const form = await ctx.get.formData()
   const title = form.get('title') // Field teks sebagai string
   const file = form.get('file') // File atau string atau null
 
@@ -40,7 +40,7 @@ export async function POST(ctx: Context): Promise<Response> {
 }
 ```
 
-Memanggil `ctx.body()` mencapai parser yang sama, karena pembaca itu membaca header `Content-Type` dan mengarahkan baik `multipart/form-data` maupun `application/x-www-form-urlencoded` ke `FormData`. Memilih `ctx.formData()` membuat niat jelas di titik panggilan.
+Memanggil `ctx.get.body()` mencapai parser yang sama, karena ia membaca header `Content-Type` dan mengarahkan baik `multipart/form-data` maupun `application/x-www-form-urlencoded` ke `FormData`. Memilih `ctx.get.formData()` membuat niat jelas di titik panggilan.
 
 ## Memastikan File Tiba
 
@@ -50,7 +50,7 @@ Memanggil `ctx.body()` mencapai parser yang sama, karena pembaca itu membaca hea
 import type { Context } from '@neabyte/deserve'
 // ---cut---
 export async function POST(ctx: Context): Promise<Response> {
-  const form = await ctx.formData()
+  const form = await ctx.get.formData()
   const file = form.get('file')
 
   // Tolak saat tidak ada file
@@ -86,7 +86,7 @@ Bytes tetap di dalam `File` sampai `arrayBuffer()` mengeluarkannya, dan membungk
 import type { Context } from '@neabyte/deserve'
 // ---cut---
 export async function POST(ctx: Context): Promise<Response> {
-  const form = await ctx.formData()
+  const form = await ctx.get.formData()
   const file = form.get('file')
 
   // Tolak saat tidak ada file
@@ -120,13 +120,13 @@ Menulis ke disk butuh izin tulis Deno, jadi server berjalan dengan `--allow-writ
 
 ## Membaca Body Sekali
 
-Tiap Context mengurai body-nya satu kali lalu men-cache hasilnya, jadi pembaca kedua dengan format berbeda pada request yang sama akan melempar error alih-alih mengembalikan data kosong. Memilih salah satu dari `formData()`, `json()`, `text()`, `arrayBuffer()`, atau `blob()` per request menjaga kontrak itu:
+Tiap Context mengurai body-nya satu kali lalu men-cache hasilnya, jadi format yang dibaca lebih dulu adalah format yang terkunci untuk request itu. Memilih salah satu dari `formData()`, `json()`, `text()`, `bytes()`, atau `blob()` per request menjaga kontrak itu:
 
 ```typescript twoslash
 import type { Context } from '@neabyte/deserve'
 // ---cut---
 export async function POST(ctx: Context): Promise<Response> {
-  const form = await ctx.formData() // Body dikonsumsi sekali di sini
+  const form = await ctx.get.formData() // Body dikonsumsi sekali di sini
 
   // Baca form ter-cache, bukan body
   return ctx.send.json({
@@ -135,17 +135,17 @@ export async function POST(ctx: Context): Promise<Response> {
 }
 ```
 
-Pembaca kedua seperti `ctx.json()` pada request ini akan melempar error alih-alih mengembalikan data kosong, karena body sudah habis. Payload multipart yang rusak juga tidak pernah membuat pipeline crash, karena parser memetakan body rusak ke **400** yang mengalir lewat [penanganan error terpusat](/id/error-handling/object-details). Setiap pembaca dan tipe kembaliannya ada di [referensi penanganan request](/id/core-concepts/request-handling#referensi-method).
+Pembaca kedua dengan format berbeda seperti `ctx.get.json()` pada request ini akan melempar **409** alih-alih mengembalikan data kosong, karena body sudah dikonsumsi sebagai form data. Membaca format yang sama dua kali aman, karena nilai terurai di-cache dan diberikan kembali tanpa menyentuh body lagi. Payload multipart yang rusak juga tidak pernah membuat pipeline crash, karena parser memetakan body rusak ke **400** yang mengalir lewat [penanganan error terpusat](/id/error-handling/object-details). Setiap pembaca dan tipe kembaliannya ada di [referensi penanganan request](/id/core-concepts/request-handling).
 
 ## Membatasi Ukuran Upload
 
-`FormData` tidak membatasi berapa banyak bytes yang dikirim klien, jadi rute upload berpasangan dengan [middleware body limit](/id/middleware/body-limit) untuk menolak payload yang terlalu besar dengan **413** sebelum memenuhi memori. `Content-Length` yang diketahui melebihi batas ditolak sebelum body dibaca, sementara stream chunked dipotong begitu bytes berlebih tiba:
+`FormData` tidak membatasi berapa banyak bytes yang dikirim klien, jadi rute upload berpasangan dengan [middleware body limit](/id/middleware/body-limit) untuk menolak payload yang terlalu besar dengan **413** sebelum memenuhi memori. Pemeriksaan ini membaca header `Content-Length`, jadi ukuran yang diumumkan melebihi batas ditolak sebelum body dibaca. Request tanpa `Content-Length`, seperti stream chunked, melewati pemeriksaan ini dan mencapai handler:
 
 ```typescript twoslash
 import { Mware, Router } from '@neabyte/deserve'
 
 const router = new Router({
-  routesDir: './routes'
+  routes: { directory: './routes' }
 })
 
 // Batasi rute upload pada 5MB
@@ -176,7 +176,7 @@ router.static('/uploads', {
 })
 ```
 
-Untuk unduhan sekali pakai yang digerakkan handler alih-alih prefix statis, [`ctx.send.file()`](/id/response/file) mengalirkan satu file langsung dari disk dengan `Content-Disposition` yang tepat terpasang.
+Untuk unduhan sekali pakai yang digerakkan handler alih-alih prefix statis, [`ctx.send.download()`](/id/response/download) mengalirkan satu file langsung dari disk dengan `Content-Disposition` yang tepat terpasang.
 
 ## Alur Lengkap
 
@@ -189,7 +189,7 @@ import { Mware, Router } from '@neabyte/deserve'
 
 // Titik masuk main.ts
 const router = new Router({
-  routesDir: './routes'
+  routes: { directory: './routes' }
 })
 
 // Jaga ukuran sebelum handler jalan
@@ -217,7 +217,7 @@ import type { Context } from '@neabyte/deserve'
 // ---cut---
 // Handler routes/api/upload.ts
 export async function POST(ctx: Context): Promise<Response> {
-  const form = await ctx.formData()
+  const form = await ctx.get.formData()
   const file = form.get('file')
 
   // Tolak saat tidak ada file

@@ -1,5 +1,5 @@
 ---
-description: "Sintaks pola rute di Deserve termasuk parameter dinamis, wildcard, dan aturan pencocokan."
+description: "Sintaks pola rute di Deserve termasuk parameter dinamis dan aturan pencocokan."
 ---
 
 # Pola Rute
@@ -28,9 +28,9 @@ Ketika request tiba, mesin mencari metode dan pathname, lalu menerapkan beberapa
 - **HEAD mengikuti GET** - sebuah `HEAD` tanpa handler memakai ulang handler `GET`
 - **Metode salah** - path dikenal tanpa handler untuk metode itu mengembalikan **405** dengan header `Allow` yang mendaftar metode yang memang ada
 - **Path tidak dikenal** - tanpa kecocokan mengembalikan **404** lewat [error handler](/id/error-handling/object-details)
-- **Input terlalu besar** - URL melewati `maxUrlLength` atau param melewati `maxParamLength` mengembalikan **414**, keduanya bisa disetel di [Konfigurasi Server](/id/getting-started/server-configuration)
+- **Input terlalu besar** - URL melewati `maxUrlLength` atau param melewati `routes.maxParamLength` mengembalikan **414**, keduanya bisa disetel di [Konfigurasi Routes](/id/getting-started/routes-configuration)
 
-Param di-percent-decode sekali sebelum handler membacanya, jadi `ctx.param('id')` mengembalikan nilai yang sudah didekode.
+Param di-percent-decode sekali sebelum handler membacanya, jadi `ctx.get.param('id')` mengembalikan nilai yang sudah didekode.
 
 ## Parameter Dinamis
 
@@ -42,7 +42,7 @@ Folder atau berkas `[param]` menjadi slot bernama `:param` di pola. Tiap kurung 
 | `users/[id]/posts/[postId].ts`                     | `/users/:id/posts/:postId`                 | `id`, `postId`               |
 | `api/v1/users/[userId]/posts/[postId].ts`          | `/api/v1/users/:userId/posts/:postId`      | `userId`, `postId`           |
 
-Nilai yang dicocokkan dibaca di dalam handler dengan `ctx.param()` dan `ctx.params()`, dibahas di [Penanganan Request](/id/core-concepts/request-handling#parameter-rute).
+Nilai yang dicocokkan dibaca di dalam handler dengan `ctx.get.param('id')` untuk satu nilai atau `ctx.get.param()` untuk map lengkap, dibahas di [Penanganan Request](/id/core-concepts/request-handling#parameter-rute).
 
 ## Contoh Pola
 
@@ -90,15 +90,11 @@ import type { Context } from '@neabyte/deserve'
 
 // Tolak id non-numerik dengan 400
 export function GET(ctx: Context): Response {
-  const id = ctx.param('id')
+  const id = ctx.get.param('id')
   if (!id || !/^\d+$/.test(id)) {
     return ctx.send.json(
-      {
-        error: 'Invalid user ID'
-      },
-      {
-        status: 400
-      }
+      { error: 'Invalid user ID' },
+      { status: 400 }
     )
   }
   return ctx.send.json({
@@ -107,4 +103,4 @@ export function GET(ctx: Context): Response {
 }
 ```
 
-Handler yang memvalidasi beberapa param, atau ingin kegagalannya membawa alasan tingkat field, menjalankan kontrak [validasi](/id/middleware/validation/overview) dengan `Validator.check` alih-alih regex inline. Param diperiksa di dalam handler karena baru tersedia setelah middleware berjalan, dibahas di [Membaca Data Tervalidasi](/id/middleware/validation/reading-data#memeriksa-params-di-handler).
+Handler yang memvalidasi beberapa param, atau ingin kegagalannya membawa alasan tingkat field, menjalankan kontrak [validasi](/id/middleware/validation/overview) dengan `Validator.check` alih-alih regex inline. Param diperiksa di dalam handler karena baru tersedia setelah middleware berjalan, dibahas di [Membaca Data Tervalidasi](/id/middleware/validation/reading-data#memeriksa-param-di-handler).

@@ -4,7 +4,7 @@ description: "Bangun response sepenuhnya kustom dengan ctx.send.custom() saat he
 
 # Response Kustom
 
-Method `ctx.send.custom()` membuat response kustom dengan kendali penuh atas body, status code, header, dan semua opsi konfigurasi response. Berbeda dengan helper bertipe, method ini tidak mengatur `Content-Type` sendiri, jadi tambahkan lewat header saat body membutuhkannya.
+Method `ctx.send.custom()` membuat response dengan kendali penuh atas body. Berbeda dengan helper bertipe, method ini tidak mengatur `Content-Type` sendiri, jadi tambahkan lewat header saat body membutuhkannya.
 
 ## Penggunaan Dasar
 
@@ -24,23 +24,20 @@ import type { Context } from '@neabyte/deserve'
 // ---cut---
 export function GET(ctx: Context): Response {
   // Atur status response ke 404
-  return ctx.send.custom(
-    'Not Found',
-    {
-      status: 404
-    }
-  )
+  return ctx.send.custom('Not Found', { status: 404 })
 }
 ```
 
 ## Dengan Header Kustom
+
+Header yang diatur lewat `ctx.set.header()` digabung dengan header dari opsi. Header opsi diutamakan saat bentrok:
 
 ```typescript twoslash
 import type { Context } from '@neabyte/deserve'
 // ---cut---
 export function GET(ctx: Context): Response {
   // Header diatur pada context
-  ctx.setHeader('X-Custom', 'value')
+  ctx.set.header('X-Custom', 'value')
   // Opsi bisa menambah header lain
   return ctx.send.custom('Response body', {
     headers: {
@@ -50,6 +47,33 @@ export function GET(ctx: Context): Response {
   })
 }
 ```
+
+## Response Streaming
+
+Sebuah `ReadableStream` yang diberikan sebagai body dialirkan ke client tanpa membuffer seluruh response. Ini cocok untuk data besar atau [server-sent events](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events):
+
+```typescript twoslash
+import type { Context } from '@neabyte/deserve'
+
+export function GET(ctx: Context): Response {
+  // Dorong dua potongan teks lalu tutup
+  const stream = new ReadableStream({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode('Hello\n'))
+      controller.enqueue(new TextEncoder().encode('World\n'))
+      controller.close()
+    }
+  })
+  // Stream menjadi body response
+  return ctx.send.custom(stream, {
+    headers: {
+      'Content-Type': 'text/plain'
+    }
+  })
+}
+```
+
+Untuk streaming template, pakai [`ctx.render()`](/id/core-concepts/context-object#merender-template) dengan `stream: true` alih-alih, yang menangani mesin DVE dan content type untukmu.
 
 ## Response Biner
 
@@ -64,22 +88,6 @@ export function GET(ctx: Context): Response {
       'Content-Type': 'application/octet-stream'
     }
   })
-}
-```
-
-## Response Kosong (No Content)
-
-```typescript twoslash
-import type { Context } from '@neabyte/deserve'
-// ---cut---
-export function GET(ctx: Context): Response {
-  // 204 mengirim body null
-  return ctx.send.custom(
-    null,
-    {
-      status: 204
-    }
-  )
 }
 ```
 
@@ -99,22 +107,11 @@ export function GET(ctx: Context): Response {
 }
 ```
 
-## Menggabungkan Header Context dan Opsi Kustom
+## Tanda Tangan Method
 
-Header yang diatur lewat `ctx.setHeader()` digabung dengan header dari parameter opsi:
-
-```typescript twoslash
-import type { Context } from '@neabyte/deserve'
-// ---cut---
-export function GET(ctx: Context): Response {
-  ctx.setHeader('X-Context-Header', 'from-context')
-  return ctx.send.custom('Body', {
-    headers: {
-      'X-Options-Header': 'from-options'
-    }
-  })
-  // Response membawa kedua header
-}
+```typescript
+ctx.send.custom(body: BodyInit | null, options?: SendInit): Response
 ```
 
-Header opsi diutamakan di atas header context saat keduanya bentrok.
+- **body** - nilai `BodyInit` apa pun (string, `Blob`, `BufferSource`, `ReadableStream`, dll.) atau `null`
+- **options** - `status` dan `headers` opsional

@@ -16,7 +16,7 @@ Tanpa panggilan ke `router.catch()`, Deserve menangani setiap error dengan respo
 import { Router } from '@neabyte/deserve'
 
 const router = new Router({
-  routesDir: './routes'
+  routes: { directory: './routes' }
 })
 
 // Tanpa router.catch, default mengambil alih
@@ -34,7 +34,7 @@ Response error default (tanpa `router.catch()` khusus) mengikuti header `Accept`
 Juga:
 
 - **Status Code**: Mempertahankan status code error asli (404, 500, dll.)
-- **Header**: Mencakup header yang diatur lewat `ctx.setHeader()` sebelum error
+- **Header**: Mencakup header yang diatur lewat `ctx.set.header()` sebelum error
 
 ```typescript
 // Contoh response default (klien minta JSON)
@@ -84,17 +84,17 @@ Ketika path cocok dengan sebuah rute tapi metodenya tidak punya handler, respons
 
 ### 422 - Validasi Gagal
 
-Ketika kontrak [validasi](/id/middleware/validation/overview) menolak input request, response default menambahkan array `errors` yang mendaftar tiap alasan kegagalan:
+Ketika kontrak [validasi](/id/middleware/validation/overview) menolak input request, response default adalah body problem-details polos dengan status 422:
 
 ```typescript
 // POST /users dengan body tidak valid
 // Status: 422
 // Content-Type: application/problem+json
-// Body: { "type": "about:blank", "title": "...", "status": 422,
-//         "instance": "/users", "errors": ["name must not be empty"] }
+// Body: { "type": "about:blank", "title": "Unprocessable Entity",
+//         "status": 422, "instance": "/users" }
 ```
 
-Hanya 422 yang membawa `errors`, dan setiap status lain tetap berbody tanpa alasan. Bagaimana sebuah kontrak menghasilkan alasan itu ada di [Membaca Data Tervalidasi](/id/middleware/validation/reading-data#cara-kegagalan-muncul).
+Body default tidak pernah mendaftar alasan kegagalan. Alasan itu menumpang di `error.error.cause` sebagai array string, jadi sebuah [`router.catch()`](/id/error-handling/object-details#error-validasi) khusus membacanya untuk membangun response tingkat field. Bagaimana sebuah kontrak menghasilkan alasan itu ada di [Membaca Data Tervalidasi](/id/middleware/validation/reading-data#cara-kegagalan-muncul).
 
 ### 500 - Error Server
 

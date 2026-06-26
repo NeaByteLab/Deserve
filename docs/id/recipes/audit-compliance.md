@@ -1,12 +1,12 @@
 ---
-description: 'Ubah observability bus Deserve jadi jejak audit tingkat kepatuhan, lalu alirkan ke store milik sendiri, sebuah SIEM, atau sebuah WAF.'
+description: 'Ubah observability bus Deserve menjadi jejak audit tingkat kepatuhan, lalu alirkan ke store milik sendiri, sebuah SIEM, atau sebuah WAF.'
 ---
 
 # Audit Kepatuhan
 
 Kerja kepatuhan mengajukan satu pertanyaan sulit ke setiap server: apa yang terjadi, kapan, dan bisakah dibuktikan nanti. Deserve menjawabnya di sumber. Setiap kesalahan subsistem, setiap request yang selesai, dan setiap terminasi diri yang diblokir tiba di satu [observability bus](/id/middleware/observability/overview), terstruktur dan bercap waktu pada saat ia menyala.
 
-Pembingkaian ini penting, jadi layak dinyatakan terang. Deserve bukan [SIEM](https://csrc.nist.gov/glossary/term/security_information_and_event_management) dan tidak lebih tahan lama dari satu. Yang ia berikan adalah *input* SIEM paling rapi yang bisa diserahkan sebuah framework. Data yang meninggalkan bus lebih bersih dan lebih lengkap dari yang dipancarkan kebanyakan framework, karena ia membawa perilaku framework dan kesalahan aplikasi sekaligus, masing-masing di [kanal internal atau external](/id/middleware/observability/events) yang bersih sehingga jalur alert tidak pernah tenggelam dalam lalu lintas rutin. Penyimpanan tahan lama tetap tanggung jawab operator, tapi yang sampai ke penyimpanan itu berangkat jujur.
+Pembingkaian ini penting, jadi layak dinyatakan terang. Deserve bukan [SIEM](https://csrc.nist.gov/glossary/term/security_information_and_event_management) dan tidak lebih tahan lama dari satu SIEM. Yang ia berikan adalah *input* SIEM paling rapi yang bisa diserahkan sebuah framework. Data yang meninggalkan bus lebih bersih dan lebih lengkap dari yang dipancarkan kebanyakan framework, karena ia membawa perilaku framework dan kesalahan aplikasi sekaligus, masing-masing di [kanal internal atau external](/id/middleware/observability/events) yang bersih sehingga jalur alert tidak pernah tenggelam dalam lalu lintas rutin. Penyimpanan tahan lama tetap tanggung jawab operator, tapi yang sampai ke penyimpanan itu berangkat jujur.
 
 ## Apa yang Sudah Ditangkap Bus
 
@@ -14,9 +14,9 @@ Satu listener [`router.on()`](/id/middleware/observability/overview) melihat sel
 
 | Kebutuhan kepatuhan          | Event yang menjawabnya                                                             |
 | ---------------------------- | ---------------------------------------------------------------------------------- |
-| Siapa melakukan apa, kapan   | [`request:complete`](/id/middleware/observability/events#request) dengan `method`, `url`, `statusCode`, `durationMs`, dan `ip` opsional |
-| Event relevan-keamanan       | [`session:invalid`](/id/middleware/observability/events#middleware), [`csrf:rule-error`](/id/middleware/observability/events#middleware), [`process:error`](/id/middleware/observability/events#process) |
-| Kegagalan dan kesalahan      | [`request:error`](/id/middleware/observability/events#request), [`worker:crash`](/id/middleware/observability/events#worker), [`view:error`](/id/middleware/observability/events#view) |
+| Siapa melakukan apa, kapan   | [`request:completed`](/id/middleware/observability/events#request) dengan `method`, `url`, `statusCode`, `durationMs`, dan `ip` opsional |
+| Event relevan-keamanan       | [`session:invalid`](/id/middleware/observability/events#middleware-keamanan), [`csrf:failed`](/id/middleware/observability/events#middleware-keamanan), [`process:failed`](/id/middleware/observability/events#process) |
+| Kegagalan dan kesalahan      | [`request:failed`](/id/middleware/observability/events#request), [`worker:crashed`](/id/middleware/observability/events#worker), [`view:failed`](/id/middleware/observability/events#view) |
 | Garis waktu yang dapat disusun | Setiap event membawa `timestamp` dalam milidetik epoch dan tiba terurut            |
 
 Tidak ada yang perlu dikabelkan di dalam handler. Kesalahan menyala sendiri, itulah sebabnya cookie yang dirusak atau `Deno.exit` yang diblokir muncul tanpa satu baris logging pun di rute. Daftar lengkapnya ada di [Referensi Event](/id/middleware/observability/events).
@@ -29,7 +29,7 @@ Listener audit punya satu tugas: menangkap setiap event sebagai rekaman terstruk
 import { Router } from '@neabyte/deserve'
 
 const router = new Router({
-  routesDir: './routes'
+  routes: { directory: './routes' }
 })
 
 // Satu rekaman audit per event
@@ -61,7 +61,7 @@ Sink tahan lama paling sederhana adalah yang dimiliki dari ujung ke ujung. Tamba
 import { Router } from '@neabyte/deserve'
 
 const router = new Router({
-  routesDir: './routes'
+  routes: { directory: './routes' }
 })
 // ---cut---
 // Buka log audit sekali, tambah-saja
@@ -91,7 +91,7 @@ Sebuah [SIEM](https://csrc.nist.gov/glossary/term/security_information_and_event
 import { Router } from '@neabyte/deserve'
 
 const router = new Router({
-  routesDir: './routes'
+  routes: { directory: './routes' }
 })
 // ---cut---
 const endpoint = 'https://http-inputs-acme.splunkcloud.com/services/collector/event'
@@ -119,18 +119,18 @@ Endpoint dan bentuk auth mengikuti vendor. Kolektor umum dengan API ingest HTTP 
 
 ## Opsi 3 - Beri Makan Loop Keputusan WAF
 
-Sebuah [Web Application Firewall](https://owasp.org/www-community/Web_Application_Firewall) memblokir lalu lintas buruk sebelum sampai ke aplikasi, dan bus memberinya sinyal untuk bertindak. Lonjakan event `request:error` dari satu `ip`, atau kesalahan `csrf:rule-error` berulang, persis pola yang diincar aturan WAF. Teruskan jenis yang relevan-keamanan ke API firewall untuk menggerakkan daftar blokir:
+Sebuah [Web Application Firewall](https://owasp.org/www-community/Web_Application_Firewall) memblokir lalu lintas buruk sebelum sampai ke aplikasi, dan bus memberinya sinyal untuk bertindak. Lonjakan event `request:failed` dari satu `ip`, atau kesalahan `csrf:failed` berulang, persis pola yang diincar aturan WAF. Teruskan jenis yang relevan-keamanan ke API firewall untuk menggerakkan daftar blokir:
 
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
 const router = new Router({
-  routesDir: './routes'
+  routes: { directory: './routes' }
 })
 // ---cut---
 router.on((event) => {
   // Hanya teruskan kesalahan relevan-keamanan
-  if (event.kind === 'csrf:rule-error' || event.kind === 'request:error') {
+  if (event.kind === 'csrf:failed' || event.kind === 'request:failed') {
     void fetch('https://waf.internal/signals', {
       method: 'POST',
       headers: {
@@ -156,4 +156,3 @@ Menjaga klaim tetap lurus membuat resep ini tepercaya:
 - **Input, bukan analisis.** Bus menghasilkan rekaman bersih. Korelasi, retensi, dan alerting milik store, SIEM, atau WAF yang menerimanya.
 
 Yang dijamin Deserve adalah bagian yang biasanya gagal dibuat framework: data yang sampai ke penyimpanan itu terstruktur, bercap waktu di sumber, terpisah per kanal, dan lengkap di seluruh perilaku framework dan kesalahan aplikasi. Semua dapat diaudit karena semua memancar.
-

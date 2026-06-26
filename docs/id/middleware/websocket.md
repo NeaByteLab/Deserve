@@ -22,7 +22,7 @@ router.use(
   Mware.websocket({
     listener: '/ws',
     onConnect: (socket, event, ctx) => {
-      console.log('WebSocket connected:', ctx.url)
+      console.log('WebSocket connected:', ctx.get.url())
       socket.send('Welcome')
     }
   })
@@ -69,7 +69,7 @@ Menangani koneksi WebSocket baru:
 
 ```typescript
 onConnect: (socket: WebSocket, event: Event, ctx: Context) => {
-  console.log('Client connected:', ctx.url)
+  console.log('Client connected:', ctx.get.url())
   socket.send(JSON.stringify({
     type: 'welcome',
     message: 'Connected'
@@ -113,7 +113,7 @@ Menangani error WebSocket:
 
 ```typescript
 onError: (socket: WebSocket, event: Event, ctx: Context) => {
-  console.error('WebSocket error:', event, 'on', ctx.url)
+  console.error('WebSocket error:', event, 'on', ctx.get.url())
 }
 ```
 
@@ -123,14 +123,14 @@ onError: (socket: WebSocket, event: Event, ctx: Context) => {
 import { Mware, Router } from '@neabyte/deserve'
 
 const router = new Router({
-  routesDir: './routes'
+  routes: { directory: './routes' }
 })
 
 router.use(
   Mware.websocket({
     listener: '/ws',
     onConnect: (socket, event, ctx) => {
-      console.log(`WebSocket connected: ${ctx.url}`)
+      console.log(`WebSocket connected: ${ctx.get.url()}`)
       socket.send(
         JSON.stringify({
           type: 'welcome',
@@ -139,7 +139,7 @@ router.use(
       )
     },
     onMessage: (socket, event, ctx) => {
-      console.log(`Message from ${ctx.url}:`, event.data)
+      console.log(`Message from ${ctx.get.url()}:`, event.data)
       try {
         const data = JSON.parse(event.data as string)
         if (data.type === 'ping') {
@@ -168,10 +168,10 @@ router.use(
       }
     },
     onDisconnect: (socket, event, ctx) => {
-      console.log(`WebSocket disconnected: ${ctx.url} code=${event.code} reason=${event.reason}`)
+      console.log(`WebSocket disconnected: ${ctx.get.url()} code=${event.code} reason=${event.reason}`)
     },
     onError: (socket, event, ctx) => {
-      console.error(`WebSocket error on ${ctx.url}:`, event)
+      console.error(`WebSocket error on ${ctx.get.url()}:`, event)
     }
   })
 )
@@ -227,10 +227,12 @@ onConnect: (socket, event, ctx) => {
 
 Handshake yang ditolak diarahkan lewat error handler alih-alih melempar saat setup:
 
-- **Origin tidak diizinkan** gagal dengan **403** dan pesan `WebSocket handshake rejected because the Origin is not allowed`.
-- **Upgrade tidak valid** gagal dengan **400** dan pesan `WebSocket handshake is malformed because ...`.
+- **Origin tidak diizinkan** gagal dengan **403** dan pesan `WebSocket handshake rejected because the Origin is not allowed`
+- **Versi hilang** gagal dengan **400** dan pesan `WebSocket handshake requires Sec-WebSocket-Version 13`
+- **Versi salah** mengembalikan **426 Upgrade Required** dengan header `Sec-WebSocket-Version: 13` dan `Upgrade: websocket`
+- **Upgrade malformed** gagal dengan **400** dan pesan `WebSocket handshake is malformed because ...`
 
-Keduanya dialirkan ke [error handler terpusat](/id/error-handling/object-details), jadi bentuk response di sana atau andalkan [perilaku default](/id/error-handling/default-behavior).
+Tiap penolakan juga memancarkan event `websocket:rejected` dengan alasannya, dibahas di [Referensi Event](/id/middleware/observability/events). Semua kegagalan dialirkan ke [error handler terpusat](/id/error-handling/object-details), jadi bentuk response di sana atau andalkan [perilaku default](/id/error-handling/default-behavior).
 
 ## Integrasi Dengan CORS
 

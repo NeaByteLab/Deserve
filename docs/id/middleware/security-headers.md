@@ -85,7 +85,7 @@ router.use(
 
 ## Opsi Konfigurasi
 
-Setiap opsi header punya tiga bentuk. Nilai string mengatur header ke nilai itu. `false` menghilangkan header, bahkan yang punya default aman. Membiarkan opsi `undefined` mempertahankan default-nya ketika ada, atau melewatinya jika tidak. Empat header tanpa default - `contentSecurityPolicy`, `crossOriginEmbedderPolicy`, `strictTransportSecurity`, dan `xPoweredBy` - tidak aktif sampai sebuah nilai diberikan.
+Setiap opsi header punya tiga bentuk. Nilai string mengatur header ke nilai itu. `false` menghilangkan header, bahkan yang punya default aman. Membiarkan opsi `undefined` mempertahankan default-nya ketika ada, atau melewatinya jika tidak. Tiga header tanpa default - `contentSecurityPolicy`, `crossOriginEmbedderPolicy`, dan `strictTransportSecurity` - tidak aktif sampai sebuah nilai diberikan.
 
 ### `contentSecurityPolicy`
 
@@ -183,21 +183,13 @@ Kebijakan lintas-domain untuk Flash:
 xPermittedCrossDomainPolicies: 'none' // atau 'master-only', 'all'
 ```
 
-### `xPoweredBy`
-
-Mati secara bawaan. Atur string untuk mengiklankan nilai, atau biarkan untuk tanpa header:
-
-```typescript
-xPoweredBy: 'Custom' // Tambah nilai khusus
-```
-
 ## Contoh Lengkap
 
 ```typescript twoslash
 import { Mware, Router } from '@neabyte/deserve'
 
 const router = new Router({
-  routesDir: './routes'
+  routes: { directory: './routes' }
 })
 
 // Terapkan set header yang luas
@@ -223,6 +215,5 @@ await router.serve(8000)
 - **Nilai string**: mengatur header ke nilai persis itu, menimpa default mana pun
 - **Diatur ke `false`**: menghilangkan header, bahkan yang punya default
 - **Undefined**: mempertahankan default ketika header punya satu, jika tidak melewatinya
-- **X-Powered-By**: mati secara bawaan, atur string untuk menambahnya atau biarkan untuk tanpa header
 - **HSTS**: terapkan `strictTransportSecurity` hanya pada server HTTPS
 - **CSP**: Content Security Policy bisa jadi kompleks, jadi uji dengan teliti

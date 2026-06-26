@@ -52,7 +52,7 @@ Host biasanya menetapkan port lewat variabel `PORT`. Memanggil `serve()` tanpa p
 import { Router } from '@neabyte/deserve'
 
 const router = new Router({
-  routesDir: './routes'
+  routes: { directory: './routes' }
 })
 // ---cut---
 // Baca env PORT, fallback ke 8000
@@ -79,4 +79,4 @@ Hasilnya berjalan langsung dari `./server` dengan flag sudah di dalam. Satu cata
 
 ## Mengawasinya Berjalan
 
-Produksi butuh mata pada server tanpa membanjiri konsol dengan cetakan, yang merupakan tujuan [bus event observability](/id/middleware/observability/overview). Satu listener [`router.on()`](/id/middleware/observability/events) meneruskan event lifecycle, request, dan kesalahan ke apa pun yang mengumpulkan log, dan [pelaporan error](/id/middleware/observability/errors) merutekan kegagalan ke tempat yang sama. Berhenti bersih saat deploy dicakup oleh [Graceful Shutdown](/id/recipes/graceful-shutdown), dan memindahkan kerja berat tanpa memblokir server dicakup oleh [worker pool](/id/core-concepts/worker-pool).
+Produksi butuh mata pada server tanpa membanjiri konsol dengan cetakan, yang merupakan tujuan [bus event observability](/id/middleware/observability/overview). Satu listener [`router.on()`](/id/middleware/observability/events) meneruskan event lifecycle, request, dan kesalahan ke apa pun yang mengumpulkan log, dan [pelaporan error](/id/middleware/observability/errors) merutekan kegagalan ke tempat yang sama. Berhenti bersih saat deploy dicakup oleh [Graceful Shutdown](/id/recipes/graceful-shutdown), dan memindahkan kerja berat tanpa memblokir server dicakup oleh [worker pool](/id/recipes/worker-pool).

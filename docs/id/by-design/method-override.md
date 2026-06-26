@@ -22,7 +22,7 @@ Deserve juga merutekan pada `req.method` asli, yang tak bisa ditulis ulang handl
 
 ## Setiap Metode Adalah Rute
 
-Sebuah file rute mengekspor satu fungsi per metode, dan namanya adalah metodenya. Tak ada tabel untuk didaftarkan dan tak ada verb untuk diterjemahkan. Sebuah file seperti `items/[id].ts` membaca `id`-nya dari path lewat [`ctx.param`](/id/core-concepts/context-object#akses-data-request).
+Sebuah file rute mengekspor satu fungsi per metode, dan namanya adalah metodenya. Tak ada tabel untuk didaftarkan dan tak ada verb untuk diterjemahkan. Sebuah file seperti `items/[id].ts` membaca `id`-nya dari path lewat [`ctx.get.param`](/id/core-concepts/context-object#ctx-get-param-key).
 
 ```typescript twoslash
 import type { Context } from '@neabyte/deserve'
@@ -30,7 +30,7 @@ import type { Context } from '@neabyte/deserve'
 // Baca satu item lewat id
 export function GET(ctx: Context): Response {
   return ctx.send.json({
-    id: ctx.param('id')
+    id: ctx.get.param('id')
   })
 }
 
@@ -67,7 +67,7 @@ await fetch(
 )
 ```
 
-Membangun stateless atau stateful adalah gerakan yang sama, tinggal tambahkan filenya. Sebuah endpoint REST stateless adalah handler yang membaca request dan membalas, sementara alur stateful menambah [middleware session](/id/middleware/session) dan membaca data per-pengguna dari [`ctx.state`](/id/core-concepts/context-object#berbagi-state). Metodenya tetap asli di kedua jalur, tanpa apa pun untuk disamarkan saat masuk.
+Membangun stateless atau stateful adalah gerakan yang sama, tinggal tambahkan filenya. Sebuah endpoint REST stateless adalah handler yang membaca request dan membalas, sementara alur stateful menambah [middleware session](/id/middleware/session) dan membaca data per-pengguna lewat `ctx.get.session()`. Metodenya tetap asli di kedua jalur, tanpa apa pun untuk disamarkan saat masuk.
 
 Sebuah API REST atau RESTful penuh muncul dari sini tanpa konfigurasi tambahan. Verb-nya sudah sejajar dengan aksinya, `GET` untuk membaca, `POST` untuk membuat, `PUT` dan `PATCH` untuk memperbarui, `DELETE` untuk menghapus, jadi sebuah resource hanyalah file rute dengan handler itu. Perilakunya terbaca sama di setiap endpoint, yang membuat seluruh API terasa mulus.
 

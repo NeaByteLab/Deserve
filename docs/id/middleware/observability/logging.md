@@ -6,22 +6,22 @@ description: "Ubah event request Deserve menjadi log request terstruktur."
 
 Satu langganan [`router.on()`](/id/middleware/observability/overview) mengubah setiap request yang selesai menjadi access log terstruktur, tanpa kode logging di dalam handler.
 
-![Setiap request yang selesai memancarkan request:complete dengan metrik selaras OpenTelemetry, dan request dengan status 400 atau lebih juga memancarkan request:error yang membawa error asli, jadi satu listener router.on menyebarkan amplop yang sama ke satu baris access log, peringatan request lambat yang disaring berdasarkan durasi, dan laporan error](/diagrams/obs-request-lifecycle.png)
+![Setiap request yang selesai memancarkan request:completed dengan metrik selaras OpenTelemetry, dan request dengan status 400 atau lebih juga memancarkan request:failed yang membawa error asli, jadi satu listener router.on menyebarkan amplop yang sama ke satu baris access log, peringatan request lambat yang disaring berdasarkan durasi, dan laporan error](/diagrams/obs-request-lifecycle.png)
 
 ## Access Log Dasar
 
-Dengarkan `request:complete` dan cetak satu baris per request:
+Dengarkan `request:completed` dan cetak satu baris per request:
 
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
 const router = new Router({
-  routesDir: './routes'
+  routes: { directory: './routes' }
 })
 
 // Satu baris log per request selesai
 router.on((event) => {
-  if (event.kind === 'request:complete') {
+  if (event.kind === 'request:completed') {
     const { method, url, statusCode, durationMs } = event.metadata as {
       method: string
       url: string
@@ -43,11 +43,11 @@ Pancarkan JSON ketika pipeline log mengharapkan rekaman terstruktur:
 import { Router } from '@neabyte/deserve'
 
 const router = new Router({
-  routesDir: './routes'
+  routes: { directory: './routes' }
 })
 // ---cut---
 router.on((event) => {
-  if (event.kind === 'request:complete') {
+  if (event.kind === 'request:completed') {
     // Teruskan seluruh metadata sebagai JSON
     console.log(JSON.stringify({
       at: event.timestamp,
@@ -67,12 +67,12 @@ Saring berdasarkan durasi untuk memunculkan hanya lalu lintas lambat:
 import { Router } from '@neabyte/deserve'
 
 const router = new Router({
-  routesDir: './routes'
+  routes: { directory: './routes' }
 })
 // ---cut---
 router.on((event) => {
   // Tandai request lebih lambat dari 500ms
-  if (event.kind === 'request:complete') {
+  if (event.kind === 'request:completed') {
     const { url, durationMs } = event.metadata as { url: string; durationMs: number }
     if (durationMs > 500) {
       console.warn(`SLOW ${url} ${Math.round(durationMs)}ms`)

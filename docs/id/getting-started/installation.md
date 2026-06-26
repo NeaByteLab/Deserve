@@ -8,13 +8,13 @@ Tambahkan Deserve ke proyek Deno dalam satu perintah, lalu lanjut ke gagasan di 
 
 ## Prasyarat
 
-- [Deno](https://github.com/denoland/deno_install) 2.7.0+ terpasang
+- [Deno](https://github.com/denoland/deno_install) 2.8.3+ terpasang
 
 Tetap pada rilis Deno terbaru itu ide bagus, karena Deserve berjalan di atas runtime dan setiap pembaruan performa Deno mengalir langsung ke Deserve.
 
 ## Install Deserve
 
-Package manager Deno menambahkan Deserve ke proyek. Perintah ini menulis dependensi ke `deno.json` dan menghasilkan `deno.lock`:
+[Package manager Deno](https://docs.deno.com/runtime/reference/cli/add/) menambahkan Deserve ke proyek. Perintah ini menulis dependensi ke `deno.json` dan menghasilkan `deno.lock`:
 
 ::: code-group
 

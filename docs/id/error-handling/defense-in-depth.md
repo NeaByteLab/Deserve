@@ -6,7 +6,7 @@ description: "Penanganan error berlapis di Deserve untuk menjaga service tetap t
 
 Error di Deserve melewati beberapa lapisan, dan tiap lapisan adalah kesempatan untuk menangkap, membentuk, atau mencatat kegagalan. Ketika satu lapisan meloloskan error, lapisan berikutnya tetap menahan, jadi server terus merespons dan tidak pernah crash.
 
-![Lima lapis pertahanan error: try/catch route handler, WrapMware labeled catch, custom handler router.catch, default handler dengan pesan tersamar, dan process guard yang tidak pernah crash](/diagrams/defense-in-depth.png)
+![Lima lapis pertahanan error: try/catch route handler, Wrap.apply labeled catch, custom handler router.catch, default handler dengan pesan tersamar, dan process guard yang tidak pernah crash](/diagrams/defense-in-depth.png)
 
 ## Lapis 1 - Route Handler
 
@@ -17,7 +17,7 @@ import type { Context } from '@neabyte/deserve'
 // ---cut---
 export async function POST(ctx: Context): Promise<Response> {
   try {
-    const data = await ctx.body()
+    const data = await ctx.get.body()
     return ctx.send.json({
       success: true
     })
@@ -39,16 +39,16 @@ Apa pun yang dilempar melewati titik ini diteruskan ke lapisan berikutnya.
 
 ## Lapis 2 - Middleware Berlabel
 
-`WrapMware` membungkus sebuah middleware sehingga lemparan menjadi error berlabel yang dialihkan ke error handler. Label menunjuk langsung ke middleware yang gagal:
+`Wrap.apply` membungkus sebuah middleware sehingga lemparan menjadi error berlabel yang dialihkan ke error handler. Label menunjuk langsung ke middleware yang gagal:
 
 ```typescript twoslash
-import { Router, WrapMware } from '@neabyte/deserve'
+import { Router, Wrap } from '@neabyte/deserve'
 
 const router = new Router()
 // ---cut---
 // Lemparan di sini sampai ke router.catch dengan label
-const auth = WrapMware('Auth', async (ctx, next) => {
-  if (!ctx.header('authorization')) {
+const auth = Wrap.apply('Auth', async (ctx, next) => {
+  if (!ctx.get.header('authorization')) {
     throw new Error('Missing token')
   }
   return await next()
@@ -64,7 +64,7 @@ Lihat [Global Middleware](/id/middleware/global#membungkus-middleware-dengan-pen
 `router.catch()` menerima setiap error yang tak tertangkap dan membentuk response klien. Handler ini berjalan untuk error handler, error middleware, not-found, dan error berkas statis sama saja:
 
 ```typescript twoslash
-import { Router } from '@neabyte/deserve'
+import { Router, type HttpStatusCode } from '@neabyte/deserve'
 
 const router = new Router()
 // ---cut---
@@ -75,7 +75,7 @@ router.catch((ctx, error) => {
       error: 'Something went wrong'
     },
     {
-      status: error.statusCode
+      status: error.statusCode as HttpStatusCode
     }
   )
 })
@@ -93,11 +93,11 @@ Ketika tidak ada `router.catch()` yang diatur, atau handler khusus mengembalikan
 // 404 -> "Not Found"
 ```
 
-Response default juga membawa [security headers](/id/middleware/security-headers) bawaan. Lihat [Perilaku Default](/id/error-handling/default-behavior) untuk bentuk response lengkapnya.
+Ketika middleware [security headers](/id/middleware/security-headers) berjalan sebelum kesalahan, header-nya tetap ada di response error juga. Lihat [Perilaku Default](/id/error-handling/default-behavior) untuk bentuk response lengkapnya.
 
 ## Lapis 5 - Process Guard
 
-Lapisan terluar berjalan tingkat proses. Router yang sedang melayani menjebak unhandled rejection, uncaught error, dan upaya terminasi yang diblokir, lalu melaporkan tiap kejadian sebagai event `process:error` alih-alih membiarkan proses mati:
+Lapisan terluar berjalan tingkat proses. Router yang sedang melayani menjebak unhandled rejection, uncaught error, dan upaya terminasi yang diblokir, lalu melaporkan tiap kejadian sebagai event `process:failed` alih-alih membiarkan proses mati:
 
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
@@ -105,7 +105,7 @@ import { Router } from '@neabyte/deserve'
 const router = new Router()
 // ---cut---
 router.on((event) => {
-  if (event.kind === 'process:error') {
+  if (event.kind === 'process:failed') {
     const { origin, error } = event.metadata as { origin: string; error: Error }
     console.error(`process fault [${origin}]`, error.message)
   }
@@ -121,7 +121,7 @@ Membentuk response dan mencatat kegagalan adalah tugas terpisah. `router.catch()
 ![Satu request gagal menyebar ke dua hook independen, di mana router.catch membentuk Response yang diterima klien dengan status dan body terkontrol, dan router.on mencatat kegagalan yang sama ke log dan metrik tanpa memengaruhi balasan](/diagrams/obs-catch-vs-on.png)
 
 ```typescript twoslash
-import { Router } from '@neabyte/deserve'
+import { Router, type HttpStatusCode } from '@neabyte/deserve'
 
 const router = new Router()
 // ---cut---
@@ -132,14 +132,14 @@ router.catch((ctx, info) => {
       error: 'Something went wrong'
     },
     {
-      status: info.statusCode
+      status: info.statusCode as HttpStatusCode
     }
   )
 })
 
 // Catat kegagalan untuk nanti
 router.on((event) => {
-  if (event.kind === 'request:error') {
+  if (event.kind === 'request:failed') {
     const { url, error } = event.metadata as { url: string; error?: Error }
     console.error(url, error?.message)
   }

@@ -14,9 +14,9 @@ Jadi ID acak baik sebagai label log tapi salah sebagai sumber kebenaran. Deserve
 
 ## IP Adalah Sumber Kebenaran
 
-Setiap request membawa [`ctx.ip`](/id/core-concepts/context-object#ip-klien), alamat klien yang diresolusi. Nilai itu tak dibaca mentah dari header. Framework menelusuri rantai forwarding lewat hop tepercaya dan berhenti di hop pertama yang tak dipercayainya, jadi header palsu dari peer tak tepercaya tak pernah menang.
+Setiap request membawa [`ctx.get.ip()`](/id/core-concepts/context-object#ctx-get-ip-options), alamat klien yang diresolusi. Nilai itu tak dibaca mentah dari header. Framework menelusuri rantai forwarding lewat hop tepercaya dan berhenti di hop pertama yang tak dipercayainya, jadi header palsu dari peer tak tepercaya tak pernah menang.
 
-- **Tanpa proxy tepercaya** - `ctx.ip` adalah peer TCP langsung, dan header forwarding diabaikan sepenuhnya.
+- **Tanpa proxy tepercaya** - `ctx.get.ip()` adalah peer TCP langsung, dan header forwarding diabaikan sepenuhnya.
 - **Di belakang proxy tepercaya** - rantai ditelusuri kanan ke kiri lewat hop tepercaya, menghormati [`X-Forwarded-For`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Forwarded-For), header `Forwarded` [RFC 7239](https://www.rfc-editor.org/rfc/rfc7239), dan header IP-tunggal seperti `cf-connecting-ip`.
 - **Dikonfigurasi sekali** - [`trustProxy`](/id/getting-started/server-configuration#resolusi-ip-klien) memutuskan peer mana yang dianggap tepercaya, jadi mempercayainya adalah pilihan sengaja, bukan default.
 
@@ -28,18 +28,18 @@ Setiap request mendapat [Context](/id/core-concepts/context-object)-nya sendiri,
 
 ## Mengkorelasi Tanpa ID Acak
 
-Untuk mengkorelasi log, [event siklus hidup](/id/middleware/observability/overview) sudah membawa apa yang dimaksudkan request ID. Setiap event `request:complete` menyertakan `ip` yang diresolusi, `url`, dan `durationMs` di metadata-nya, plus `timestamp` di amplopnya, jadi sebuah baris log mengidentifikasi request dari nilai asli ketimbang yang dibuat-buat.
+Untuk mengkorelasi log, [event siklus hidup](/id/middleware/observability/overview) sudah membawa apa yang dimaksudkan request ID. Setiap event `request:completed` menyertakan `ip` yang diresolusi, `url`, dan `durationMs` di metadata-nya, plus `timestamp` di amplopnya, jadi sebuah baris log mengidentifikasi request dari nilai asli ketimbang yang dibuat-buat.
 
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
 const router = new Router({
-  routesDir: './routes'
+  routes: { directory: './routes' }
 })
 // ---cut---
 router.on((event) => {
   // Korelasi dengan IP dan waktu asli
-  if (event.kind === 'request:complete') {
+  if (event.kind === 'request:completed') {
     const { ip, url } = event.metadata as { ip?: string, url: string }
     console.log(`${event.timestamp} ${ip ?? 'unknown'} ${url}`)
   }
@@ -50,17 +50,16 @@ await router.serve(8000)
 
 ## Ketika Sebuah Label Memang Membantu
 
-Sebuah label berumur pendek untuk mengikat baris log dalam satu request tetap mungkin, dan label itu tinggal di [`ctx.state`](/id/core-concepts/context-object#berbagi-state) seperti nilai per-request lain. Intinya memperlakukannya sebagai kemudahan, bukan identitas, karena jawaban tepercaya adalah `ctx.ip`.
+Sebuah label berumur pendek untuk mengikat baris log tetap mungkin. Ketika handler perlu membacanya balik, [session](/id/middleware/session) bertanda tangan membawanya seperti nilai per-request lain. Intinya memperlakukannya sebagai kemudahan, bukan identitas, karena jawaban tepercaya adalah `ctx.get.ip()`.
 
 ```typescript twoslash
-import type { Context } from '@neabyte/deserve'
 import { Router } from '@neabyte/deserve'
 
 const router = new Router()
 // ---cut---
 router.use(async (ctx, next) => {
   // Label untuk log, bukan kepercayaan
-  ctx.state.label = crypto.randomUUID()
+  await ctx.set.session({ label: crypto.randomUUID() })
   return await next()
 })
 ```

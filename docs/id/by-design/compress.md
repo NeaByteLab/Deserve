@@ -57,14 +57,14 @@ import type { Context } from '@neabyte/deserve'
 // ---cut---
 export function GET(ctx: Context): Response {
   // Larang lapisan apa pun menulis ulang body
-  ctx.setHeader('Cache-Control', 'no-transform')
+  ctx.set.header('Cache-Control', 'no-transform')
   return ctx.send.json({
     message: 'sent verbatim'
   })
 }
 ```
 
-Mengatur header lewat [`ctx.setHeader`](/id/core-concepts/context-object#header-response) adalah jalur yang sama dipakai di tempat lain, jadi opt-out ini terbaca seperti header lain.
+Mengatur header lewat [`ctx.set.header`](/id/core-concepts/context-object#ctx-set-header-key-value) adalah jalur yang sama dipakai di tempat lain, jadi opt-out ini terbaca seperti header lain.
 
 ## Body yang Sudah Ter-encode
 

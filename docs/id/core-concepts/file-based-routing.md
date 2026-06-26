@@ -31,7 +31,7 @@ routes/
 - `about.ts`, `about.js`, `about.mjs` → `/about`
 - `users.ts`, `users.js`, `users.cjs` → `/users`
 
-Semua ekstensi yang didukung (`.ts`, `.js`, `.tsx`, `.jsx`, `.mjs`, `.cjs`) bekerja identik.
+Semua ekstensi yang didukung (`.ts`, `.js`, `.tsx`, `.jsx`, `.mjs`, `.cjs`) bekerja identik. Nama berkas hanya boleh punya satu titik yang memisahkan nama dari ekstensi, jadi `about.ts` termuat tapi `about.config.ts` tidak.
 
 ### 2. Folder Membuat Rute Bersarang
 
@@ -44,7 +44,7 @@ Semua ekstensi yang didukung (`.ts`, `.js`, `.tsx`, `.jsx`, `.mjs`, `.cjs`) beke
 - `[userId].ts` → parameter `:userId`
 - `[postId].ts` → parameter `:postId`
 
-Segmen dinamis dicocokkan oleh [Pola Rute](/id/core-concepts/route-patterns) dan dibaca dengan `ctx.param()` dari [Penanganan Request](/id/core-concepts/request-handling#parameter-rute).
+Segmen dinamis dicocokkan oleh [Pola Rute](/id/core-concepts/route-patterns) dan dibaca dengan `ctx.get.param()` dari [Penanganan Request](/id/core-concepts/request-handling#parameter-rute).
 
 ### 4. Metode HTTP Adalah Fungsi yang Diekspor
 
@@ -59,7 +59,8 @@ export function GET(ctx: Context): Response {
 }
 
 export async function POST(ctx: Context): Promise<Response> {
-  const data = await ctx.body()
+  // Baca body request yang sudah diparsing
+  const data = await ctx.get.body()
   return ctx.send.json({
     message: 'User created',
     data
@@ -70,6 +71,8 @@ export async function POST(ctx: Context): Promise<Response> {
 // export function [method](ctx: Context): Response { ... }
 ```
 
+Berkas rute wajib mengekspor minimal satu metode HTTP (`GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS`). Berkas yang namanya tidak pernah membentuk pola yang bisa dimuat, misalnya diawali `_`, dilewati saat pemindaian dan memancarkan event [`route:ignored`](/id/middleware/observability/events#rute). Berkas dengan nama yang bisa dimuat tapi tanpa metode terekspor adalah kesalahan yang layak ditangkap sejak awal, jadi pemindaian melempar `Deno.errors.InvalidData` saat startup, dan export yang bukan fungsi melempar `TypeError`.
+
 ### 5. URL Membedakan Huruf Besar dan Kecil
 
 URL membedakan huruf besar dan kecil mengikuti standar HTTP:
@@ -79,12 +82,11 @@ URL membedakan huruf besar dan kecil mengikuti standar HTTP:
 
 ### 6. Karakter Nama Berkas yang Valid
 
-Nama berkas boleh memakai karakter berikut:
+Segmen terakhir dari path rute (nama berkas tanpa ekstensi) boleh memakai karakter berikut:
 
 - `a-z`, `A-Z`, `0-9` - Karakter alfanumerik
-- `_` - Garis bawah (jangan jadi awalan segmen path - lihat di bawah)
+- `_` - Garis bawah (jangan jadi awalan segmen - lihat di bawah)
 - `-` - Strip
-- `.` - Titik
 - `~` - Tilde
 - `+` - Tanda plus
 - `[` `]` - Kurung siku untuk parameter dinamis
