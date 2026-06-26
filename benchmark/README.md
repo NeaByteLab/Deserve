@@ -83,25 +83,30 @@ npx autocannon http://localhost:8000/test -c 500 -p 10 -d 30
 
 ## Results - Deno 2.8.3
 
-`/test` is 3 runs, other routes 2 runs each, same machine and config.
+`/test` and all view routes are 3 runs each, same machine and config. View
+results reflect the include source-text cache (an included partial is read
+from disk once and reused, instead of a blocking read per request).
 
 ### JSON + CPU
 
-| Route       | Test 1  | Test 2  | Test 3  | Req/Sec (avg) | Latency (avg) | Total (avg) |
-| ----------- | ------- | ------- | ------- | ------------- | ------------- | ----------- |
-| `/test`     | 181,158 | 177,024 | 185,173 | 181,118       | 27.12 ms      | 5,439k      |
-| `/test-cpu` | 23,881  | 23,972  | 23,973  | 23,942        | 207.70 ms     | 723k        |
+| Route   | Test 1  | Test 2  | Test 3  | Req/Sec (avg) | Latency (avg) |
+| ------- | ------- | ------- | ------- | ------------- | ------------- |
+| `/test` | 188,949 | 192,243 | 193,169 | 191,454       | 25.63 ms      |
 
-Takeaway: `/test-cpu` blocks the event loop on the main thread.
+Takeaway: JSON baseline throughput on the main thread.
 
 ### Views (DVE Rendering Baseline)
 
-| Route                  | Test 1  | Test 2  | Req/Sec (avg) | Latency (avg) | Total (avg) |
-| ---------------------- | ------- | ------- | ------------- | ------------- | ----------- |
-| `/test-view`           | 141,019 | 141,755 | 141,387       | 34.86 ms      | 4.25M       |
-| `/test-view-each-meta` | 5,766   | 5,838   | 5,802         | 849.39 ms     | 179k        |
-| `/test-view-include`   | 43,876  | 44,129  | 44,003        | 112.97 ms     | 1.33M       |
-| `/test-view-expr`      | 85,852  | 81,939  | 83,896        | 59.10 ms      | 2.52M       |
+| Route                  | Test 1  | Test 2  | Test 3  | Req/Sec (avg) | Latency (avg) |
+| ---------------------- | ------- | ------- | ------- | ------------- | ------------- |
+| `/test-view`           | 141,670 | 143,979 | 144,439 | 143,363       | 34.37 ms      |
+| `/test-view-each-meta` | 6,501   | 6,424   | 6,414   | 6,446         | 765.48 ms     |
+| `/test-view-include`   | 123,678 | 123,836 | 122,950 | 123,488       | 39.98 ms      |
+| `/test-view-expr`      | 87,439  | 87,831  | 87,919  | 87,730        | 56.46 ms      |
+
+Takeaway: `/test-view-include` now runs close to the include-free
+`/test-view` baseline. Caching the include source removes the per-request
+blocking disk read that previously made composed templates far slower.
 
 ## Observability Cost (Logging On vs Off)
 
