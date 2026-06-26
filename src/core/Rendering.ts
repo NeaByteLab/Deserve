@@ -13,6 +13,8 @@ export class Rendering {
   readonly #directory: string
   /** Compiled template cache by path */
   readonly #cache = new Map<string, Types.CompileResult>()
+  /** Cached include source text by path */
+  readonly #includeCache = new Map<string, string>()
   /** Optional event emitter for render events */
   readonly #emit: Types.EventFn | null
 
@@ -26,7 +28,7 @@ export class Rendering {
     this.#directory = options.directory ?? './views'
     this.#emit = emit
     this.#dve = new DVE({
-      resolveInclude: (path) => Deno.readTextFileSync(this.#resolvePath(path)),
+      resolveInclude: (path) => this.#resolveInclude(path),
       ...(options.maxIterations !== undefined && { maxIterations: options.maxIterations }),
       ...(options.maxRenderIterations !== undefined && {
         maxRenderIterations: options.maxRenderIterations
@@ -47,7 +49,9 @@ export class Rendering {
    * @param template - Template name to invalidate
    */
   invalidate(template: string): void {
-    this.#cache.delete(this.#resolvePath(template))
+    const path = this.#resolvePath(template)
+    this.#cache.delete(path)
+    this.#includeCache.delete(path)
     if (this.#emit !== null) {
       this.#emit(Core.Observability.internalEvent('view:invalidated', { paths: [template] }))
     }
@@ -121,6 +125,23 @@ export class Rendering {
       )
     }
     return compiled
+  }
+
+  /**
+   * Resolve include source with caching.
+   * @description Reads include text once then reuses cache.
+   * @param template - Include template name to resolve
+   * @returns Raw include template source text
+   */
+  #resolveInclude(template: string): string {
+    const path = this.#resolvePath(template)
+    const cached = this.#includeCache.get(path)
+    if (cached !== undefined) {
+      return cached
+    }
+    const source = Deno.readTextFileSync(path)
+    this.#includeCache.set(path, source)
+    return source
   }
 
   /**
