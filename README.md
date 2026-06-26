@@ -25,7 +25,7 @@ See the [installation guide](https://docs-deserve.neabyte.com/getting-started/in
 Create a routes directory and export HTTP method handlers. Start the server.
 
 ```typescript
-import { Router } from 'jsr:@neabyte/deserve'
+import { Router } from '@neabyte/deserve'
 
 // Create router pointing at routes directory
 const router = new Router({ routes: { directory: './routes' } })
@@ -44,7 +44,7 @@ await router.serve(8000)
 **Example route** in `routes/hello.ts`:
 
 ```typescript
-import type { Context } from 'jsr:@neabyte/deserve'
+import type { Context } from '@neabyte/deserve'
 
 // Export GET, POST, PUT, path from file location
 export function GET(ctx: Context): Response {
