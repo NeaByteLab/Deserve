@@ -29,7 +29,10 @@ export class Watcher {
       for (const [routePattern, routePath] of pendingRemovals) {
         handler.removeRoute(routePattern)
         handler.emitEvent(
-          Core.Observability.internalEvent('route:removed', { routePath, pattern: routePattern })
+          Core.Observability.internalEvent('route:removed', {
+            path: routePath,
+            pattern: routePattern
+          })
         )
       }
       pendingRemovals.clear()

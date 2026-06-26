@@ -76,7 +76,7 @@ export class Scanner {
           if (emit !== null) {
             emit(
               Core.Observability.internalEvent('route:ignored', {
-                routePath,
+                path: routePath,
                 reason: 'route path does not match a loadable pattern'
               })
             )
@@ -88,7 +88,10 @@ export class Scanner {
         Scanner.registerHandlers(routerInstance, fileModule, routePattern, methods)
         if (emit !== null) {
           emit(
-            Core.Observability.internalEvent('route:added', { routePath, pattern: routePattern })
+            Core.Observability.internalEvent('route:added', {
+              path: routePath,
+              pattern: routePattern
+            })
           )
         }
       }

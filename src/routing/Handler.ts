@@ -194,12 +194,15 @@ export class Handler {
         Core.Constant.httpMethods
       )
       this.#events.emit(
-        Core.Observability.internalEvent('route:updated', { routePath, pattern: routePattern })
+        Core.Observability.internalEvent('route:updated', {
+          path: routePath,
+          pattern: routePattern
+        })
       )
     } catch (reloadError) {
       this.#events.emit(
         Core.Observability.internalEvent('route:failed', {
-          routePath,
+          path: routePath,
           error: reloadError instanceof Error ? reloadError : new Error(String(reloadError))
         })
       )

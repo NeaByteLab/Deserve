@@ -503,44 +503,44 @@ export type EventRequestMeta = RequestMetrics & {
 }
 
 /** Route event metadata path and pattern */
-export type EventRouteMeta = { routePath: string; pattern: string }
+export type EventRouteMeta = { path: string; pattern: string }
 
 /** Event kind to metadata schema map */
 export type EventSchemaMap = {
+  'auth:failed': { reason: AuthFailReason }
+  'body:rejected': { limit: number; declared: number | null }
+  'cors:blocked': { origin: string }
+  'csrf:failed': { rule: CsrfRuleName } & EventErrorMeta
+  'ip:denied': { ip: string }
+  'process:failed': { origin: ProcessErrorOrigin } & EventErrorMeta
+  'request:completed': EventRequestMeta
+  'request:failed': EventRequestMeta
+  'route:added': EventRouteMeta
+  'route:failed': { path: string } & EventErrorMeta
+  'route:ignored': { path: string; reason: string }
+  'route:removed': EventRouteMeta
+  'route:updated': EventRouteMeta
   'server:started': { port: number; hostname: string }
   'server:stopped': Record<never, never>
-  'route:added': EventRouteMeta
-  'route:updated': EventRouteMeta
-  'route:removed': EventRouteMeta
-  'route:ignored': { routePath: string; reason: string }
-  'route:failed': { routePath: string } & EventErrorMeta
-  'view:compiled': EventViewMeta
-  'view:rendered': EventViewMeta
-  'view:invalidated': { paths: readonly string[] }
-  'view:failed': { path: string } & EventErrorMeta
   'session:invalid': { cookieName: string; reason: SessionInvalidReason }
-  'csrf:failed': { rule: CsrfRuleName } & EventErrorMeta
-  'cors:blocked': { origin: string }
-  'auth:failed': { reason: AuthFailReason }
-  'ip:denied': { ip: string }
-  'validate:failed': { source: ValidationSource; reasons: readonly string[] }
-  'body:rejected': { limit: number; declared: number | null }
-  'websocket:rejected': { reason: WebSocketRejectReason }
   'static:missing': { path: string }
-  'process:failed': { origin: ProcessErrorOrigin } & EventErrorMeta
+  'validate:failed': { source: ValidationSource; reasons: readonly string[] }
+  'view:compiled': EventViewMeta
+  'view:failed': { path: string } & EventErrorMeta
+  'view:invalidated': { paths: readonly string[] }
+  'view:rendered': EventViewMeta
+  'websocket:rejected': { reason: WebSocketRejectReason }
   'worker:crashed': EventWorkerMeta & EventErrorMeta
   'worker:rejected': { reason: WorkerRejectReason; queueDepth: number; maxQueueDepth: number }
   'worker:respawned': EventWorkerMeta
   'worker:timeout': { timeoutMs: number } & EventWorkerMeta & EventErrorMeta
-  'request:completed': EventRequestMeta
-  'request:failed': EventRequestMeta
 }
 
 /** View event metadata path and duration */
 export type EventViewMeta = { path: string; durationMs: number }
 
 /** Worker event metadata worker index */
-export type EventWorkerMeta = { workerIndex: number }
+export type EventWorkerMeta = { index: number }
 
 /** Extracted status code and error pair */
 export type ExtractedError = Pick<ErrorInfo, 'statusCode' | 'error'>

@@ -243,7 +243,10 @@ export class Worker {
         cleanup()
         const crashError = new Deno.errors.BadResource('Worker task failed before responding')
         emit?.(
-          Core.Observability.internalEvent('worker:crashed', { workerIndex, error: crashError })
+          Core.Observability.internalEvent('worker:crashed', {
+            index: workerIndex,
+            error: crashError
+          })
         )
         reject(crashError)
       }
@@ -255,7 +258,7 @@ export class Worker {
         emit?.(
           Core.Observability.internalEvent('worker:timeout', {
             timeoutMs: taskTimeoutMs,
-            workerIndex,
+            index: workerIndex,
             error: timeoutError
           })
         )
@@ -294,6 +297,6 @@ export class Worker {
       void 0
     }
     this.#workers[workerIndex] = new Core.API.Worker(this.#scriptUrl, { type: 'module' })
-    this.#emit?.(Core.Observability.internalEvent('worker:respawned', { workerIndex }))
+    this.#emit?.(Core.Observability.internalEvent('worker:respawned', { index: workerIndex }))
   }
 }
