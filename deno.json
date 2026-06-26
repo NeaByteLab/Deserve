@@ -62,7 +62,7 @@
     "test": "deno test tests/ --allow-read --allow-net"
   },
   "imports": {
-    "@neabyte/dve": "jsr:@neabyte/dve@^0.1.0",
+    "@neabyte/dve": "jsr:@neabyte/dve@^0.1.1",
     "@neabyte/fast-router": "jsr:@neabyte/fast-router@^0.1.0",
     "@neabyte/superwatcher": "jsr:@neabyte/superwatcher@^0.1.1",
     "@neabyte/typebox": "jsr:@neabyte/typebox@^0.1.1",
