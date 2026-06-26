@@ -43,6 +43,27 @@ declare namespace Deno {
 
   function upgradeWebSocket(request: Request): { socket: WebSocket; response: Response }
 
+  interface FileInfo {
+    isFile: boolean
+    isDirectory: boolean
+    isSymlink: boolean
+    size: number
+    mtime: Date | null
+    atime: Date | null
+    birthtime: Date | null
+  }
+  function stat(path: string | URL): Promise<FileInfo>
+
+  interface NetAddr {
+    transport: 'tcp' | 'udp'
+    hostname: string
+    port: number
+  }
+  interface ServeHandlerInfo {
+    remoteAddr: NetAddr
+    completed: Promise<void>
+  }
+
   namespace errors {
     class NotFound extends Error {}
     class InvalidData extends Error {}
