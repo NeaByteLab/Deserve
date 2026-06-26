@@ -52,6 +52,14 @@ Deno.test('Rendering render honors a custom status', async () => {
   assertEquals(res.status, 201)
 })
 
+Deno.test('Rendering render reuses cached include source across renders', async () => {
+  const engine = new Core.Rendering({ directory: viewsDir })
+  const first = await engine.render('include', { name: 'A' }, {})
+  const second = await engine.render('include', { name: 'B' }, {})
+  assertEquals((await first.text()).includes('Hello A'), true)
+  assertEquals((await second.text()).includes('Hello B'), true)
+})
+
 Deno.test('Rendering render throws for a missing template', async () => {
   const engine = new Core.Rendering({ directory: viewsDir })
   let threw = false
