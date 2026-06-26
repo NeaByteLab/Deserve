@@ -262,6 +262,19 @@ export default withMermaid(
                 text: 'Recipes',
                 collapsed: true,
                 items: [
+                  {
+                    text: 'Deno Desktop',
+                    collapsed: true,
+                    items: [
+                      { text: 'Overview', link: '/recipes/desktop/overview' },
+                      { text: 'Building the App', link: '/recipes/desktop/getting-started' },
+                      { text: 'Serving the UI', link: '/recipes/desktop/serving' },
+                      { text: 'Windows, Menus, Tray', link: '/recipes/desktop/native-apis' },
+                      { text: 'Bindings and HTTP Bridge', link: '/recipes/desktop/bindings' },
+                      { text: 'Notifications and Updates', link: '/recipes/desktop/notifications-updates' },
+                      { text: 'Backends and Distribution', link: '/recipes/desktop/distribution' }
+                    ]
+                  },
                   { text: 'File Uploads', link: '/recipes/file-upload' },
                   { text: 'Streaming Data', link: '/recipes/streaming-data' },
                   { text: 'Object Storage', link: '/recipes/object-storage' },
@@ -472,6 +485,19 @@ export default withMermaid(
                 text: 'Resep',
                 collapsed: true,
                 items: [
+                  {
+                    text: 'Deno Desktop',
+                    collapsed: true,
+                    items: [
+                      { text: 'Ringkasan', link: '/id/recipes/desktop/overview' },
+                      { text: 'Membangun Aplikasi', link: '/id/recipes/desktop/getting-started' },
+                      { text: 'Menyajikan UI', link: '/id/recipes/desktop/serving' },
+                      { text: 'Jendela, Menu, Tray', link: '/id/recipes/desktop/native-apis' },
+                      { text: 'Bindings dan Jembatan HTTP', link: '/id/recipes/desktop/bindings' },
+                      { text: 'Notifikasi dan Update', link: '/id/recipes/desktop/notifications-updates' },
+                      { text: 'Backend dan Distribusi', link: '/id/recipes/desktop/distribution' }
+                    ]
+                  },
                   { text: 'Upload File', link: '/id/recipes/file-upload' },
                   { text: 'Streaming Data', link: '/id/recipes/streaming-data' },
                   { text: 'Object Storage', link: '/id/recipes/object-storage' },
