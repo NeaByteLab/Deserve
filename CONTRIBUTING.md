@@ -21,7 +21,7 @@ You may use AI to help you contribute, but it must never waste a maintainer's ti
 
 Deserve runs on the Deno runtime and nothing from npm, so there is no `node_modules/` to install.
 
-- [Deno](https://github.com/denoland/deno_install) 2.7.0 or later
+- [Deno](https://github.com/denoland/deno_install) 2.8.3 or later
 
 ## Local Development
 

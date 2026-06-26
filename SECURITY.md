@@ -8,8 +8,8 @@ Deserve is pre-1.0, so fixes land on the latest release. Stay current to receive
 
 | Version | Supported |
 | ------- | --------- |
-| 0.12.x  | Yes       |
-| < 0.12  | No        |
+| 0.15.x  | Yes       |
+| < 0.15  | No        |
 
 ## Reporting a Vulnerability
 
