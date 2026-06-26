@@ -78,20 +78,23 @@ npx autocannon http://localhost:8000/test -c 500 -p 10 -d 30
 - **OS**: macOS 26.5
 - **Machine**: Apple M3 Pro, 18 GB RAM
 - **Framework**: Deserve (0.15.0)
-- **Runtime**: Deno 2.8.3 (V8 14.9.207.2, TypeScript 6.0.3)
+- **Engine**: DVE (0.1.1)
+- **Runtime**: Deno 2.9.0 (aarch64-apple-darwin)
 - **Config**: 500 connections, pipelining 10, duration 30s
 
-## Results - Deno 2.8.3
+## Results - Deno 2.9.0, DVE 0.1.1
 
 `/test` and all view routes are 3 runs each, same machine and config. View
 results reflect the include source-text cache (an included partial is read
-from disk once and reused, instead of a blocking read per request).
+from disk once and reused, instead of a blocking read per request) together
+with the DVE 0.1.1 render pipeline (prepared expressions, pre-split paths,
+loop scope reuse, and the sink writer).
 
 ### JSON + CPU
 
 | Route   | Test 1  | Test 2  | Test 3  | Req/Sec (avg) | Latency (avg) |
 | ------- | ------- | ------- | ------- | ------------- | ------------- |
-| `/test` | 188,949 | 192,243 | 193,169 | 191,454       | 25.63 ms      |
+| `/test` | 199,791 | 198,669 | 198,985 | 199,148       | 24.61 ms      |
 
 Takeaway: JSON baseline throughput on the main thread.
 
@@ -99,14 +102,14 @@ Takeaway: JSON baseline throughput on the main thread.
 
 | Route                  | Test 1  | Test 2  | Test 3  | Req/Sec (avg) | Latency (avg) |
 | ---------------------- | ------- | ------- | ------- | ------------- | ------------- |
-| `/test-view`           | 141,670 | 143,979 | 144,439 | 143,363       | 34.37 ms      |
-| `/test-view-each-meta` | 6,501   | 6,424   | 6,414   | 6,446         | 765.48 ms     |
-| `/test-view-include`   | 123,678 | 123,836 | 122,950 | 123,488       | 39.98 ms      |
-| `/test-view-expr`      | 87,439  | 87,831  | 87,919  | 87,730        | 56.46 ms      |
+| `/test-view`           | 157,039 | 157,350 | 154,167 | 156,186       | 31.51 ms      |
+| `/test-view-each-meta` | 28,173  | 28,367  | 28,425  | 28,322        | 175.59 ms     |
+| `/test-view-include`   | 133,275 | 131,987 | 133,453 | 132,905       | 37.12 ms      |
+| `/test-view-expr`      | 145,139 | 143,403 | 144,670 | 144,404       | 34.12 ms      |
 
-Takeaway: `/test-view-include` now runs close to the include-free
-`/test-view` baseline. Caching the include source removes the per-request
-blocking disk read that previously made composed templates far slower.
+Takeaway: `each` and `include` recovered from the engine extraction. The DVE
+0.1.1 render pipeline lifts `each-meta` and expressions well past the earlier
+numbers, and `include` runs close to the include-free `/test-view` baseline.
 
 ## Observability Cost (Logging On vs Off)
 
