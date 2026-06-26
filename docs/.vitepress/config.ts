@@ -133,8 +133,7 @@ export default withMermaid(
                   { text: 'Context Object', link: '/core-concepts/context-object' },
                   { text: 'Request Handling', link: '/core-concepts/request-handling' },
                   { text: 'Hot Reload', link: '/core-concepts/hot-reload' },
-                  { text: 'Multi-Service', link: '/core-concepts/multi-service' },
-                  { text: 'Worker Pool', link: '/core-concepts/worker-pool' }
+                  { text: 'Multi-Service', link: '/core-concepts/multi-service' }
                 ]
               },
               {
@@ -222,14 +221,13 @@ export default withMermaid(
                 text: 'Response',
                 collapsed: true,
                 items: [
-                  { text: 'JSON Format', link: '/response/json' },
-                  { text: 'Text Format', link: '/response/text' },
-                  { text: 'HTML Format', link: '/response/html' },
-                  { text: 'File Downloads', link: '/response/file' },
-                  { text: 'Data Downloads', link: '/response/data' },
-                  { text: 'Stream', link: '/response/stream' },
-                  { text: 'Redirects', link: '/response/redirect' },
-                  { text: 'Custom Responses', link: '/response/custom' }
+                  { text: 'JSON', link: '/response/json' },
+                  { text: 'Text', link: '/response/text' },
+                  { text: 'HTML', link: '/response/html' },
+                  { text: 'Downloads', link: '/response/download' },
+                  { text: 'Empty', link: '/response/empty' },
+                  { text: 'Custom', link: '/response/custom' },
+                  { text: 'Redirects', link: '/response/redirect' }
                 ]
               },
               {
@@ -269,7 +267,8 @@ export default withMermaid(
                   { text: 'Object Storage', link: '/recipes/object-storage' },
                   { text: 'Graceful Shutdown', link: '/recipes/graceful-shutdown' },
                   { text: 'Production Deploy', link: '/recipes/production-deploy' },
-                  { text: 'Audit Compliance', link: '/recipes/audit-compliance' }
+                  { text: 'Audit Compliance', link: '/recipes/audit-compliance' },
+                  { text: 'Worker Pool', link: '/recipes/worker-pool' }
                 ]
               }
             ]
@@ -344,8 +343,7 @@ export default withMermaid(
                   { text: 'Objek Konteks', link: '/id/core-concepts/context-object' },
                   { text: 'Penanganan Request', link: '/id/core-concepts/request-handling' },
                   { text: 'Hot Reload', link: '/id/core-concepts/hot-reload' },
-                  { text: 'Multi-Service', link: '/id/core-concepts/multi-service' },
-                  { text: 'Worker Pool', link: '/id/core-concepts/worker-pool' }
+                  { text: 'Multi-Service', link: '/id/core-concepts/multi-service' }
                 ]
               },
               {
@@ -433,14 +431,13 @@ export default withMermaid(
                 text: 'Response',
                 collapsed: true,
                 items: [
-                  { text: 'Format JSON', link: '/id/response/json' },
-                  { text: 'Format Teks', link: '/id/response/text' },
-                  { text: 'Format HTML', link: '/id/response/html' },
-                  { text: 'Unduhan File', link: '/id/response/file' },
-                  { text: 'Unduhan Data', link: '/id/response/data' },
-                  { text: 'Stream', link: '/id/response/stream' },
-                  { text: 'Pengalihan', link: '/id/response/redirect' },
-                  { text: 'Respon Khusus', link: '/id/response/custom' }
+                  { text: 'JSON', link: '/id/response/json' },
+                  { text: 'Teks', link: '/id/response/text' },
+                  { text: 'HTML', link: '/id/response/html' },
+                  { text: 'Unduhan', link: '/id/response/download' },
+                  { text: 'Kosong', link: '/id/response/empty' },
+                  { text: 'Kustom', link: '/id/response/custom' },
+                  { text: 'Pengalihan', link: '/id/response/redirect' }
                 ]
               },
               {
@@ -480,7 +477,8 @@ export default withMermaid(
                   { text: 'Object Storage', link: '/id/recipes/object-storage' },
                   { text: 'Graceful Shutdown', link: '/id/recipes/graceful-shutdown' },
                   { text: 'Production Deploy', link: '/id/recipes/production-deploy' },
-                  { text: 'Audit Kepatuhan', link: '/id/recipes/audit-compliance' }
+                  { text: 'Audit Kepatuhan', link: '/id/recipes/audit-compliance' },
+                  { text: 'Worker Pool', link: '/id/recipes/worker-pool' }
                 ]
               }
             ]
