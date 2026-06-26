@@ -4,11 +4,11 @@ description: "Serve static assets from multiple directories under different URL 
 
 # Multiple Directories
 
-Serve static files from multiple directories with different configurations per path. Each call shares the same options and resolution rules covered in [Basic Static Serving](/static-file/basic).
+Several `router.static()` calls can run side by side, each binding one URL prefix to its own folder with its own cache policy. The options and resolution rules per mount are covered in [Basic Static Serving](/static-file/basic), and this page focuses on how many mounts share one router.
 
 ## Basic Usage
 
-Configure multiple static directories:
+Mount each prefix with its own folder and cache:
 
 ![Three static calls each bind one url prefix to its own folder with its own cache policy, where slash admin serves the admin slash dist folder with etag on and a one day cache, slash uploads serves the uploads folder with etag off and no cache, and slash docs serves the docs slash build folder with etag on and a one hour cache](/diagrams/static-multiple-dirs.png)
 
@@ -17,7 +17,7 @@ import { Router } from '@neabyte/deserve'
 
 const router = new Router()
 
-// Each path gets its own folder and cache
+// Each prefix gets its own folder and cache
 router.static('/admin', {
   path: './admin/dist',
   etag: true,
@@ -37,79 +37,67 @@ router.static('/docs', {
 await router.serve(8000)
 ```
 
+## How Mounts Are Picked
+
+Every mount lands in one registry sorted longest prefix first. A request walks that list and the first prefix that covers the path wins, so the most specific mount always takes precedence over a broader one:
+
+![One request picks the static prefix it starts with, so a request under slash uploads matches the slash uploads mount and is served from the uploads folder with that prefix etag off and no cache, while the same tail under slash docs matches the slash docs mount instead and is served from docs slash build with etag on and a one hour cache, proving the matched prefix decides both folder and cache policy](/diagrams/static-prefix-dispatch.png)
+
+The matched prefix decides both the folder and the cache policy, so two mounts can share a tail path and still resolve to different files. A mount on `/` sits at the end as a catch-all that covers anything the earlier prefixes did not.
+
 ## Common Patterns
 
-![One request picks the static prefix it starts with, so GET slash uploads slash img slash a dot png matches the slash uploads pattern, has its prefix sliced off, and is served from the uploads folder with that prefix etag off and no cache, while the same tail under GET slash docs slash img slash a dot png matches the slash docs pattern instead and is served from docs slash build with etag on and a one hour cache, proving the matched prefix decides both folder and cache policy](/diagrams/static-prefix-dispatch.png)
+### Site With a Catch-All Root
 
-### Website + Admin Panel
+A broad `/` mount and a focused `/admin` mount coexist because the longer prefix is matched first. A request to `/admin/index.html` resolves through the admin mount, while `/style.css` falls to the root mount:
 
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
 const router = new Router()
 // ---cut---
-// Main website
-router.static('/', {
-  path: './public',
-  etag: true,
-  cacheControl: 86400
-})
-
-// Admin panel
+// Admin panel, matched first
 router.static('/admin', {
   path: './admin/dist',
   etag: true,
   cacheControl: 86400
 })
+
+// Catch-all root, matched last
+router.static('/', {
+  path: './public',
+  etag: true,
+  cacheControl: 86400
+})
 ```
 
-### Assets + Uploads
+### Long-Lived Assets and Fresh Uploads
+
+A fingerprinted asset folder caches for a year, while a user upload folder turns caching off so a replaced file is always fetched fresh:
 
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
 const router = new Router()
 // ---cut---
-// Static assets with long-term caching
+// Fingerprinted assets cache for a year
 router.static('/assets', {
   path: './public/assets',
   etag: true,
-  cacheControl: 31536000 // 1 year
+  cacheControl: 31536000
 })
 
-// User uploads without caching
+// User uploads stay uncached
 router.static('/uploads', {
   path: './uploads',
   etag: false,
-  cacheControl: 0 // No cache
+  cacheControl: 0
 })
 ```
 
-### Development + Production
+## Directory Structure
 
-```typescript twoslash
-import { Router } from '@neabyte/deserve'
-
-const router = new Router()
-// ---cut---
-// Development files - short cache
-router.static('/dev', {
-  path: './dev',
-  etag: true,
-  cacheControl: 0 // No cache for dev
-})
-
-// Production build - long cache
-router.static('/', {
-  path: './dist',
-  etag: true,
-  cacheControl: 31536000 // 1 year
-})
-```
-
-## Directory Structure Examples
-
-### Full-Stack Application
+A layout that fits the mounts above:
 
 ```
 .
@@ -122,118 +110,31 @@ router.static('/', {
 │   └── dist/
 │       ├── index.html
 │       └── assets/
-├── uploads/
-│   ├── images/
-│   └── documents/
-└── docs/
-    └── build/
-        ├── index.html
-        └── assets/
+└── uploads/
+    ├── images/
+    └── documents/
 ```
 
-### Microservices Frontend
+## Routes Take Priority
 
-```
-.
-├── main.ts
-├── web/
-│   └── dist/
-├── api/
-│   └── docs/
-├── admin/
-│   └── build/
-└── mobile/
-    └── public/
-```
-
-## Configuration Examples
-
-### Different Caching Strategies
+Static mounts run only after dynamic routes miss, so a route always wins on a shared path. A file route at `/admin` handles `GET /admin` before the `/admin` static mount ever sees it, which is the matching order detailed in [Basic Static Serving](/static-file/basic#how-it-works). Keep an API and a static folder on distinct prefixes to avoid a surprise:
 
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
 const router = new Router()
 // ---cut---
-// Long-term cached assets (1 year)
-router.static('/assets', {
-  path: './public/assets',
-  etag: true,
-  cacheControl: 31536000
-})
-
-// Medium-term cache (1 day)
-router.static('/images', {
-  path: './public/images',
-  etag: true,
-  cacheControl: 86400
-})
-
-// No caching for dynamic uploads
-router.static('/uploads', {
-  path: './uploads',
-  etag: false,
-  cacheControl: 0
-})
-```
-
-### Different ETag Settings
-
-```typescript twoslash
-import { Router } from '@neabyte/deserve'
-
-const router = new Router()
-// ---cut---
-// Enable ETag for efficient caching
+// API under /api, assets under /static
 router.static('/static', {
-  path: './public',
-  etag: true,
-  cacheControl: 86400
+  path: './public'
 })
-
-// Disable ETag for frequently changing files
-router.static('/reports', {
-  path: './reports',
-  etag: false,
-  cacheControl: 3600
+router.static('/admin', {
+  path: './admin/dist'
 })
 ```
 
 ## Troubleshooting
 
-### Route Conflicts
-
-Routes are registered for all HTTP methods (`GET`, `POST`, etc.). Make sure static routes don't conflict with dynamic routes:
-
-```typescript twoslash
-import { Router } from '@neabyte/deserve'
-
-const router = new Router()
-// ---cut---
-router.static(
-  '/',
-  {
-    path: './public'
-  }
-)
-router.static(
-  '/admin',
-  {
-    path: './admin/dist'
-  }
-)
-```
-
-### File Not Found
-
-- Check `path` values are correct (relative to cwd or absolute)
-- Verify directory structure matches configuration
-- Ensure files exist in the specified directories
-- Check URL paths match the route pattern
-
-### Performance Issues
-
-- Enable `etag: true` for efficient caching
-- Set appropriate `cacheControl` values based on content type
-- Static assets: long cache (31536000 = 1 year)
-- Dynamic content: short or no cache (0 or 3600)
+- **Wrong folder served** - a broader prefix is matching first only when it is actually longer, so confirm the specific mount has the longer prefix.
+- **A route shadows a file** - a dynamic route on the same path is served before the static mount, so move one to a distinct prefix.
+- **404 across a mount** - check the folder path and that the URL keeps the mount prefix, since each miss returns 404 through the [centralized error handler](/error-handling/object-details).

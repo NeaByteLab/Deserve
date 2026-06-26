@@ -4,7 +4,7 @@ description: "Create redirect responses with ctx.send.redirect(), including allo
 
 # Redirect Responses
 
-The `ctx.send.redirect()` method creates a redirect response to another URL. The default status is 302 (temporary redirect) and the accepted statuses are 301 (permanent), 302, 303 (see other), 307 (temporary) and 308 (permanent), so any other status throws `Deno.errors.InvalidData`.
+The `ctx.send.redirect()` method creates a redirect response to another URL. The default status is `302` (temporary redirect). The accepted statuses are `301`, `302`, `303`, `307`, and `308`, so any other status throws `Deno.errors.InvalidData`.
 
 ## Basic Usage
 
@@ -67,7 +67,7 @@ export function GET(ctx: Context): Response {
 
 ## URL Resolution
 
-A relative target resolves against the current request URL and must stay on the same origin, which guards against open redirects. To send a visitor to another site, pass a full `https://` URL on purpose:
+A relative target resolves against the current request URL and must stay on the same origin, which guards against [open redirects](https://cwe.mitre.org/data/definitions/601.html). To send a visitor to another site, pass a full `https://` URL on purpose:
 
 ```typescript twoslash
 import type { Context } from '@neabyte/deserve'

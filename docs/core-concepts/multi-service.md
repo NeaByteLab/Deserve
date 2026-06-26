@@ -19,14 +19,14 @@ import { Router } from '@neabyte/deserve'
 
 // One Router per service
 const api = new Router({
-  routesDir: './services/api/routes'
+  routes: { directory: './services/api/routes' }
 })
 const auth = new Router({
-  routesDir: './services/auth/routes'
+  routes: { directory: './services/auth/routes' }
 })
 const web = new Router({
-  routesDir: './services/web/routes',
-  viewsDir: './services/web/views'
+  routes: { directory: './services/web/routes' },
+  views: { directory: './services/web/views' }
 })
 
 // Run every service together
@@ -41,11 +41,11 @@ That is the entire entry point.
 
 ## Router Isolation
 
-Every `Router` runs in request-level isolation. Each one owns its own radix-tree router, middleware stack, Superwatcher instance, and optional template engine. They do not share any internal state unless it is explicitly wired up, while the process underneath is still shared, which is what makes the [shared code and state](#sharing-code-and-state) below possible.
+Every `Router` runs in request-level isolation. Each one owns its own radix-tree router, middleware stack, file watcher, and optional template engine. They do not share any internal state unless it is explicitly wired up, while the process underneath is still shared, which is what makes the [shared code and state](#sharing-code-and-state) below possible.
 
 Faults are contained at two levels. A throw inside one handler becomes an error response for that one request, so the rest of that service and every other service keep serving. A deeper fault that escapes a handler, like an unhandled rejection or an attempt to exit the process, is trapped process-wide by [process protection](/getting-started/server-configuration#process-protection) and surfaced as an event rather than a shutdown, so no service goes down.
 
-![Each router keeps its own FastRouter, middleware, and watcher in isolation, with the Web router also holding a DVE engine](/diagrams/router-isolation.png)
+![Each router keeps its own route table, middleware, and watcher in isolation, with the Web router also holding a DVE engine](/diagrams/router-isolation.png)
 
 If a route in API throws, only that request gets a 500. Auth and Web, and every other API request, keep serving normally.
 
@@ -139,7 +139,8 @@ import { sessions } from '../../../shared/sessions.ts'
 
 // Auth saves the session on login
 export async function POST(ctx: Context): Promise<Response> {
-  const body = (await ctx.json()) as { username?: string }
+  // Read JSON body from request
+  const body = (await ctx.get.json()) as { username?: string }
   const id = crypto.randomUUID()
   sessions.set(id, {
     username: body?.username,
@@ -158,16 +159,13 @@ import { sessions } from '../../../shared/sessions.ts'
 
 // API reads the same store directly
 export function GET(ctx: Context): Response {
-  const id = ctx.header('x-session-id')
+  // Read session ID from header
+  const id = ctx.get.header('x-session-id')
   const session = id ? sessions.get(id) : undefined
   if (!session) {
     return ctx.send.json(
-      {
-        error: 'Not authenticated'
-      },
-      {
-        status: 401
-      }
+      { error: 'Not authenticated' },
+      { status: 401 }
     )
   }
   return ctx.send.json({
@@ -209,7 +207,8 @@ import { emit } from '../../../../shared/bus.ts'
 
 // Emit an event after creating a user
 export async function POST(ctx: Context): Promise<Response> {
-  const user = await ctx.json()
+  // Read JSON body from request
+  const user = await ctx.get.json()
   emit('user:created', user)
   return ctx.send.json({
     created: true
@@ -279,7 +278,7 @@ import { Mware, Router } from '@neabyte/deserve'
 
 // API gets CORS and a body limit
 const api = new Router({
-  routesDir: './services/api/routes'
+  routes: { directory: './services/api/routes' }
 })
 api.use(Mware.cors({
   origin: '*'
@@ -290,7 +289,7 @@ api.use(Mware.bodyLimit({
 
 // Auth gets security headers
 const auth = new Router({
-  routesDir: './services/auth/routes'
+  routes: { directory: './services/auth/routes' }
 })
 auth.use(Mware.securityHeaders({
   xFrameOptions: 'DENY'
@@ -298,8 +297,8 @@ auth.use(Mware.securityHeaders({
 
 // Web runs without middleware
 const web = new Router({
-  routesDir: './services/web/routes',
-  viewsDir: './services/web/views'
+  routes: { directory: './services/web/routes' },
+  views: { directory: './services/web/views' }
 })
 
 // Run every service together
@@ -325,7 +324,8 @@ export function logger(service: string): MiddlewareFn {
     const response = await next()
     const duration = Date.now() - start
     const status = response?.status ?? 0
-    console.log(`[${service}] ${ctx.request.method} ${ctx.pathname} ${status} ${duration}ms`)
+    // Read method and path from ctx.get
+    console.log(`[${service}] ${ctx.get.method()} ${ctx.get.pathname()} ${status} ${duration}ms`)
     return response
   }
 }
@@ -347,21 +347,21 @@ One error handler applies with [`router.catch()`](/error-handling/object-details
 ```typescript twoslash
 // shared/errors.ts
 // One error handler shape for all
-import type { Context, ErrorInfo, ErrorMiddleware } from '@neabyte/deserve'
+import type { Context, ErrorInfo, ErrorMiddleware, HttpStatusCode } from '@neabyte/deserve'
 
 export function errorHandler(service: string): ErrorMiddleware {
-  return (ctx: Context, error: ErrorInfo): Response | null => {
+  return (ctx: Context, info: ErrorInfo): Response | null => {
     console.error(
-      `[${service}] ${error.method} ${error.pathname} ${error.statusCode} - ${error.error?.message}`
+      `[${service}] ${info.method} ${info.pathname} ${info.statusCode} - ${info.error?.message}`
     )
     return ctx.send.json(
       {
         service,
-        error: error.error?.message ?? 'Unknown error',
-        statusCode: error.statusCode,
-        path: error.pathname
+        error: info.error?.message ?? 'Unknown error',
+        statusCode: info.statusCode,
+        path: info.pathname
       },
-      { status: error.statusCode }
+      { status: info.statusCode as HttpStatusCode }
     )
   }
 }
@@ -369,50 +369,51 @@ export function errorHandler(service: string): ErrorMiddleware {
 
 ### Wrapping Middleware with Labels
 
-`WrapMware` tags an individual middleware with a label, so when that middleware throws, the error log includes the label and points straight to which middleware in which service failed. Its signature and base behavior are covered in [Global Middleware](/middleware/global#wrapping-middleware-with-error-handling), and it acts as one layer in [Defense in Depth](/error-handling/defense-in-depth):
+`Wrap.apply` tags an individual middleware with a label, so when that middleware throws, the error log includes the label and points straight to which middleware in which service failed. Its signature and base behavior are covered in [Global Middleware](/middleware/global#wrapping-middleware-with-error-handling), and it acts as one layer in [Defense in Depth](/error-handling/defense-in-depth):
 
 ```typescript
 // main.ts
-import { Router, WrapMware } from '@neabyte/deserve'
+import { Router, Wrap } from '@neabyte/deserve'
 import { logger } from './shared/logger.ts'
 import { errorHandler } from './shared/errors.ts'
 
 // Label each middleware for error logs
-const apiAuth = WrapMware('APIAuth', async (ctx, next) => {
-  if (!ctx.header('authorization')) {
+const apiAuth = Wrap.apply('APIAuth', async (ctx, next) => {
+  // Read authorization header
+  if (!ctx.get.header('authorization')) {
     throw new Error('Missing API key')
   }
   return await next()
 })
 
-const authRateLimit = WrapMware('AuthRateLimit', async (ctx, next) => {
+const authRateLimit = Wrap.apply('AuthRateLimit', async (ctx, next) => {
   // rate limit logic
   return await next()
 })
 
-const webCache = WrapMware('WebCache', async (ctx, next) => {
+const webCache = Wrap.apply('WebCache', async (ctx, next) => {
   // cache logic
   return await next()
 })
 
 // Wire logger, middleware, error handler
 const api = new Router({
-  routesDir: './services/api/routes'
+  routes: { directory: './services/api/routes' }
 })
 api.use(logger('API'))
 api.use(apiAuth)
 api.catch(errorHandler('API'))
 
 const auth = new Router({
-  routesDir: './services/auth/routes'
+  routes: { directory: './services/auth/routes' }
 })
 auth.use(logger('Auth'))
 auth.use(authRateLimit)
 auth.catch(errorHandler('Auth'))
 
 const web = new Router({
-  routesDir: './services/web/routes',
-  viewsDir: './services/web/views'
+  routes: { directory: './services/web/routes' },
+  views: { directory: './services/web/views' }
 })
 web.use(logger('Web'))
 web.use(webCache)
@@ -430,7 +431,7 @@ When `apiAuth` throws, the log reads `[API] GET /users 500 - APIAuth - Missing A
 
 ### OpenTelemetry
 
-Since every request already flows through shared middleware, plugging in OpenTelemetry follows the same pattern. One OTel middleware applies to every service, so all spans from all ports go to one collector, which gives distributed tracing, latency dashboards, and error rate metrics across the entire system without instrumenting each service separately:
+Since every request already flows through shared middleware, plugging in [OpenTelemetry](https://opentelemetry.io/) follows the same pattern. One OTel middleware applies to every service, so all spans from all ports go to one collector, which gives distributed tracing, latency dashboards, and error rate metrics across the entire system without instrumenting each service separately:
 
 ![A single OTel middleware collects spans from every service and exports them to an OTel Collector, then on to Jaeger, Grafana, or Datadog](/diagrams/observability.png)
 
@@ -450,8 +451,8 @@ export function otelMiddleware(service: string): MiddlewareFn {
     console.log(JSON.stringify({
       traceId: crypto.randomUUID(),
       service,
-      method: ctx.request.method,
-      path: ctx.pathname,
+      method: ctx.get.method(),
+      path: ctx.get.pathname(),
       status,
       durationMs: Math.round(duration * 100) / 100,
       timestamp: new Date().toISOString()
@@ -479,7 +480,7 @@ A team can work on different services at the same time, with one person refactor
 All services run in one container. One image, one process, all ports:
 
 ```dockerfile
-FROM denoland/deno:2.7.0
+FROM denoland/deno:2.8.3
 
 WORKDIR /app
 COPY . .
@@ -492,7 +493,7 @@ CMD ["deno", "run", "-A", "main.ts"]
 
 ### Reverse Proxy
 
-Put Nginx or Caddy in front to route by domain to each service port:
+Put [Nginx](https://nginx.org/) or [Caddy](https://caddyserver.com/) in front to route by domain to each service port:
 
 ![A reverse proxy such as Nginx or Caddy maps each hostname to a per-service port: api.example.com to 3001, auth.example.com to 3002, and example.com to 3003](/diagrams/reverse-proxy.png)
 

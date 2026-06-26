@@ -14,75 +14,75 @@ This sits beside the other middleware and watches the request before it reaches 
 
 Validation comes together from three exports, each with one job:
 
-- **`Define`** builds a contract from a transform and optional guards. See [Define Schema](/middleware/validation/define-schema).
-- **`Mware.validator`** turns a schema into middleware that validates request sources. See [Validator Middleware](/middleware/validation/validator-middleware).
-- **`Validator`** reads validated data inside a handler and checks values on demand. See [Reading Validated Data](/middleware/validation/reading-data).
+- **`Validator.define`** builds a contract from a transform and optional guards. See [Define Schema](/middleware/validation/define-schema).
+- **`Validator.check`** turns a schema into middleware that validates request sources. See [Validator Middleware](/middleware/validation/validator-middleware).
+- **`ctx.get.validated()`** reads validated data inside a handler. See [Reading Validated Data](/middleware/validation/reading-data).
 
-![Validation has three pieces with one job each: Define builds a contract, Mware.validator runs the contracts as middleware, and Validator.read returns the typed validated data inside a handler](/diagrams/validation-three-pieces.png)
+![Validation has three pieces with one job each: Validator.define builds a contract, Validator.check runs the contracts as middleware, and ctx.get.validated returns the typed validated data inside a handler](/diagrams/validation-three-pieces.png)
 
 ## A Schema Maps Sources To Contracts
 
 A schema is a plain object that pairs a request source with a contract:
 
 ```typescript twoslash
-import { Define } from '@neabyte/deserve'
+import { Validator } from '@neabyte/deserve'
 
 // One contract per request source
 const schema = {
-  json: Define((body: { name: string }) => body)
+  body: Validator.define((body: { name: string }) => body)
 }
 ```
 
-Six sources exist, and each one reads from a matching part of the [Context](/core-concepts/context-object):
+Four sources exist, and each one reads from a matching part of the [Context](/core-concepts/context-object):
 
-| Source    | Reads from      | Shape                     |
-| --------- | --------------- | ------------------------- |
-| `body`    | `ctx.body()`    | raw parsed body           |
-| `cookies` | `ctx.cookie()`  | `Record<string, string>`  |
-| `headers` | `ctx.header()`  | `Record<string, string>`  |
-| `json`    | `ctx.json()`    | parsed JSON value         |
-| `params`  | `ctx.params()`  | `Record<string, string>`  |
-| `query`   | `ctx.query()`   | `Record<string, string>`  |
+| Source    | Reads from        | Shape                     |
+| --------- | ----------------- | ------------------------- |
+| `body`    | `ctx.get.body()`  | raw parsed body           |
+| `cookies` | `ctx.get.cookie()`| `Record<string, string>`  |
+| `headers` | `ctx.get.header()`| `Record<string, string>`  |
+| `query`   | `ctx.get.query()` | `Record<string, string>`  |
+
+Route params are not a validation source because they resolve after middleware runs. Validate them inside the handler with a direct contract call, covered in [Reading Validated Data](/middleware/validation/reading-data#checking-params-in-a-handler).
 
 ## The Request Flow
 
 A validated request moves through four steps:
 
-1. The validator middleware reads each source named in the schema.
-2. It runs the matching contract on that source value.
-3. A passing contract stores its output on request state.
-4. The handler reads that state with full types.
+1. The validator middleware reads each source named in the schema
+2. It runs the matching contract on that source value
+3. A passing contract stores its output on the context
+4. The handler reads that output with full types through `ctx.get.validated()`
 
-![The validation request flow: the middleware reads each source with ctx.json or ctx.query, runs the matching contract, stores a passing result on stateKeys.validated, and the handler reads it back typed through Validator.read](/diagrams/validation-request-flow.png)
+![The validation request flow: the middleware reads each source with ctx.get.body or ctx.get.query, runs the matching contract, stores a passing result on the context, and the handler reads it back typed through ctx.get.validated](/diagrams/validation-request-flow.png)
 
 ```typescript twoslash
-import { Define, Mware, Router } from '@neabyte/deserve'
+import { Router, Validator } from '@neabyte/deserve'
 
 const router = new Router({
-  routesDir: './routes'
+  routes: { directory: './routes' }
 })
 
 const schema = {
-  json: Define((body: { name: string }) => ({ name: body.name.trim() }))
+  body: Validator.define((body: { name: string }) => ({ name: body.name.trim() }))
 }
 
-// Validate the JSON body before the handler
-router.use('/users', Mware.validator(schema))
+// Validate the body before the handler
+router.use('/users', Validator.check(schema))
 
 await router.serve(8000)
 ```
 
 ```typescript twoslash
-import { type Context, Define, Validator } from '@neabyte/deserve'
+import { type Context, Validator } from '@neabyte/deserve'
 
 const schema = {
-  json: Define((body: { name: string }) => ({ name: body.name.trim() }))
+  body: Validator.define((body: { name: string }) => ({ name: body.name.trim() }))
 }
 // ---cut---
 export function POST(ctx: Context): Response {
   // Read typed data that already passed
-  const { json } = Validator.read<typeof schema>(ctx)
-  return ctx.send.json({ created: json.name })
+  const { body } = ctx.get.validated<typeof schema>()
+  return ctx.send.json({ created: body.name })
 }
 ```
 
@@ -94,7 +94,7 @@ A throw from client input never becomes a 500. That mapping rule lives in [Readi
 
 ## Where To Go Next
 
-- [Define Schema](/middleware/validation/define-schema) - write a contract with a transform and guards.
-- [Validator Middleware](/middleware/validation/validator-middleware) - register validation per source and per route.
-- [Reading Validated Data](/middleware/validation/reading-data) - read typed output and check params in a handler.
-- [Advanced Patterns](/middleware/validation/advanced-patterns) - pick a schema per method on a shared prefix.
+- [Define Schema](/middleware/validation/define-schema) - write a contract with a transform and guards
+- [Validator Middleware](/middleware/validation/validator-middleware) - register validation per source and per route
+- [Reading Validated Data](/middleware/validation/reading-data) - read typed output and check params in a handler
+- [Advanced Patterns](/middleware/validation/advanced-patterns) - pick a schema per method on a shared prefix

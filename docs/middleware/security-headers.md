@@ -85,7 +85,7 @@ router.use(
 
 ## Configuration Options
 
-Each header option takes three forms. A string value sets the header to that value. `false` omits the header, even one that has a secure default. Leaving an option `undefined` keeps its default when it has one, or skips it otherwise. The four headers without a default - `contentSecurityPolicy`, `crossOriginEmbedderPolicy`, `strictTransportSecurity`, and `xPoweredBy` - stay off until a value is given.
+Each header option takes three forms. A string value sets the header to that value. `false` omits the header, even one that has a secure default. Leaving an option `undefined` keeps its default when it has one, or skips it otherwise. The three headers without a default - `contentSecurityPolicy`, `crossOriginEmbedderPolicy`, and `strictTransportSecurity` - stay off until a value is given.
 
 ### `contentSecurityPolicy`
 
@@ -183,21 +183,13 @@ Cross-domain policy for Flash:
 xPermittedCrossDomainPolicies: 'none' // or 'master-only', 'all'
 ```
 
-### `xPoweredBy`
-
-Off by default. Set a string to advertise a value, or leave it for no header:
-
-```typescript
-xPoweredBy: 'Custom' // Add a custom value
-```
-
 ## Complete Example
 
 ```typescript twoslash
 import { Mware, Router } from '@neabyte/deserve'
 
 const router = new Router({
-  routesDir: './routes'
+  routes: { directory: './routes' }
 })
 
 // Apply a broad set of headers
@@ -223,6 +215,5 @@ await router.serve(8000)
 - **String value**: sets the header to that exact value, overriding any default
 - **Set to `false`**: omits the header, even one that has a default
 - **Undefined**: keeps the default when the header has one, otherwise skips it
-- **X-Powered-By**: off by default, set a string to add it or leave it for no header
 - **HSTS**: apply `strictTransportSecurity` only on HTTPS servers
 - **CSP**: Content Security Policy can grow complex, so test it thoroughly

@@ -1,5 +1,5 @@
 ---
-description: "Route pattern syntax in Deserve including dynamic params, wildcards, and matching rules."
+description: "Route pattern syntax in Deserve including dynamic params and matching rules."
 ---
 
 # Route Patterns
@@ -28,9 +28,9 @@ When a request arrives, the engine looks up the method and pathname, then applie
 - **HEAD falls back to GET** - a `HEAD` with no handler reuses the `GET` handler
 - **Wrong method** - a known path with no handler for that method returns **405** with an `Allow` header listing the methods that do exist
 - **Unknown path** - no match returns **404** through the [error handler](/error-handling/object-details)
-- **Oversized input** - a URL past `maxUrlLength` or a param past `maxParamLength` returns **414**, both tunable in [Server Configuration](/getting-started/server-configuration)
+- **Oversized input** - a URL past `maxUrlLength` or a param past `routes.maxParamLength` returns **414**, both tunable in [Routes Configuration](/getting-started/routes-configuration)
 
-Params are percent-decoded once before the handler reads them, so `ctx.param('id')` returns the decoded value.
+Params are percent-decoded once before the handler reads them, so `ctx.get.param('id')` returns the decoded value.
 
 ## Dynamic Parameters
 
@@ -42,7 +42,7 @@ A `[param]` folder or file becomes a named `:param` slot in the pattern. Each br
 | `users/[id]/posts/[postId].ts`                     | `/users/:id/posts/:postId`                 | `id`, `postId`               |
 | `api/v1/users/[userId]/posts/[postId].ts`          | `/api/v1/users/:userId/posts/:postId`      | `userId`, `postId`           |
 
-The matched values are read inside a handler with `ctx.param()` and `ctx.params()`, covered in [Request Handling](/core-concepts/request-handling#route-parameters).
+The matched values are read inside a handler with `ctx.get.param('id')` for one value or `ctx.get.param()` for the full map, covered in [Request Handling](/core-concepts/request-handling#route-parameters).
 
 ## Pattern Examples
 
@@ -90,15 +90,11 @@ import type { Context } from '@neabyte/deserve'
 
 // Reject non-numeric ids with 400
 export function GET(ctx: Context): Response {
-  const id = ctx.param('id')
+  const id = ctx.get.param('id')
   if (!id || !/^\d+$/.test(id)) {
     return ctx.send.json(
-      {
-        error: 'Invalid user ID'
-      },
-      {
-        status: 400
-      }
+      { error: 'Invalid user ID' },
+      { status: 400 }
     )
   }
   return ctx.send.json({

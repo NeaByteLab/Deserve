@@ -14,9 +14,9 @@ So a random ID is fine as a log label but wrong as a source of truth. Deserve al
 
 ## The IP Is the Source of Truth
 
-Every request carries [`ctx.ip`](/core-concepts/context-object#client-ip), the resolved client address. It is not read raw from a header. The framework walks the forwarding chain through trusted hops and stops at the first hop it does not trust, so a spoofed header from an untrusted peer never wins.
+Every request carries [`ctx.get.ip()`](/core-concepts/context-object#ctx-get-ip-options), the resolved client address. It is not read raw from a header. The framework walks the forwarding chain through trusted hops and stops at the first hop it does not trust, so a spoofed header from an untrusted peer never wins.
 
-- **No trusted proxy** - `ctx.ip` is the direct TCP peer, and forwarding headers are ignored entirely.
+- **No trusted proxy** - `ctx.get.ip()` is the direct TCP peer, and forwarding headers are ignored entirely.
 - **Behind a trusted proxy** - the chain is walked right to left through trusted hops, honoring [`X-Forwarded-For`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Forwarded-For), the [RFC 7239](https://www.rfc-editor.org/rfc/rfc7239) `Forwarded` header, and single-IP headers like `cf-connecting-ip`.
 - **Configured once** - [`trustProxy`](/getting-started/server-configuration#client-ip-resolution) decides which peers count as trusted, so trusting them is a deliberate choice, not a default.
 
@@ -28,18 +28,18 @@ Each request gets its own [Context](/core-concepts/context-object), built once w
 
 ## Correlating Without a Random ID
 
-For correlating logs, the [lifecycle events](/middleware/observability/overview) already carry what a request ID was meant to provide. Every `request:complete` event includes the resolved `ip`, the `url`, and the `durationMs` in its metadata, plus a `timestamp` on the envelope, so a log line identifies the request from real values rather than a made-up one.
+For correlating logs, the [lifecycle events](/middleware/observability/overview) already carry what a request ID was meant to provide. Every `request:completed` event includes the resolved `ip`, the `url`, and the `durationMs` in its metadata, plus a `timestamp` on the envelope, so a log line identifies the request from real values rather than a made-up one.
 
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
 const router = new Router({
-  routesDir: './routes'
+  routes: { directory: './routes' }
 })
 // ---cut---
 router.on((event) => {
   // Correlate by real IP and time
-  if (event.kind === 'request:complete') {
+  if (event.kind === 'request:completed') {
     const { ip, url } = event.metadata as { ip?: string, url: string }
     console.log(`${event.timestamp} ${ip ?? 'unknown'} ${url}`)
   }
@@ -50,17 +50,16 @@ await router.serve(8000)
 
 ## When a Label Really Helps
 
-A short-lived label for tying log lines together within one request is still possible, and it lives in [`ctx.state`](/core-concepts/context-object#sharing-state) like any other per-request value. The point is to treat it as a convenience, not an identity, since the trustworthy answer is `ctx.ip`.
+A short-lived label for tying log lines together is still possible. When the handler needs to read it back, the signed [session](/middleware/session) carries it like any other per-request value. The point is to treat it as a convenience, not an identity, since the trustworthy answer is `ctx.get.ip()`.
 
 ```typescript twoslash
-import type { Context } from '@neabyte/deserve'
 import { Router } from '@neabyte/deserve'
 
 const router = new Router()
 // ---cut---
 router.use(async (ctx, next) => {
   // A label for logs, not trust
-  ctx.state.label = crypto.randomUUID()
+  await ctx.set.session({ label: crypto.randomUUID() })
   return await next()
 })
 ```

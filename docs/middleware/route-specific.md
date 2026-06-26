@@ -21,7 +21,7 @@ const router = new Router()
 
 // Runs for paths starting with /api
 router.use('/api', async (ctx, next) => {
-  console.log(`API request: ${ctx.request.method} ${ctx.url}`)
+  console.log(`API request: ${ctx.get.method()} ${ctx.get.pathname()}`)
   return await next()
 })
 
@@ -33,8 +33,7 @@ await router.serve(8000)
 Middleware applies to routes that start with the specified pattern:
 
 ```typescript twoslash
-import type { MiddlewareFn } from '@neabyte/deserve'
-import { Router } from '@neabyte/deserve'
+import { Router, type MiddlewareFn } from '@neabyte/deserve'
 
 const router = new Router()
 declare const middleware: MiddlewareFn
@@ -61,23 +60,13 @@ declare function isValidToken(token: string): boolean
 // ---cut---
 // Require a bearer token under /api
 router.use('/api', async (ctx, next) => {
-  const authHeader = ctx.header('authorization')
+  const authHeader = ctx.get.header('authorization')
   if (!authHeader) {
-    return ctx.send.text(
-      'API requires authentication',
-      {
-        status: 401
-      }
-    )
+    return ctx.send.text('API requires authentication', { status: 401 })
   }
   const token = authHeader.replace('Bearer ', '')
   if (!isValidToken(token)) {
-    return ctx.send.text(
-      'Invalid token',
-      {
-        status: 401
-      }
-    )
+    return ctx.send.text('Invalid token', { status: 401 })
   }
   return await next()
 })
@@ -92,14 +81,9 @@ const router = new Router()
 // ---cut---
 // Allow only the admin role under /admin
 router.use('/admin', async (ctx, next) => {
-  const userRole = ctx.header('x-user-role')
+  const userRole = ctx.get.header('x-user-role')
   if (userRole !== 'admin') {
-    return ctx.send.text(
-      'Admin access required',
-      {
-        status: 403
-      }
-    )
+    return ctx.send.text('Admin access required', { status: 403 })
   }
   return await next()
 })
@@ -114,7 +98,7 @@ const router = new Router()
 // ---cut---
 // Log access under /public
 router.use('/public', async (ctx, next) => {
-  console.log(`Public access: ${ctx.request.method} ${ctx.url}`)
+  console.log(`Public access: ${ctx.get.method()} ${ctx.get.pathname()}`)
   return await next()
 })
 ```
@@ -149,21 +133,16 @@ const router = new Router()
 // ---cut---
 // Auth runs first under /api
 router.use('/api', async (ctx, next) => {
-  const authHeader = ctx.header('authorization')
+  const authHeader = ctx.get.header('authorization')
   if (!authHeader) {
-    return ctx.send.text(
-      'Unauthorized',
-      {
-        status: 401
-      }
-    )
+    return ctx.send.text('Unauthorized', { status: 401 })
   }
   return await next()
 })
 
 // Logging runs after auth passes
 router.use('/api', async (ctx, next) => {
-  console.log(`API: ${ctx.request.method} ${ctx.url}`)
+  console.log(`API: ${ctx.get.method()} ${ctx.get.pathname()}`)
   return await next()
 })
 ```
@@ -191,14 +170,9 @@ router.use('/api/users', async (ctx, next) => {
 
 // Narrows further and checks role
 router.use('/api/users/admin', async (ctx, next) => {
-  const role = ctx.header('x-user-role')
+  const role = ctx.get.header('x-user-role')
   if (role !== 'admin') {
-    return ctx.send.text(
-      'Admin access required',
-      {
-        status: 403
-      }
-    )
+    return ctx.send.text('Admin access required', { status: 403 })
   }
   return await next()
 })

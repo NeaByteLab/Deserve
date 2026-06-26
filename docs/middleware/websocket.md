@@ -22,7 +22,7 @@ router.use(
   Mware.websocket({
     listener: '/ws',
     onConnect: (socket, event, ctx) => {
-      console.log('WebSocket connected:', ctx.url)
+      console.log('WebSocket connected:', ctx.get.url())
       socket.send('Welcome')
     }
   })
@@ -69,7 +69,7 @@ Handle new WebSocket connections:
 
 ```typescript
 onConnect: (socket: WebSocket, event: Event, ctx: Context) => {
-  console.log('Client connected:', ctx.url)
+  console.log('Client connected:', ctx.get.url())
   socket.send(JSON.stringify({
     type: 'welcome',
     message: 'Connected'
@@ -113,7 +113,7 @@ Handle WebSocket errors:
 
 ```typescript
 onError: (socket: WebSocket, event: Event, ctx: Context) => {
-  console.error('WebSocket error:', event, 'on', ctx.url)
+  console.error('WebSocket error:', event, 'on', ctx.get.url())
 }
 ```
 
@@ -123,14 +123,14 @@ onError: (socket: WebSocket, event: Event, ctx: Context) => {
 import { Mware, Router } from '@neabyte/deserve'
 
 const router = new Router({
-  routesDir: './routes'
+  routes: { directory: './routes' }
 })
 
 router.use(
   Mware.websocket({
     listener: '/ws',
     onConnect: (socket, event, ctx) => {
-      console.log(`WebSocket connected: ${ctx.url}`)
+      console.log(`WebSocket connected: ${ctx.get.url()}`)
       socket.send(
         JSON.stringify({
           type: 'welcome',
@@ -139,7 +139,7 @@ router.use(
       )
     },
     onMessage: (socket, event, ctx) => {
-      console.log(`Message from ${ctx.url}:`, event.data)
+      console.log(`Message from ${ctx.get.url()}:`, event.data)
       try {
         const data = JSON.parse(event.data as string)
         if (data.type === 'ping') {
@@ -168,10 +168,10 @@ router.use(
       }
     },
     onDisconnect: (socket, event, ctx) => {
-      console.log(`WebSocket disconnected: ${ctx.url} code=${event.code} reason=${event.reason}`)
+      console.log(`WebSocket disconnected: ${ctx.get.url()} code=${event.code} reason=${event.reason}`)
     },
     onError: (socket, event, ctx) => {
-      console.error(`WebSocket error on ${ctx.url}:`, event)
+      console.error(`WebSocket error on ${ctx.get.url()}:`, event)
     }
   })
 )
@@ -227,10 +227,12 @@ onConnect: (socket, event, ctx) => {
 
 A rejected handshake routes through the error handler instead of throwing at setup:
 
-- **Disallowed origin** fails with **403** and message `WebSocket handshake rejected because the Origin is not allowed`.
-- **Malformed upgrade** fails with **400** and message `WebSocket handshake is malformed because ...`.
+- **Disallowed origin** fails with **403** and message `WebSocket handshake rejected because the Origin is not allowed`
+- **Missing version** fails with **400** and message `WebSocket handshake requires Sec-WebSocket-Version 13`
+- **Wrong version** returns **426 Upgrade Required** with `Sec-WebSocket-Version: 13` and `Upgrade: websocket` headers
+- **Malformed upgrade** fails with **400** and message `WebSocket handshake is malformed because ...`
 
-Both route through the [central error handler](/error-handling/object-details), so shape the response there or rely on the [default behavior](/error-handling/default-behavior).
+Each rejection also emits a `websocket:rejected` event with the reason, covered in [Event Reference](/middleware/observability/events). All failures route through the [central error handler](/error-handling/object-details), so shape the response there or rely on the [default behavior](/error-handling/default-behavior).
 
 ## Integration with CORS
 

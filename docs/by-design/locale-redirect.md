@@ -14,14 +14,14 @@ Language choice is a product decision, not a transport rule. Which locales exist
 
 ## Reading the Preference
 
-The browser sends its language list in the [`Accept-Language`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Accept-Language) header, read through [`ctx.header`](/core-concepts/context-object#request-data-access). A small match against the locales the app supports gives the target, then [`ctx.send.redirect`](/response/redirect) sends the visitor there.
+The browser sends its language list in the [`Accept-Language`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Accept-Language) header, read through [`ctx.get.header`](/core-concepts/context-object#ctx-get-header-key). A small match against the locales the app supports gives the target, then [`ctx.send.redirect`](/response/redirect) sends the visitor there.
 
 ```typescript twoslash
 import type { Context } from '@neabyte/deserve'
 // ---cut---
 export function GET(ctx: Context): Response {
   // Read the browser language hint
-  const header = ctx.header('accept-language') ?? ''
+  const header = ctx.get.header('accept-language') ?? ''
   const supported = ['en', 'id']
 
   // Match a supported locale or default
@@ -37,7 +37,7 @@ A 302 keeps the redirect temporary, so a later visit can still be matched again.
 
 ## Sharing the Choice With Later Routes
 
-When several routes need the resolved locale, middleware can resolve it once and store it in [`ctx.state`](/core-concepts/context-object#sharing-state) instead of redirecting, so each handler reads the same value.
+When several routes need the resolved locale, middleware can resolve it once and store it in the signed [session](/middleware/session) instead of redirecting, so each handler reads the same value through `ctx.get.session()`.
 
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
@@ -46,15 +46,16 @@ const router = new Router()
 // ---cut---
 router.use(async (ctx, next) => {
   // Resolve locale once for the request
-  const header = ctx.header('accept-language') ?? ''
+  const header = ctx.get.header('accept-language') ?? ''
   const preferred = header.split(',')[0]?.slice(0, 2) ?? 'en'
 
   // Share it with the route handlers
-  ctx.state.locale = ['en', 'id'].includes(preferred) ? preferred : 'en'
+  const locale = ['en', 'id'].includes(preferred) ? preferred : 'en'
+  await ctx.set.session({ locale })
   return await next()
 })
 
 await router.serve(8000)
 ```
 
-The redirect form sends the visitor to a localized URL, while the state form keeps one URL and passes the locale inward. Both stay in plain route files, so the rule is where the language matters and nowhere else.
+The redirect form sends the visitor to a localized URL, while the session form keeps one URL and passes the locale inward. Both stay in plain route files, so the rule is where the language matters and nowhere else.

@@ -8,18 +8,18 @@ Errors surface on the same [`router.on()`](/middleware/observability/overview) b
 
 ## Reporting Failed Requests
 
-`request:error` fires whenever a response status is `400` or higher, and carries the original error when one exists:
+`request:failed` fires whenever a response status is `400` or higher, and carries the original error when one exists:
 
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
 const router = new Router({
-  routesDir: './routes'
+  routes: { directory: './routes' }
 })
 
 // Record every failed request
 router.on((event) => {
-  if (event.kind === 'request:error') {
+  if (event.kind === 'request:failed') {
     const { method, url, statusCode, error } = event.metadata as {
       method: string
       url: string
@@ -35,19 +35,19 @@ await router.serve(8000)
 
 ## Capturing Process Faults
 
-`process:error` fires for unhandled rejections, uncaught errors, and blocked termination attempts. A serving router keeps running and reports the fault instead of crashing:
+`process:failed` fires for unhandled rejections, uncaught errors, and blocked termination attempts. A serving router keeps running and reports the fault instead of crashing:
 
-![Unhandled rejections, uncaught errors, and blocked self-termination each become a process:error event carrying its origin and error, so the process keeps running with no downtime and the fault is captured in the same router.on listener instead of being lost to a crash](/diagrams/obs-process-fault.png)
+![Unhandled rejections, uncaught errors, and blocked self-termination each become a process:failed event carrying its origin and error, so the process keeps running with no downtime and the fault is captured in the same router.on listener instead of being lost to a crash](/diagrams/obs-process-fault.png)
 
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
 const router = new Router({
-  routesDir: './routes'
+  routes: { directory: './routes' }
 })
 // ---cut---
 router.on((event) => {
-  if (event.kind === 'process:error') {
+  if (event.kind === 'process:failed') {
     const { origin, error } = event.metadata as { origin: string; error: Error }
     // origin tells the fault source
     console.error(`process fault [${origin}]`, error.message)
@@ -57,18 +57,18 @@ router.on((event) => {
 
 ## Capturing Subsystem Faults
 
-The same listener catches faults from the worker pool and the built-in middleware. A task that times out, a worker that crashes, a dispatch refused under load, a session cookie that fails to decode, and a CSRF rule that throws each arrive as their own event. Filter on the kinds listed in the [Event Reference](/middleware/observability/events#workers) to route them wherever logs go:
+The same listener catches faults from the worker pool and the built-in middleware. A task that times out, a worker that crashes, a dispatch refused under load, a session cookie that fails to decode, and a CSRF rule that throws each arrive as their own event. Filter on the kinds listed under [Workers](/middleware/observability/events#workers) and [Security Middleware](/middleware/observability/events#security-middleware) to route them wherever logs go:
 
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
 const router = new Router({
-  routesDir: './routes'
+  routes: { directory: './routes' }
 })
 // ---cut---
 router.on((event) => {
   // React to worker and middleware faults
-  if (event.kind === 'worker:crash' || event.kind === 'session:invalid') {
+  if (event.kind === 'worker:crashed' || event.kind === 'session:invalid') {
     console.error(event.kind, event.metadata)
   }
 })

@@ -22,7 +22,7 @@ Deserve also routes on the real `req.method`, which a handler cannot rewrite mid
 
 ## Every Method Is a Route
 
-A route file exports one function per method, and the name is the method. There is no table to register and no verb to translate. A file like `items/[id].ts` reads its `id` from the path through [`ctx.param`](/core-concepts/context-object#request-data-access).
+A route file exports one function per method, and the name is the method. There is no table to register and no verb to translate. A file like `items/[id].ts` reads its `id` from the path through [`ctx.get.param`](/core-concepts/context-object#ctx-get-param-key).
 
 ```typescript twoslash
 import type { Context } from '@neabyte/deserve'
@@ -30,7 +30,7 @@ import type { Context } from '@neabyte/deserve'
 // Read one item by id
 export function GET(ctx: Context): Response {
   return ctx.send.json({
-    id: ctx.param('id')
+    id: ctx.get.param('id')
   })
 }
 
@@ -67,7 +67,7 @@ await fetch(
 )
 ```
 
-Building stateless or stateful is the same move, just drop the files. A stateless REST endpoint is a handler that reads the request and replies, while a stateful flow adds the [session middleware](/middleware/session) and reads per-user data from [`ctx.state`](/core-concepts/context-object#sharing-state). The method stays real either way, with nothing to disguise on the way in.
+Building stateless or stateful is the same move, just drop the files. A stateless REST endpoint is a handler that reads the request and replies, while a stateful flow adds the [session middleware](/middleware/session) and reads per-user data through `ctx.get.session()`. The method stays real either way, with nothing to disguise on the way in.
 
 A full REST or RESTful API falls out of this with no extra wiring. The verbs already line up with the actions, `GET` to read, `POST` to create, `PUT` and `PATCH` to update, `DELETE` to remove, so a resource is just a route file with those handlers. The behavior reads the same across every endpoint, which is what makes the whole API feel seamless.
 

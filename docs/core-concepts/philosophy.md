@@ -40,7 +40,7 @@ Code should read cleanly, patterns should stay predictable, and errors should po
 
 Simple and safe belong in the same sentence. A serving router protects the process from accidental shutdown through [process protection](/getting-started/server-configuration#process-protection), and faults are caught in layers through [defense in depth](/error-handling/defense-in-depth). Staying small is part of staying safe, since less code means less that can go wrong.
 
-Staying safe also means staying current. Attack surfaces keep shifting, so each release tracks them and ships the fixes alongside the features. A new version is rarely just new capabilities, it usually carries most of the attack vectors patched from the version before it, which makes running the latest the safe choice rather than the optional one. Keeping the dependency current is one command with [`deno update`](https://docs.deno.com/runtime/reference/cli/update/), where `deno update --latest` pulls the newest release regardless of semver so the patches reach you the moment they ship.
+Staying safe also means staying current. Attack surfaces keep shifting, so each release tracks them and ships the fixes alongside the features. A new version is rarely just new capabilities, it usually carries most of the attack vectors patched from the version before it, which makes running the latest the safe choice rather than the optional one. Keeping the dependency current is one command with [`deno update`](https://docs.deno.com/runtime/reference/cli/update/), where `deno update --latest` pulls the newest release regardless of semver so the patches reach the moment they ship.
 
 ## Small on Purpose
 

@@ -25,7 +25,7 @@ routes/
 
 No registry to cross-check, no decorators to trace. The path on disk is the path on the wire, covered in [File-based Routing](/core-concepts/file-based-routing).
 
-![The folder is the map: createPattern turns each file path directly into a URL pattern, so routes/index.ts becomes GET /, routes/users/index.ts becomes GET /users, routes/users/[id].ts becomes GET /users/:id, and files prefixed with an underscore are skipped as private](/diagrams/team-folder-map.png)
+![The folder is the map: each file path maps directly to a URL pattern, so routes/index.ts becomes GET /, routes/users/index.ts becomes GET /users, routes/users/[id].ts becomes GET /users/:id, and files prefixed with an underscore are skipped as private](/diagrams/team-folder-map.png)
 
 ## A Junior Ships on Day One
 
@@ -57,7 +57,8 @@ import type { Context } from '@neabyte/deserve'
 
 // Method name is the HTTP verb
 export async function POST(ctx: Context): Promise<Response> {
-  const order = await ctx.body()
+  // Read parsed JSON body
+  const order = await ctx.get.body()
   return ctx.send.json(
     {
       created: true,
@@ -68,7 +69,7 @@ export async function POST(ctx: Context): Promise<Response> {
 }
 ```
 
-A reviewer reads `POST` and knows the verb, reads `ctx.body()` and knows the input, reads `ctx.send.json()` and knows the output. The same pattern holds across every file, which is the [developer experience](/core-concepts/philosophy#core-beliefs) the framework aims for. Details live in [Request Handling](/core-concepts/request-handling) and the [Context Object](/core-concepts/context-object).
+A reviewer reads `POST` and knows the verb, reads `ctx.get.body()` and knows the input, reads `ctx.send.json()` and knows the output. The same pattern holds across every file, which is the [developer experience](/core-concepts/philosophy#core-beliefs) the framework aims for. Details live in [Request Handling](/core-concepts/request-handling) and the [Context Object](/core-concepts/context-object).
 
 ## Shared Rules in One Place
 
@@ -112,10 +113,10 @@ Larger teams often split an app into services. Deserve runs several routers in a
 import { Router } from '@neabyte/deserve'
 
 const api = new Router({
-  routesDir: './services/api/routes'
+  routes: { directory: './services/api/routes' }
 })
 const auth = new Router({
-  routesDir: './services/auth/routes'
+  routes: { directory: './services/auth/routes' }
 })
 
 // Each service owns its folder and port
@@ -127,7 +128,7 @@ await Promise.all([
 
 Each service has its own folder, port, and file watcher, so teams move in parallel without stepping on each other. The full pattern, including shared code and a shared error handler, is in [Multi-Service](/core-concepts/multi-service).
 
-![Many hands, one process: a single Deno process runs an API router owned by dev A on port 3001 and an Auth router owned by dev B on port 3002, each with its own routesDir and file watcher, so the two developers work in parallel without separate deployments or network glue](/diagrams/team-many-hands.png)
+![Many hands, one process: a single Deno process runs an API router owned by dev A on port 3001 and an Auth router owned by dev B on port 3002, each with its own routes directory and file watcher, so the two developers work in parallel without separate deployments or network glue](/diagrams/team-many-hands.png)
 
 ## Where to Go Next
 

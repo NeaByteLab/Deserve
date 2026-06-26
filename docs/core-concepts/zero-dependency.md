@@ -24,7 +24,7 @@ Deno was designed around safer defaults, and this choice follows that lead. The 
 
 Security should be the starting point, not a later upgrade. That belief is not a promise of perfection, it is a direction. A smaller dependency tree, [process protection](/getting-started/server-configuration#process-protection), and [layered error handling](/error-handling/defense-in-depth) all point the same way, toward a server that stays safe even when something goes wrong.
 
-![A process sentinel interposes known termination calls, so self-targeted Deno.exit and process.exit are blocked and unhandled rejections are trapped while a kill aimed at another pid still passes through, keeping the process alive and emitting a process error event](/diagrams/zero-dep-process-guard.png)
+![A process sentinel interposes known termination calls, so self-targeted Deno.exit and process.exit are blocked and unhandled rejections are trapped while a kill aimed at another pid still passes through, keeping the process alive and emitting a process:failed event](/diagrams/zero-dep-process-guard.png)
 
 ## Open and Auditable
 

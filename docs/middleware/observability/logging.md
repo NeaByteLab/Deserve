@@ -6,22 +6,22 @@ description: "Turn Deserve request events into structured request logs."
 
 A single [`router.on()`](/middleware/observability/overview) subscription turns every finished request into a structured access log, with no logging code inside handlers.
 
-![Every finished request emits request:complete with OpenTelemetry-aligned metrics, and a request with status 400 or higher also emits request:error carrying the original error, so one router.on listener fans the same envelope into an access log line, a slow request warning filtered by duration, and an error report](/diagrams/obs-request-lifecycle.png)
+![Every finished request emits request:completed with OpenTelemetry-aligned metrics, and a request with status 400 or higher also emits request:failed carrying the original error, so one router.on listener fans the same envelope into an access log line, a slow request warning filtered by duration, and an error report](/diagrams/obs-request-lifecycle.png)
 
 ## Basic Access Log
 
-Listen for `request:complete` and print one line per request:
+Listen for `request:completed` and print one line per request:
 
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
 const router = new Router({
-  routesDir: './routes'
+  routes: { directory: './routes' }
 })
 
 // One log line per finished request
 router.on((event) => {
-  if (event.kind === 'request:complete') {
+  if (event.kind === 'request:completed') {
     const { method, url, statusCode, durationMs } = event.metadata as {
       method: string
       url: string
@@ -43,11 +43,11 @@ Emit JSON when a log pipeline expects structured records:
 import { Router } from '@neabyte/deserve'
 
 const router = new Router({
-  routesDir: './routes'
+  routes: { directory: './routes' }
 })
 // ---cut---
 router.on((event) => {
-  if (event.kind === 'request:complete') {
+  if (event.kind === 'request:completed') {
     // Forward the full metadata as JSON
     console.log(JSON.stringify({
       at: event.timestamp,
@@ -67,12 +67,12 @@ Filter by duration to surface only slow traffic:
 import { Router } from '@neabyte/deserve'
 
 const router = new Router({
-  routesDir: './routes'
+  routes: { directory: './routes' }
 })
 // ---cut---
 router.on((event) => {
   // Flag requests slower than 500ms
-  if (event.kind === 'request:complete') {
+  if (event.kind === 'request:completed') {
     const { url, durationMs } = event.metadata as { url: string; durationMs: number }
     if (durationMs > 500) {
       console.warn(`SLOW ${url} ${Math.round(durationMs)}ms`)

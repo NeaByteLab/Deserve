@@ -16,18 +16,17 @@ A single built-in answer would fit one taste and fight every other one. So the d
 
 A limiter needs four things, and each one already ships:
 
-- **A key per client** - read `ctx.ip` for the resolved visitor IP, or `ctx.header('x-api-key')` for an API key. See [Client IP](/core-concepts/context-object#client-ip).
+- **A key per client** - read `ctx.get.ip()` for the resolved visitor IP, or `ctx.get.header('x-api-key')` for an API key. See [`ctx.get.ip()`](/core-concepts/context-object#ctx-get-ip-options).
 - **A place to run early** - [global middleware](/middleware/global) runs before every route handler and can stop a request by returning a `Response`.
 - **A way to block** - return `ctx.send.text(...)` or `ctx.send.json(...)` with status `429` to end the request right there.
-- **A way to inform** - `ctx.setHeader(...)` adds the standard rate limit headers so a client can back off.
+- **A way to inform** - `ctx.set.header(...)` adds the standard rate limit headers so a client can back off.
 
 ## A Fixed Window Limiter
 
 This middleware counts requests per IP inside a fixed time window. When the count passes the limit, the request stops with a `429`.
 
 ```typescript twoslash
-import type { Context } from '@neabyte/deserve'
-import { Router } from '@neabyte/deserve'
+import { Router, type Context } from '@neabyte/deserve'
 
 const router = new Router()
 // ---cut---
@@ -35,12 +34,12 @@ const router = new Router()
 const windowMs = 60_000
 const maxRequests = 100
 
-// Track count and reset time per key
+// Track count and reset per key
 const hits = new Map<string, { count: number, resetAt: number }>()
 
 router.use(async (ctx, next) => {
   // Pick the client key
-  const key = ctx.ip ?? 'unknown'
+  const key = ctx.get.ip() ?? 'unknown'
   const now = Date.now()
   const entry = hits.get(key)
 
@@ -59,7 +58,7 @@ router.use(async (ctx, next) => {
   // Over the cap, block with 429
   if (entry.count > maxRequests) {
     const retryAfter = Math.ceil((entry.resetAt - now) / 1000)
-    ctx.setHeader('Retry-After', String(retryAfter))
+    ctx.set.header('Retry-After', String(retryAfter))
     return ctx.send.text(
       'Too Many Requests',
       {
@@ -82,8 +81,7 @@ The `Map` lives in memory, so the count resets when the process restarts and is 
 Clients behave better when they can see their budget. The standard headers report the cap, the remaining hits, and when the window resets. Set them on every response, not only on a block.
 
 ```typescript twoslash
-import type { Context } from '@neabyte/deserve'
-import { Router } from '@neabyte/deserve'
+import { Router, type Context } from '@neabyte/deserve'
 
 const router = new Router()
 const windowMs = 60_000
@@ -91,7 +89,7 @@ const maxRequests = 100
 const hits = new Map<string, { count: number, resetAt: number }>()
 // ---cut---
 router.use(async (ctx, next) => {
-  const key = ctx.ip ?? 'unknown'
+  const key = ctx.get.ip() ?? 'unknown'
   const now = Date.now()
   let entry = hits.get(key)
 
@@ -108,7 +106,7 @@ router.use(async (ctx, next) => {
   const remaining = Math.max(0, maxRequests - entry.count)
 
   // Report the budget on every response
-  ctx.setHeaders({
+  ctx.set.headers({
     'X-RateLimit-Limit': String(maxRequests),
     'X-RateLimit-Remaining': String(remaining),
     'X-RateLimit-Reset': String(Math.ceil(entry.resetAt / 1000))
@@ -135,15 +133,14 @@ router.use(async (ctx, next) => {
 A login form needs a tighter limit than a public page. Path-specific middleware applies the rule to one prefix and leaves the rest untouched.
 
 ```typescript twoslash
-import type { Context } from '@neabyte/deserve'
-import { Router } from '@neabyte/deserve'
+import { Router, type Context } from '@neabyte/deserve'
 
 const router = new Router()
 declare function isOverLimit(key: string): boolean
 // ---cut---
 // Guard only the auth routes
 router.use('/auth', async (ctx, next) => {
-  const key = ctx.ip ?? 'unknown'
+  const key = ctx.get.ip() ?? 'unknown'
   if (isOverLimit(key)) {
     return ctx.send.json(
       {
@@ -162,11 +159,11 @@ This is the same path-specific form covered in [global middleware](/middleware/g
 
 ## Shaping the Block Response
 
-The examples above return the `429` straight from the middleware. To route every block through one place, throw inside [`WrapMware`](/middleware/global#wrapping-middleware-with-error-handling) and shape the reply with [`router.catch()`](/error-handling/object-details). That keeps the limit rule and the error format apart, which helps when several middlewares share one response style.
+The examples above return the `429` straight from the middleware. To route every block through one place, throw inside [`Wrap.apply`](/middleware/global#wrapping-middleware-with-error-handling) and shape the reply with [`router.catch()`](/error-handling/object-details). That keeps the limit rule and the error format apart, which helps when several middlewares share one response style.
 
 ## Watching the Limit Work
 
-The limiter blocks requests, and the [observability events](/middleware/observability/overview) report what happened. A blocked request finishes with status `429`, so it arrives as a `request:error` event. Subscribe once to count blocks or trace which keys hit the cap.
+The limiter blocks requests, and the [observability events](/middleware/observability/overview) report what happened. A blocked request finishes with status `429`, so it arrives as a `request:failed` event. Subscribe once to count blocks or trace which keys hit the cap.
 
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
@@ -175,7 +172,7 @@ const router = new Router()
 // ---cut---
 router.on((event) => {
   // Log every request that was blocked
-  if (event.kind === 'request:error' && event.metadata.statusCode === 429) {
+  if (event.kind === 'request:failed' && event.metadata.statusCode === 429) {
     console.log('Rate limited:', event.metadata.ip, event.metadata.url)
   }
 })

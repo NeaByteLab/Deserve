@@ -38,21 +38,21 @@ await router.serve(8000)
 
 ## Reading the Real Scheme
 
-When the app does need to know whether the client used HTTPS, the answer rides in a forwarded header the proxy sets, not in the local connection. A trusted proxy adds [`X-Forwarded-Proto`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Forwarded-Proto), read through [`ctx.header`](/core-concepts/context-object#request-data-access).
+When the app does need to know whether the client used HTTPS, the answer rides in a forwarded header the proxy sets, not in the local connection. A trusted proxy adds [`X-Forwarded-Proto`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Forwarded-Proto), read through [`ctx.get.header`](/core-concepts/context-object#ctx-get-header-key).
 
 ```typescript twoslash
 import type { Context } from '@neabyte/deserve'
 // ---cut---
 export function GET(ctx: Context): Response {
   // Scheme the client actually used
-  const proto = ctx.header('x-forwarded-proto') ?? 'http'
+  const proto = ctx.get.header('x-forwarded-proto') ?? 'http'
   return ctx.send.json({
     secure: proto === 'https'
   })
 }
 ```
 
-Trust this header only behind a proxy configured through [`trustProxy`](/getting-started/server-configuration#client-ip-resolution), the same trust boundary [`ctx.ip`](/by-design/request-id#the-ip-is-the-source-of-truth) relies on. An untrusted client can set any header, so the value means nothing without that boundary.
+Trust this header only behind a proxy configured through [`trustProxy`](/getting-started/server-configuration#client-ip-resolution), the same trust boundary [`ctx.get.ip()`](/core-concepts/context-object#ctx-get-ip-options) relies on. An untrusted client can set any header, so the value means nothing without that boundary.
 
 ## Serving HTTPS Directly
 

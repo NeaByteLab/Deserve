@@ -6,7 +6,7 @@ description: "Limit incoming request body size to guard against oversized payloa
 
 > **Reference**: [RFC 7230 HTTP/1.1 Message Syntax and Routing](https://datatracker.ietf.org/doc/html/rfc7230#section-3.3.1)
 
-Body Limit middleware enforces a maximum request body size. When a body is present on a method that allows one, the body stream is wrapped with a limiter so the size is enforced as bytes arrive, not only from headers, which keeps large payloads from overwhelming the server.
+Body Limit middleware enforces a maximum request body size by checking the `Content-Length` header. When a request carries a body on a method that allows one, the middleware rejects oversized payloads before the body is ever read, which keeps large payloads from overwhelming the server.
 
 ## Basic Usage
 
@@ -56,7 +56,7 @@ router.use('/api', Mware.bodyLimit({
 
 ### `limit`
 
-Maximum body size in bytes:
+Maximum body size in bytes. Must be a positive finite number, otherwise the middleware throws `Deno.errors.InvalidData` when created:
 
 ```typescript
 // 1MB (1,048,576 bytes)
@@ -71,44 +71,14 @@ limit: 10 * 1024 * 1024
 
 ## How It Works
 
-When a request can carry a body, the middleware checks the declared size first, then wraps the body stream with a byte limiter so the size is enforced as the body is read, not only from headers:
+The middleware checks the declared size from the `Content-Length` header before the body is read:
 
-1. **GET or HEAD** - nothing is wrapped and the request passes through.
-2. **Content-Length** - when present without `Transfer-Encoding`, the request is rejected before the body is read if the value is missing a number, negative, or above `limit`.
-3. **Body present** - on a method that allows a body, the stream is wrapped with the limiter. When the client sends more bytes than `limit`, reading stops and the middleware responds with **413**.
+1. **GET or HEAD** - the request passes through without a check, since these methods carry no body
+2. **Content-Length present** - when the value is missing a number, negative, or above `limit`, the request is rejected with **413** before the body is read
+3. **No Content-Length** - the request passes through, and the body is read normally by the handler
 
-### RFC 7230
-
-- When both `Transfer-Encoding` and `Content-Length` are present, `Transfer-Encoding` takes precedence.
-- Chunked or unknown-length bodies are still limited by the wrapped stream, and only the bytes read count toward the limit.
-
-This middleware caps how many bytes a body may carry. Checking the shape of those bytes is a separate step that a [validation](/middleware/validation/overview) contract runs once the body is within the limit.
-
-## Complete Example
-
-```typescript twoslash
-import { Mware, Router } from '@neabyte/deserve'
-
-const router = new Router({
-  routesDir: './routes'
-})
-
-// Global 1MB limit
-router.use(Mware.bodyLimit({
-  limit: 1024 * 1024
-}))
-
-// Larger limits for uploads and API
-router.use('/uploads', Mware.bodyLimit({
-  limit: 5 * 1024 * 1024
-}))
-router.use('/api', Mware.bodyLimit({
-  limit: 10 * 1024 * 1024
-}))
-
-await router.serve(8000)
-```
+This caps how many bytes a body may declare. Checking the shape of those bytes is a separate step that a [validation](/middleware/validation/overview) contract runs once the body is within the limit.
 
 ## Error Handling
 
-When the limit is exceeded, the middleware fails with status **413** and message `Request body exceeds <limit> bytes limit`, whether a declared `Content-Length` trips it before the body is read or an oversized stream trips it as the extra bytes arrive. That failure routes through the [central error handler](/error-handling/object-details) like any other, so shape the response there or rely on the [default behavior](/error-handling/default-behavior).
+When the limit is exceeded, the middleware fails with status **413** and message `Request body exceeds <limit> bytes limit`. That failure routes through the [central error handler](/error-handling/object-details) like any other, so shape the response there or rely on the [default behavior](/error-handling/default-behavior). A `body:rejected` observability event also fires with the limit and the declared size, covered in [Event Reference](/middleware/observability/events).

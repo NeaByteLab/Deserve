@@ -4,9 +4,9 @@ description: 'Push data to the client chunk by chunk with Server-Sent Events and
 
 # Streaming Data
 
-A streaming response sends its body in pieces over time instead of one finished blob, so the first bytes reach the client long before the work is done. Deserve passes a [`ReadableStream`](https://developer.mozilla.org/en-US/docs/Web/API/ReadableStream) straight through `ctx.send.stream()` to the native response, so each `controller.enqueue()` leaves the server as its own chunk. This recipe covers the two formats that show up most in production - [Server-Sent Events](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events) for live push and [NDJSON](https://github.com/ndjson/ndjson-spec) for large datasets read line by line.
+A streaming response sends its body in pieces over time instead of one finished blob, so the first bytes reach the client long before the work is done. Deserve passes a [`ReadableStream`](https://developer.mozilla.org/en-US/docs/Web/API/ReadableStream) straight through `ctx.send.custom()` to the native response, so each `controller.enqueue()` leaves the server as its own chunk. This recipe covers the two formats that show up most in production - [Server-Sent Events](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events) for live push and [NDJSON](https://github.com/ndjson/ndjson-spec) for large datasets read line by line.
 
-For a single buffered stream or the method signature, see [stream responses](/response/stream). For streaming rendered HTML, see [streaming rendering](/rendering/streaming).
+For a single buffered stream or the method signature, see [stream responses](/response/custom). For streaming rendered HTML, see [streaming rendering](/rendering/streaming).
 
 ## Project Structure
 
@@ -42,19 +42,19 @@ export function GET(ctx: Context): Response {
       controller.close()
     }
   })
-  return ctx.send.stream(
+  return ctx.send.custom(
     stream,
     {
       headers: {
-        'Cache-Control': 'no-cache'
+        'Cache-Control': 'no-cache',
+        'Content-Type': 'text/event-stream'
       }
-    },
-    'text/event-stream'
+    }
   )
 }
 ```
 
-The third argument sets the content type while the second carries the `Cache-Control: no-cache` header that stops a proxy from buffering the feed. A per-call `Content-Type` set this way wins over any generic context header, so the event stream keeps its type even alongside other headers.
+The `Content-Type: text/event-stream` header tells the browser to treat the response as an event source, while `Cache-Control: no-cache` stops a proxy from buffering the feed.
 
 ### Reading From the Browser
 
@@ -91,11 +91,15 @@ export function GET(ctx: Context): Response {
       controller.close()
     }
   })
-  return ctx.send.stream(stream, undefined, 'application/x-ndjson')
+  return ctx.send.custom(stream, {
+    headers: {
+      'Content-Type': 'application/x-ndjson'
+    }
+  })
 }
 ```
 
-Passing `undefined` for the options keeps the defaults, while the third argument labels the body `application/x-ndjson` so the client knows to split on newlines.
+Passing the `Content-Type: application/x-ndjson` header tells the client to split on newlines.
 
 ### Reading From the Client
 
@@ -146,7 +150,11 @@ export function GET(ctx: Context): Response {
       }
     }
   })
-  return ctx.send.stream(stream, undefined, 'text/event-stream')
+  return ctx.send.custom(stream, {
+    headers: {
+      'Content-Type': 'text/event-stream'
+    }
+  })
 }
 ```
 

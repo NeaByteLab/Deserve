@@ -31,7 +31,7 @@ routes/
 - `about.ts`, `about.js`, `about.mjs` → `/about`
 - `users.ts`, `users.js`, `users.cjs` → `/users`
 
-All supported extensions (`.ts`, `.js`, `.tsx`, `.jsx`, `.mjs`, `.cjs`) work identically.
+All supported extensions (`.ts`, `.js`, `.tsx`, `.jsx`, `.mjs`, `.cjs`) work identically. A filename can only have one dot separating the name from the extension, so `about.ts` loads but `about.config.ts` does not.
 
 ### 2. Folders Create Nested Routes
 
@@ -44,7 +44,7 @@ All supported extensions (`.ts`, `.js`, `.tsx`, `.jsx`, `.mjs`, `.cjs`) work ide
 - `[userId].ts` → `:userId` parameter
 - `[postId].ts` → `:postId` parameter
 
-Dynamic segments are matched by [Route Patterns](/core-concepts/route-patterns) and read with `ctx.param()` from [Request Handling](/core-concepts/request-handling#route-parameters).
+Dynamic segments are matched by [Route Patterns](/core-concepts/route-patterns) and read with `ctx.get.param()` from [Request Handling](/core-concepts/request-handling#route-parameters).
 
 ### 4. HTTP Methods Are Exported Functions
 
@@ -59,7 +59,8 @@ export function GET(ctx: Context): Response {
 }
 
 export async function POST(ctx: Context): Promise<Response> {
-  const data = await ctx.body()
+  // Read parsed request body
+  const data = await ctx.get.body()
   return ctx.send.json({
     message: 'User created',
     data
@@ -70,6 +71,8 @@ export async function POST(ctx: Context): Promise<Response> {
 // export function [method](ctx: Context): Response { ... }
 ```
 
+A route file must export at least one HTTP method (`GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS`). A file whose name never forms a loadable pattern, such as one starting with `_`, is skipped during the scan and emits a [`route:ignored`](/middleware/observability/events#routes) event. A file with a loadable name but no exported method is a mistake worth catching early, so the scan throws `Deno.errors.InvalidData` at startup, and an export that is not a function throws `TypeError`.
+
 ### 5. Case-Sensitive URLs
 
 URLs are case-sensitive following HTTP standards:
@@ -79,16 +82,15 @@ URLs are case-sensitive following HTTP standards:
 
 ### 6. Valid Filename Characters
 
-Files can contain specific rules:
+The last segment of a route path (the filename without extension) can contain:
 
 - `a-z`, `A-Z`, `0-9` - Alphanumeric characters
-- `_` - Underscore (do not prefix path segment - see below)
+- `_` - Underscore (do not prefix a segment with it, see below)
 - `-` - Dash
-- `.` - Dot
 - `~` - Tilde
 - `+` - Plus sign
 - `[` `]` - Brackets for dynamic parameters
 
-**Skipped segments:** Folders or file names that **start with** `_` or `@` are not registered as routes (e.g. `_layout.ts`, `@middleware.ts`, folder `_components/`). Useful for support files that are not endpoints.
+**Skipped segments:** Folders or file names that **start with** `_` or `@` are not registered as routes (for example `_layout.ts`, `@middleware.ts`, folder `_components/`). Useful for support files that are not endpoints.
 
 Edited route files reload on the fly without a restart, covered in [Hot Reload](/core-concepts/hot-reload).

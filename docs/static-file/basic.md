@@ -4,20 +4,20 @@ description: "Serve static files from a directory with the Deserve static handle
 
 # Basic Static Serving
 
-Serve static files (HTML, CSS, JS, images) using the `static()` method.
+The `router.static()` method serves files from a folder under a URL prefix, with caching, byte ranges, and path safety built in. It covers HTML, CSS, JavaScript, images, fonts, and any other asset on disk.
 
 ## Basic Usage
 
-Serve static files from a directory:
+Mount a folder under a URL prefix:
 
-![Calling router.static with the prefix slash static and path dot slash public registers the pattern slash static slash star star, then each request has its slash static prefix sliced off ctx.pathname and the remainder joined under public, so slash static maps to public slash index dot html, slash static slash css slash style dot css maps to public slash css slash style dot css, and slash static slash dot env is rejected with 404 before any read because the segment starts with a dot](/diagrams/static-url-to-file.png)
+![A request to slash static slash css slash style dot css matches the slash static mount, has its slash static prefix stripped to css slash style dot css, and is served from the public folder, while a request to slash static slash dot env is rejected with 404 before any read because the segment starts with a dot](/diagrams/static-url-to-file.png)
 
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
 const router = new Router()
 
-// Serve ./public under the /static path
+// Serve ./public under the /static prefix
 router.static('/static', {
   path: './public',
   etag: true,
@@ -27,43 +27,38 @@ router.static('/static', {
 await router.serve(8000)
 ```
 
-This serves files from the `public/` directory at the `/static` URL path:
+That mount maps each URL under `/static` to a file in `public/`:
 
-- `GET /static/index.html` → serves `public/index.html`
-- `GET /static/css/style.css` → serves `public/css/style.css`
-- `GET /static/.env` → rejected with **404** before any read
-
+- `GET /static/index.html` serves `public/index.html`
+- `GET /static/css/style.css` serves `public/css/style.css`
+- `GET /static/.env` is rejected with **404** before any read
 
 ## How It Works
 
-Deserve uses a custom static file serving implementation:
+A static mount is not a file route. It is a separate registry that the router checks only after dynamic routes miss, so the matching order is fixed:
 
-1. **Route Matching**: Creates routes with pattern `${urlPath}/**` to match all files
-2. **Path Extraction**: reads `ctx.pathname` directly to get the full request path, since FastRouter's `/**` pattern only captures the first segment
-3. **File Resolution**: Maps URL paths to file system paths using the `path` option
-4. **Priority**: Static routes are registered for all HTTP methods before dynamic routes
+1. Entry middleware runs first.
+2. A matching dynamic route handles the request and static never runs.
+3. When the path matches a route under a different method, the router replies **405 Method Not Allowed** with an `Allow` header, and static still never runs.
+4. With no route match at all, the router walks the static mounts and serves the first one whose prefix covers the path.
 
-### Wildcard Pattern Behavior
+A request keeps its prefix until a mount matches, then the prefix is stripped and the remainder becomes the file path under the folder. So `GET /static/css/style.css` strips `/static` and resolves `css/style.css` inside `public/`.
 
-When `urlPath` is `/`, Deserve creates a `/**` pattern. For path resolution, Deserve uses `ctx.pathname` instead of relying on wildcard parameter, because:
+### Prefix Matching
 
-- FastRouter's `/**` pattern only captures the **first segment** of the request path instead of the full path (e.g., `"styles"` for `/styles/ui.css`)
-- To serve nested files correctly, Deserve extracts the full path from `ctx.pathname` and removes the leading `/` to get the relative file path
+Mounts are sorted longest prefix first, so the most specific one wins. A mount on `/admin/assets` is tried before a mount on `/admin`, which lets a broad fallback and a focused folder live together. A mount on `/` acts as a catch-all that covers every remaining path. Multiple mounts and their dispatch order live in [Multiple Directories](/static-file/multiple).
 
-**Example:**
+### Supported Methods
 
-- Request: `GET /styles/ui.css`
-- Pattern: `/**` matches from configurable path
-- File path: Extracted from `ctx.pathname` → `"styles/ui.css"`
-- Resolved: `static/styles/ui.css`
+A static mount answers `GET` and `HEAD` only. Any other method on a path the mount covers returns **405 Method Not Allowed** with `Allow: GET, HEAD`. A `HEAD` request runs the same path as `GET` and returns the headers with an empty body.
 
 ## Static File Options
 
-The `static()` method accepts a `ServeOptions` object:
+The second argument is a `ServeOptions` object. Only `path` is required:
 
 ### `path`
 
-File system directory path to serve files from:
+The filesystem directory to serve from, relative to the current working directory or absolute. An empty path throws at mount time:
 
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
@@ -71,17 +66,17 @@ import { Router } from '@neabyte/deserve'
 const router = new Router()
 // ---cut---
 router.static('/static', {
-  path: './public' // Serve files from public/ directory
+  path: './public' // Serve files from public folder
 })
 
 router.static('/assets', {
-  path: '/absolute/path/to/assets' // Absolute path also supported
+  path: '/absolute/path/to/assets' // Absolute path also works
 })
 ```
 
 ### `etag`
 
-Enable ETag generation for caching. The tag is a SHA-256 hash of the file size and modification time, not the full file content, so it stays cheap to compute:
+Turns on ETag generation, and it defaults to on when omitted. The tag is a weak validator built from a SHA-256 hash of the file size and modification time, not the file contents, so it stays cheap to compute:
 
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
@@ -90,15 +85,15 @@ const router = new Router()
 // ---cut---
 router.static('/static', {
   path: './public',
-  etag: true // Generate ETag from size and mtime
+  etag: true // Build ETag from size and mtime
 })
 ```
 
-When enabled, a client that sends a matching `If-None-Match` header receives a `304 Not Modified` response with no body.
+When a client sends a matching `If-None-Match`, the response is **304 Not Modified** with no body. A client sending `If-Modified-Since` gets the same 304 when the file is no newer than that date.
 
 ### `cacheControl`
 
-Set the Cache-Control max-age in seconds. Deserve sends it as `public, max-age=<seconds>`, applied only when the value is `0` or higher:
+Sets the `Cache-Control` max-age in seconds, sent as `public, max-age=<seconds>`. It applies only when the value is `0` or higher, and is omitted otherwise:
 
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
@@ -107,54 +102,61 @@ const router = new Router()
 // ---cut---
 router.static('/static', {
   path: './public',
-  cacheControl: 86400 // Cache for 1 day (86400 seconds)
+  cacheControl: 86400 // Cache for one day
 })
 
 router.static('/assets', {
   path: './assets',
-  cacheControl: 31536000 // Cache for 1 year
+  cacheControl: 31536000 // Cache for one year
+})
+```
+
+## Custom Handler
+
+In place of options, `static()` accepts a function of the shape `(ctx, urlPath) => Response`. It receives the [context](/core-concepts/context-object) and the path with the mount prefix already stripped, which suits an in-memory asset map or a generated file:
+
+```typescript twoslash
+import { Router, type Context } from '@neabyte/deserve'
+
+const router = new Router()
+// ---cut---
+// Serve assets from a map by stripped path
+router.static('/cdn', (ctx: Context, urlPath: string) => {
+  const assets: Record<string, string> = { 'logo.svg': '<svg></svg>' }
+  const body = assets[urlPath]
+  if (body === undefined) {
+    return ctx.send.empty(404)
+  }
+  return ctx.send.custom(body, { headers: { 'Content-Type': 'image/svg+xml' } })
 })
 ```
 
 ## Byte-Range Requests
 
-Static responses support a single [byte range](https://www.rfc-editor.org/rfc/rfc7233) so a client can fetch part of a file, which is what a video scrubber or a resumable download relies on. Every static response advertises `Accept-Ranges: bytes`, and a request carrying one contiguous `Range` header is answered with the matched window:
+Static responses support a single [byte range](https://www.rfc-editor.org/rfc/rfc7233) so a client can fetch part of a file, which is what a video scrubber or a resumable download relies on. Every static response advertises `Accept-Ranges: bytes`:
 
-- **One valid range** returns **206 Partial Content** with a `Content-Range: bytes start-end/size` header and only those bytes streamed off disk.
-- **An unsatisfiable range** that names a window past the file size returns **416 Range Not Satisfiable** with `Content-Range: bytes */size`.
-- **An absent, multi-part, or malformed range** falls back to the full file as before.
+- A single valid range returns **206 Partial Content** with `Content-Range: bytes start-end/size`, streaming only those bytes off disk.
+- A range past the file size returns **416 Range Not Satisfiable** with `Content-Range: bytes */size`.
+- An absent, multi-part, or malformed range falls back to the full file.
 
-Only the bytes inside the requested window are read, and the file handle is released once the window is sent, errors, or is cancelled.
+An `If-Range` header carrying a date keeps the range only when the file is unchanged, otherwise the full file is sent. An `If-Range` carrying an entity tag is treated as stale, so the full file is sent. The file handle is released once the window is sent, errors, or is cancelled.
 
 ## File Resolution and Security
 
-Static serving maps a URL path to a file under the configured directory, with a few built-in rules:
+A mount maps a URL to a file under its folder with a few fixed rules:
 
-- **Index fallback** - a request to the route root serves `index.html` from the directory.
-- **Content type** - the type is picked from the file extension. Common web assets like HTML, CSS, JavaScript, JSON, images, fonts, and documents are mapped out of the box, and an unknown extension falls back to `application/octet-stream`.
-- **Dotfiles blocked** - any path segment whose name starts with `.` is rejected with **404**, so files like `.env`, `.git/config`, or a leading `..` never get served. The rule looks at the segment name, not the extension, so a normal file such as `report.env` is still served.
-- **Directory traversal blocked** - the resolved real path must stay inside the base directory. A path that escapes it, such as one built from `..`, is rejected with **404**.
+- **Index fallback** - a request to the mount root serves `index.html` from the folder.
+- **Content type** - the type comes from the file extension. Common web assets such as HTML, CSS, JavaScript, JSON, images, fonts, and documents are mapped out of the box, and an unknown extension falls back to `application/octet-stream`.
+- **Dotfiles blocked** - any path segment whose name starts with `.` is rejected with **404**, so `.env`, `.git/config`, or a leading `..` never get served. The rule reads the segment name, not the extension, so a normal file like `report.env` is still served.
+- **Traversal blocked** - the resolved real path must stay inside the folder. A path that escapes through `..` or a symlink is rejected with **404**.
 
-A missing or blocked file returns 404 through the [centralized error handler](/error-handling/object-details).
+A miss or a blocked path emits a `static:missing` event on the [observability bus](/middleware/observability/overview) and returns **404** through the [centralized error handler](/error-handling/object-details), the same handler set with `router.catch()` that shapes every other error. There is no per-mount error hook, so one handler covers static, routes, and middleware alike.
 
 ## Troubleshooting
 
-### Files Not Found
+A few common misses and what to check:
 
-- Check `path` is correct (relative to current working directory or absolute)
-- Verify file permissions
-- Ensure files exist in the directory
-- Check that the URL path matches the route pattern (`/static/file.css` for `router.static('/static', ...)`)
-
-### 404 Errors
-
-- Verify the static route is registered before calling `router.serve()`
-- Check that file paths match the URL structure
-- Ensure the file exists at the resolved path
-
-### Caching Issues
-
-- Verify `etag` and `cacheControl` are set correctly
-- Check browser DevTools Network tab for ETag and Cache-Control headers
-- Clear browser cache for testing
-- Use `304 Not Modified` responses (visible when ETag matches)
+- **404 on a file that exists** - confirm `path` points at the right folder and the URL keeps the mount prefix, so `/static/app.css` for a mount on `/static`.
+- **404 on a dotfile** - this is intentional, since any segment starting with `.` is blocked.
+- **A route wins over a static file** - a dynamic route on the same path takes priority, so rename one or move the static mount under a distinct prefix.
+- **Caching not applied** - check the `ETag` and `Cache-Control` headers in the browser network panel, and confirm `etag` and `cacheControl` are set.

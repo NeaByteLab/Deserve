@@ -6,7 +6,7 @@ description: "Register global middleware that runs for every request with router
 
 Global middleware executes for every request before route handlers, providing cross-cutting functionality like authentication, logging, and CORS.
 
-Each `router.use(fn)` call appends an entry with an empty path, so it matches every request and runs in the exact order you registered it, before any route matching happens.
+Each `router.use(fn)` call appends an entry with an empty path, so it matches every request and runs in the exact order it was registered, before any route matching happens.
 
 ![Global Middleware registration and position: each router.use(fn) appends a path-empty entry that matches every request and runs before route matching, in registration order](/diagrams/middleware-global-registration.png)
 
@@ -21,7 +21,7 @@ const router = new Router()
 
 // Log every request, then continue
 router.use(async (ctx, next) => {
-  console.log(`${ctx.request.method} ${ctx.url}`)
+  console.log(`${ctx.get.method()} ${ctx.get.url().href}`)
   return await next()
 })
 
@@ -34,16 +34,16 @@ await router.serve(8000)
 type MiddlewareFn = (
   ctx: Context,
   next: () => Promise<Response | undefined>
-) => Response | undefined | Promise<Response | undefined>
+) => Promise<Response | undefined>
 ```
 
-- **Return `await next()`** - continue to the next middleware or route handler, which allows response modification and inspection.
-- **Return `Response`** - stop processing and return that response immediately.
-- **Return `undefined`** - treated as pass-through so the chain continues as if `next()` were called.
+- **Return `await next()`** - continue to the next middleware or route handler, which allows response modification and inspection
+- **Return `Response`** - stop processing and return that response immediately
+- **Return `undefined`** - treated as pass-through so the chain continues as if `next()` were called
 
-Middleware must either call `next()` and use its result or return a `Response`. When it does neither, for example never calling `next()` and returning nothing, the request can hang, so `requestTimeoutMs` in `Router` caps the request duration and returns a 503 instead.
+Middleware must either call `next()` and use its result or return a `Response`. When it does neither, for example never calling `next()` and returning nothing, the request can hang, so `timeoutMs` in `Router` caps the request duration and returns a 503 instead.
 
-![Global Middleware per-request control flow: return await next() continues the chain, returning a Response stops and skips the handler, returning undefined is pass-through; throwing routes to router.catch or 500, and stalling triggers the requestTimeoutMs 503 guard](/diagrams/middleware-global-flow.png)
+![Global Middleware per-request control flow: return await next() continues the chain, returning a Response stops and skips the handler, returning undefined is pass-through; throwing routes to router.catch or 500, and stalling triggers the timeoutMs 503 guard](/diagrams/middleware-global-flow.png)
 
 ## Common Global Middleware Patterns
 
@@ -56,7 +56,7 @@ const router = new Router()
 // ---cut---
 router.use(async (ctx, next) => {
   const start = Date.now()
-  console.log(`${ctx.request.method} ${ctx.url} - ${new Date().toISOString()}`)
+  console.log(`${ctx.get.method()} ${ctx.get.url().href} - ${new Date().toISOString()}`)
   const response = await next()
   const duration = Date.now() - start
   console.log(`Completed in ${duration}ms`)
@@ -73,41 +73,34 @@ const router = new Router()
 declare function isValidToken(token: string): boolean
 // ---cut---
 router.use(async (ctx, next) => {
-  const authHeader = ctx.header('authorization')
+  const authHeader = ctx.get.header('authorization')
   if (!authHeader) {
-    return ctx.send.text(
-      'Unauthorized',
-      {
-        status: 401
-      }
-    )
+    return ctx.send.text('Unauthorized', { status: 401 })
   }
-  // Validate token here...
+  // Validate token here
   const token = authHeader.replace('Bearer ', '')
   if (!isValidToken(token)) {
-    return ctx.send.text(
-      'Invalid token',
-      {
-        status: 401
-      }
-    )
+    return ctx.send.text('Invalid token', { status: 401 })
   }
   return await next()
 })
 ```
 
+For a cleaner auth flow, throw an error and let the [centralized error handler](/error-handling/object-details) shape the response instead of building it inline.
+
 ## Wrapping Middleware With Error Handling
 
-Custom middleware that throws can be wrapped with `WrapMware`, so errors are caught and passed to `router.catch()` when it is defined:
+Custom middleware that throws can be wrapped with `Wrap.apply`, so errors are caught and passed to `router.catch()` when it is defined:
 
 ```typescript twoslash
-import { Router, WrapMware } from '@neabyte/deserve'
+import { Router, Wrap, type HttpStatusCode } from '@neabyte/deserve'
 
 const router = new Router()
 
 // Wrap so throws reach router.catch
-const myAuth = WrapMware('Auth', async (ctx, next) => {
-  if (!ctx.header('x-api-key')) {
+const myAuth = Wrap.apply('Auth', async (ctx, next) => {
+  // Read API key from header
+  if (!ctx.get.header('x-api-key')) {
     throw new Error('Missing API key')
   }
   return await next()
@@ -115,48 +108,38 @@ const myAuth = WrapMware('Auth', async (ctx, next) => {
 
 // Apply middleware and the error handler
 router.use(myAuth)
-router.catch((ctx, err) => {
+router.catch((ctx, info) => {
   return ctx.send.json(
-    {
-      error: err.error?.message
-    },
-    {
-      status: 500
-    }
+    { error: info.error.message },
+    { status: info.statusCode as HttpStatusCode }
   )
 })
 
 await router.serve(8000)
 ```
 
-**Signature:** `WrapMware(label: string, middleware: MiddlewareFn): MiddlewareFn`. When the middleware throws, the error runs through `ctx.handleError()` so `router.catch()` is invoked.
+**Signature:** `Wrap.apply(label: string, middleware: MiddlewareFn): MiddlewareFn`. When the middleware throws, the error runs through `ctx.handleError()` so `router.catch()` is invoked. Every built-in middleware in [Mware](/middleware/basic-auth) is already wrapped this way, so a throw inside them carries the middleware label straight to the error handler.
 
 ## Path-Specific Middleware
 
-Middleware also applies to specific paths:
+Middleware also applies to specific paths, covered in detail in [Route-Specific Middleware](/middleware/route-specific):
 
 ```typescript twoslash
-import type { Context } from '@neabyte/deserve'
-import { Router } from '@neabyte/deserve'
+import { Router, type Context } from '@neabyte/deserve'
 
 const router = new Router()
 declare function isAuthenticated(ctx: Context): boolean
 // ---cut---
 // Runs only for /api paths
 router.use('/api', async (ctx, next) => {
-  console.log('API request:', ctx.url)
+  console.log('API request:', ctx.get.pathname())
   return await next()
 })
 
 // Guard /admin paths with an auth check
 router.use('/admin', async (ctx, next) => {
   if (!isAuthenticated(ctx)) {
-    return ctx.send.text(
-      'Unauthorized',
-      {
-        status: 401
-      }
-    )
+    return ctx.send.text('Unauthorized', { status: 401 })
   }
   return await next()
 })

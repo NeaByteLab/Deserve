@@ -29,7 +29,7 @@ import type { Context } from '@neabyte/deserve'
 const cache = new Map<string, unknown>()
 
 export async function GET(ctx: Context): Promise<Response> {
-  const key = ctx.pathname
+  const key = ctx.get.pathname()
 
   // Serve the cached value when present
   const hit = cache.get(key)
@@ -40,7 +40,7 @@ export async function GET(ctx: Context): Promise<Response> {
     })
   }
 
-  // Build it once, then store for next time
+  // Build once, then store for reuse
   const data = await buildExpensiveData()
   cache.set(key, data)
   return ctx.send.json({
@@ -64,10 +64,10 @@ const ttlMs = 30_000
 const cache = new Map<string, { value: unknown, expiresAt: number }>()
 
 export function GET(ctx: Context): Response {
-  const key = ctx.pathname
+  const key = ctx.get.pathname()
   const entry = cache.get(key)
 
-  // Fresh entry wins, expired one is dropped
+  // Fresh entry wins, expired one drops
   if (entry && Date.now() < entry.expiresAt) {
     return ctx.send.json({
       source: 'cache',
@@ -96,4 +96,4 @@ Two cases call for more than a process-local map. A cache that must survive a re
 
 ## Per-Request Sharing
 
-Caching across requests is one need, passing a value along a single request is another. A value computed in middleware and read by the handler does not belong in a cache at all, it belongs in [`ctx.state`](/core-concepts/context-object#sharing-state), which lives for exactly one request and is gone when the response is sent.
+Caching across requests is one need, passing a value along a single request is another. A value computed in middleware and read by the handler does not belong in a cache at all. For per-user identity the signed [session](/middleware/session) carries it through `ctx.set.session()` and `ctx.get.session()`, and for validated input the [validate middleware](/middleware/validation/overview) hands it on through `ctx.get.validated()`. Anything else the handler re-derives from the request it already holds.

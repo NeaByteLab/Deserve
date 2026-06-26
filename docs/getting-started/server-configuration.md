@@ -6,11 +6,11 @@ description: "Configure how the Deserve server listens, shuts down gracefully, a
 
 > **Reference**: [Deno.serve API Documentation](https://docs.deno.com/api/deno/~/Deno.serve)
 
-Configure a Deserve server with hostname binding and graceful shutdown.
+Configure a Deserve server with hostname binding, graceful shutdown, and process protection. Every option lives on the [`RouterOptions`](/getting-started/routes-configuration) object passed to `new Router(...)`.
 
 ## Basic Server Setup
 
-The simplest way to start a server:
+The simplest way to start a server. The `Router` scans `./routes` by default, so no configuration is needed for a basic setup:
 
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
@@ -23,9 +23,9 @@ await router.serve(8000)
 
 This starts the server on `0.0.0.0:8000`, which covers all interfaces.
 
-## Enhanced Serve Method
+## Serve Method
 
-Deserve's enhanced `serve` method supports three parameters:
+`router.serve()` accepts three optional parameters:
 
 ```typescript
 // Method signatures
@@ -33,6 +33,8 @@ async serve(port?: number): Promise<void>
 async serve(port?: number, hostname?: string): Promise<void>
 async serve(port?: number, hostname?: string, signal?: AbortSignal): Promise<void>
 ```
+
+When `port` is omitted, the server reads `PORT` from the environment and falls back to `8000`. When `hostname` is omitted, it binds `0.0.0.0`.
 
 ## Hostname Binding
 
@@ -69,38 +71,40 @@ await router.serve(8000, '0.0.0.0')
 
 ## Request Timeout
 
-A request timeout is set when creating the router. When middleware and the route handler do not finish within that time, the server responds with **503 Service Unavailable**:
+A request timeout is set with `timeoutMs` on the router options. When middleware and the route handler do not finish within that time, the server responds with **503 Service Unavailable**:
 
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
 // ---cut---
 const router = new Router({
-  requestTimeoutMs: 30_000
+  timeoutMs: 30_000
 })
 await router.serve(8000)
 ```
 
-Omit `requestTimeoutMs` for no timeout (default).
+Omit `timeoutMs` for no timeout (default). The full set of router options is listed in [Routes Configuration](/getting-started/routes-configuration).
 
 ## Template Iteration Limit
 
-The `maxIterations` option caps the iterations per <code v-pre>{{#each}}</code> block in DVE templates, which prevents event loop starvation from one unbounded loop. The default is `100_000`:
+The `views.maxIterations` option caps the iterations per <code v-pre>{{#each}}</code> block in DVE templates, which prevents event loop starvation from one unbounded loop. The default is `100_000`:
 
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
 // ---cut---
 const router = new Router({
-  viewsDir: './views',
-  maxIterations: 50_000
+  views: {
+    directory: './views',
+    maxIterations: 50_000
+  }
 })
 await router.serve(8000)
 ```
 
-If a template exceeds the limit, the server responds with **400 Bad Request**. Two companion caps, `maxRenderIterations` for the whole-page loop budget and `maxOutputSize` for total output characters, behave the same way and are listed in [Routes Configuration](/getting-started/routes-configuration#configuration-options). The full rendering behavior lives in [Performance and Limits](/rendering/performance#iteration-limit). For large datasets, use [`streamRender`](/rendering/streaming) instead. For CPU-intensive rendering, consider offloading to a [worker pool](/core-concepts/worker-pool).
+If a template exceeds the limit, the server responds with **400 Bad Request**. Two companion caps, `views.maxRenderIterations` for the whole-page loop budget and `views.maxOutputSize` for total output characters, behave the same way and are listed in [Routes Configuration](/getting-started/routes-configuration#views). The full rendering behavior lives in [Performance and Limits](/rendering/performance#iteration-limit). For large datasets, use [`ctx.render`](/core-concepts/context-object#rendering-templates) with `stream: true` instead. For CPU-intensive rendering, consider offloading to a [worker pool](/recipes/worker-pool).
 
 ## Client IP Resolution
 
-The `trustProxy` option controls how the real client IP is resolved when the server runs behind a proxy or load balancer. Without it, `ctx.ip` returns the direct TCP peer:
+The `trustProxy` option controls how the real client IP is resolved when the server runs behind a proxy or load balancer. Without it, `ctx.get.ip()` returns the direct TCP peer:
 
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
@@ -114,7 +118,7 @@ const router = new Router({
 await router.serve(8000)
 ```
 
-When the direct peer matches a trusted rule, Deserve reads the forwarded headers to find the real visitor IP. It checks `CF-Connecting-IP` and `X-Real-IP` first, then walks the `X-Forwarded-For` and RFC 7239 `Forwarded` chain from right to left through trusted hops.
+When the direct peer matches a trusted rule, Deserve reads the forwarded headers to find the real visitor IP. It checks `CF-Connecting-IP` and `X-Real-IP` first, then walks the `X-Forwarded-For` and [RFC 7239](https://datatracker.ietf.org/doc/html/rfc7239) `Forwarded` chain from right to left through trusted hops.
 
 `trustProxy` accepts these values:
 
@@ -122,16 +126,16 @@ When the direct peer matches a trusted rule, Deserve reads the forwarded headers
 - **Exact IPs or CIDR ranges** - for example `'10.0.0.0/8'`
 - **A predicate** - `(ip: string) => boolean`
 
-The resolved IP is available on the request context:
+The resolved IP is available on the request context through `ctx.get.ip()`:
 
 ```typescript twoslash
 import type { Context } from '@neabyte/deserve'
 // ---cut---
 export function GET(ctx: Context): Response {
   // Real visitor IP after trustProxy
-  const client = ctx.ip
+  const client = ctx.get.ip()
   // Direct TCP peer, ignores forwarded headers
-  const peer = ctx.directIp
+  const peer = ctx.get.ip({ direct: true })
   return ctx.send.json({
     client,
     peer
@@ -139,7 +143,7 @@ export function GET(ctx: Context): Response {
 }
 ```
 
-Without a matching `trustProxy` rule, `ctx.ip` and `ctx.directIp` return the same direct peer address. The [IP restriction middleware](/middleware/ip) uses `ctx.ip` for its allow and deny rules.
+Without a matching `trustProxy` rule, `ctx.get.ip()` and `ctx.get.ip({ direct: true })` return the same direct peer address. The [IP restriction middleware](/middleware/ip) uses `ctx.get.ip()` for its allow and deny rules.
 
 ## Graceful Shutdown
 
@@ -158,14 +162,14 @@ ac.abort()
 
 ### Process Signal Handling
 
-Without an `AbortSignal`, the router listens for `SIGINT` and `SIGTERM` itself (only `SIGINT` on Windows) and drains gracefully on either one. No manual signal wiring is needed:
+Without an `AbortSignal`, the router listens for `SIGINT`, `SIGTERM`, and `SIGHUP` itself (only `SIGINT` and `SIGBREAK` on Windows) and drains gracefully on any of them. No manual signal wiring is needed:
 
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
 const router = new Router()
 
-// SIGINT and SIGTERM drain automatically
+// Signals drain automatically
 await router.serve(8000, '127.0.0.1')
 ```
 
@@ -173,7 +177,7 @@ Pass an `AbortSignal` when shutdown needs to be driven from code instead of a si
 
 ## Process Protection
 
-A serving router installs a process sentinel that keeps the service alive through faults that would normally take it down. This matters because Deserve runs many things in one process - [hot reload](/core-concepts/multi-service#hot-reload) watchers, [worker pools](/core-concepts/worker-pool), and often several [services side by side](/core-concepts/multi-service). One dependency calling `Deno.exit()` should not drop every service at once.
+A serving router installs a process sentinel that keeps the service alive through faults that would normally take it down. This matters because Deserve runs many things in one process - [hot reload](/core-concepts/hot-reload) watchers, [worker pools](/recipes/worker-pool), and often several [services side by side](/core-concepts/multi-service). One dependency calling `Deno.exit()` should not drop every service at once.
 
 ### What Is Blocked
 
@@ -186,7 +190,7 @@ A `kill` aimed at another PID still passes through, so only self-termination is 
 
 ### Not Silent
 
-Every blocked call is reported, never swallowed in silence. The sentinel emits a [`process:error`](/middleware/observability/events#process) event with `origin: 'process:exit'` and a message naming the blocked call, for example `Blocked Deno.exit(0) - process termination is not permitted from application code`. Unhandled rejections and uncaught errors surface the same way with `origin: 'unhandledrejection'` or `'uncaughterror'`.
+Every blocked call is reported, never swallowed in silence. The sentinel emits a [`process:failed`](/middleware/observability/events) event with `origin: 'process:exit'` and a message naming the blocked call, for example `Blocked Deno.exit(0) process termination is not permitted from application code`. Unhandled rejections and uncaught errors surface the same way with `origin: 'unhandledrejection'` or `'uncaughterror'`.
 
 Subscribe to see them:
 
@@ -196,7 +200,7 @@ import { Router } from '@neabyte/deserve'
 const router = new Router()
 // ---cut---
 router.on((event) => {
-  if (event.kind === 'process:error') {
+  if (event.kind === 'process:failed') {
     const { origin, error } = event.metadata as { origin: string; error: Error }
     // Logs the blocked or uncaught fault
     console.error(`[${origin}]`, error.message)
@@ -204,7 +208,7 @@ router.on((event) => {
 })
 ```
 
-See [Error Reporting](/middleware/observability/errors) for the full pattern.
+See [Error Reporting](/error-handling/object-details) for the full pattern.
 
 ### Threat Model
 

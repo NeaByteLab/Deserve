@@ -6,7 +6,7 @@ description: "Layered error handling in Deserve to keep services available under
 
 Errors in Deserve pass through several layers, and each layer is a chance to catch, shape, or record a failure. When one layer lets an error through, the next one still holds, so the server keeps responding and never crashes.
 
-![Five layered error defenses: route handler try/catch, WrapMware labeled catch, router.catch custom handler, default handler with masked message, and the process guard that never crashes](/diagrams/defense-in-depth.png)
+![Five layered error defenses: route handler try/catch, Wrap.apply labeled catch, router.catch custom handler, default handler with masked message, and the process guard that never crashes](/diagrams/defense-in-depth.png)
 
 ## Layer 1 - Route Handler
 
@@ -17,7 +17,7 @@ import type { Context } from '@neabyte/deserve'
 // ---cut---
 export async function POST(ctx: Context): Promise<Response> {
   try {
-    const data = await ctx.body()
+    const data = await ctx.get.body()
     return ctx.send.json({
       success: true
     })
@@ -39,16 +39,16 @@ Anything thrown past this point falls to the next layer.
 
 ## Layer 2 - Labeled Middleware
 
-`WrapMware` wraps a middleware so a throw becomes a labeled error routed to the error handler. The label points straight at the failing middleware:
+`Wrap.apply` wraps a middleware so a throw becomes a labeled error routed to the error handler. The label points straight at the failing middleware:
 
 ```typescript twoslash
-import { Router, WrapMware } from '@neabyte/deserve'
+import { Router, Wrap } from '@neabyte/deserve'
 
 const router = new Router()
 // ---cut---
 // Throws here reach router.catch with a label
-const auth = WrapMware('Auth', async (ctx, next) => {
-  if (!ctx.header('authorization')) {
+const auth = Wrap.apply('Auth', async (ctx, next) => {
+  if (!ctx.get.header('authorization')) {
     throw new Error('Missing token')
   }
   return await next()
@@ -64,7 +64,7 @@ See [Global Middleware](/middleware/global#wrapping-middleware-with-error-handli
 `router.catch()` receives every uncaught error and shapes the client response. It runs for handler errors, middleware errors, not-found, and static file errors alike:
 
 ```typescript twoslash
-import { Router } from '@neabyte/deserve'
+import { Router, type HttpStatusCode } from '@neabyte/deserve'
 
 const router = new Router()
 // ---cut---
@@ -75,7 +75,7 @@ router.catch((ctx, error) => {
       error: 'Something went wrong'
     },
     {
-      status: error.statusCode
+      status: error.statusCode as HttpStatusCode
     }
   )
 })
@@ -93,11 +93,11 @@ When no `router.catch()` is set, or the custom handler returns something other t
 // 404 -> "Not Found"
 ```
 
-The default response also carries the built-in [security headers](/middleware/security-headers). See [Default Behavior](/error-handling/default-behavior) for the full response shape.
+When the [security headers](/middleware/security-headers) middleware runs before the fault, its headers stay on the error response too. See [Default Behavior](/error-handling/default-behavior) for the full response shape.
 
 ## Layer 5 - Process Guard
 
-The outermost layer runs process-wide. A serving router traps unhandled rejections, uncaught errors, and blocked termination attempts, then reports each as a `process:error` event instead of letting the process die:
+The outermost layer runs process-wide. A serving router traps unhandled rejections, uncaught errors, and blocked termination attempts, then reports each as a `process:failed` event instead of letting the process die:
 
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
@@ -105,7 +105,7 @@ import { Router } from '@neabyte/deserve'
 const router = new Router()
 // ---cut---
 router.on((event) => {
-  if (event.kind === 'process:error') {
+  if (event.kind === 'process:failed') {
     const { origin, error } = event.metadata as { origin: string; error: Error }
     console.error(`process fault [${origin}]`, error.message)
   }
@@ -121,7 +121,7 @@ Shaping a response and recording a failure are separate jobs. `router.catch()` c
 ![One failed request fans out to two independent hooks, where router.catch shapes the Response the client receives with a controlled status and body, and router.on records the same failure into logs and metrics without affecting the reply](/diagrams/obs-catch-vs-on.png)
 
 ```typescript twoslash
-import { Router } from '@neabyte/deserve'
+import { Router, type HttpStatusCode } from '@neabyte/deserve'
 
 const router = new Router()
 // ---cut---
@@ -132,14 +132,14 @@ router.catch((ctx, info) => {
       error: 'Something went wrong'
     },
     {
-      status: info.statusCode
+      status: info.statusCode as HttpStatusCode
     }
   )
 })
 
 // Record the failure for later
 router.on((event) => {
-  if (event.kind === 'request:error') {
+  if (event.kind === 'request:failed') {
     const { url, error } = event.metadata as { url: string; error?: Error }
     console.error(url, error?.message)
   }

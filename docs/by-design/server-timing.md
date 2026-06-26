@@ -14,18 +14,18 @@ Those metrics are a detail of a single handler, not a framework-wide policy. One
 
 ## The Duration Is Already Measured
 
-Every `request:complete` event carries `durationMs`, the measured time for the whole request, alongside the `route` and `method`. For dashboards and logs that is the number to read, with no header and no per-route code. See [Request Logging](/middleware/observability/logging) for turning it into a log line.
+Every `request:completed` event carries `durationMs`, the measured time for the whole request, alongside the `route` and `method`. For dashboards and logs that is the number to read, with no header and no per-route code. See [Request Logging](/middleware/observability/logging) for turning it into a log line.
 
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
 const router = new Router({
-  routesDir: './routes'
+  routes: { directory: './routes' }
 })
 // ---cut---
 router.on((event) => {
   // Read the measured request duration
-  if (event.kind === 'request:complete') {
+  if (event.kind === 'request:completed') {
     const { route, durationMs } = event.metadata as { route?: string, durationMs: number }
     console.log(`${route ?? 'unknown'} took ${Math.round(durationMs)}ms`)
   }
@@ -36,19 +36,19 @@ await router.serve(8000)
 
 ## Emitting the Header When Wanted
 
-For a route that does want the metric in DevTools, the header is one [`ctx.setHeader`](/core-concepts/context-object#response-headers) call. Time the work, then write a `Server-Timing` entry with a name and the duration in milliseconds.
+For a route that does want the metric in DevTools, the header is one [`ctx.set.header`](/core-concepts/context-object#ctx-set-header-key-value) call. Time the work, then write a `Server-Timing` entry with a name and the duration in milliseconds.
 
 ```typescript twoslash
 import type { Context } from '@neabyte/deserve'
 // ---cut---
 export async function GET(ctx: Context): Promise<Response> {
-  // Time the work this route cares about
+  // Time the work this route does
   const start = performance.now()
   const data = await loadData()
   const ms = (performance.now() - start).toFixed(1)
 
-  // Expose it to DevTools for this route
-  ctx.setHeader('Server-Timing', `db;dur=${ms}`)
+  // Expose it to DevTools per route
+  ctx.set.header('Server-Timing', `db;dur=${ms}`)
   return ctx.send.json(data)
 }
 

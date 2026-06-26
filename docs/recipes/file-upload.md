@@ -21,14 +21,14 @@ The upload handler lives in the [routes directory](/core-concepts/file-based-rou
 
 ## Reading the Upload
 
-A multipart request flows through `ctx.formData()`, and each named field comes back from `form.get()`. A text field returns a string while a file field returns a `File`:
+A multipart request flows through `ctx.get.formData()`, and each named field comes back from `form.get()`. A text field returns a string while a file field returns a `File`:
 
 ```typescript twoslash
 import type { Context } from '@neabyte/deserve'
 
 // POST /api/upload with multipart form
 export async function POST(ctx: Context): Promise<Response> {
-  const form = await ctx.formData()
+  const form = await ctx.get.formData()
   const title = form.get('title') // Text field as string
   const file = form.get('file') // File or string or null
 
@@ -40,7 +40,7 @@ export async function POST(ctx: Context): Promise<Response> {
 }
 ```
 
-Calling `ctx.body()` reaches the same parser, since it reads the `Content-Type` header and routes both `multipart/form-data` and `application/x-www-form-urlencoded` into `FormData`. Reaching for `ctx.formData()` keeps the intent clear at the call site.
+Calling `ctx.get.body()` reaches the same parser, since it reads the `Content-Type` header and routes both `multipart/form-data` and `application/x-www-form-urlencoded` into `FormData`. Reaching for `ctx.get.formData()` keeps the intent clear at the call site.
 
 ## Confirming a File Arrived
 
@@ -50,7 +50,7 @@ Calling `ctx.body()` reaches the same parser, since it reads the `Content-Type` 
 import type { Context } from '@neabyte/deserve'
 // ---cut---
 export async function POST(ctx: Context): Promise<Response> {
-  const form = await ctx.formData()
+  const form = await ctx.get.formData()
   const file = form.get('file')
 
   // Reject when no file was sent
@@ -86,7 +86,7 @@ The bytes stay inside the `File` until `arrayBuffer()` pulls them out, and wrapp
 import type { Context } from '@neabyte/deserve'
 // ---cut---
 export async function POST(ctx: Context): Promise<Response> {
-  const form = await ctx.formData()
+  const form = await ctx.get.formData()
   const file = form.get('file')
 
   // Reject when no file was sent
@@ -120,13 +120,13 @@ Writing to disk needs Deno's write permission, so the server runs with `--allow-
 
 ## Reading the Body Once
 
-Each Context parses its body a single time then caches the result, so a second reader in a different format on the same request throws instead of handing back empty data. Picking one of `formData()`, `json()`, `text()`, `arrayBuffer()`, or `blob()` per request keeps that contract:
+Each Context parses its body a single time then caches the result, so the format read first is the one locked in for that request. Picking one of `formData()`, `json()`, `text()`, `bytes()`, or `blob()` per request keeps that contract:
 
 ```typescript twoslash
 import type { Context } from '@neabyte/deserve'
 // ---cut---
 export async function POST(ctx: Context): Promise<Response> {
-  const form = await ctx.formData() // Body consumed once here
+  const form = await ctx.get.formData() // Body consumed once here
 
   // Reads cached form, not body
   return ctx.send.json({
@@ -135,17 +135,17 @@ export async function POST(ctx: Context): Promise<Response> {
 }
 ```
 
-A second reader such as `ctx.json()` on this request would throw instead of returning empty data, since the body is already gone. A malformed multipart payload never crashes the pipeline either, since the parser maps a broken body to a **400** that flows through the [centralized error handler](/error-handling/object-details). Every reader and its return type lives in the [request handling reference](/core-concepts/request-handling#method-reference).
+A second reader in a different format such as `ctx.get.json()` on this request throws a **409** instead of returning empty data, since the body was already consumed as form data. Reading the same format twice is safe, since the parsed value is cached and handed back without touching the body again. A malformed multipart payload never crashes the pipeline either, since the parser maps a broken body to a **400** that flows through the [centralized error handler](/error-handling/object-details). Every reader and its return type lives in the [request handling reference](/core-concepts/request-handling).
 
 ## Capping Upload Size
 
-`FormData` puts no ceiling on how many bytes a client sends, so an upload route pairs with [body limit middleware](/middleware/body-limit) to reject oversized payloads with a **413** before they fill memory. A known `Content-Length` over the cap is rejected before the body is read, while a chunked stream is cut off as soon as the extra bytes arrive:
+`FormData` puts no ceiling on how many bytes a client sends, so an upload route pairs with [body limit middleware](/middleware/body-limit) to reject oversized payloads with a **413** before they fill memory. The check reads the `Content-Length` header, so a declared size over the cap is rejected before the body is ever read. A request with no `Content-Length`, such as a chunked stream, skips the check and reaches the handler:
 
 ```typescript twoslash
 import { Mware, Router } from '@neabyte/deserve'
 
 const router = new Router({
-  routesDir: './routes'
+  routes: { directory: './routes' }
 })
 
 // Cap the upload route at 5MB
@@ -176,7 +176,7 @@ router.static('/uploads', {
 })
 ```
 
-For a one-off download driven by a handler instead of a static prefix, [`ctx.send.file()`](/response/file) streams a single file straight off disk with the right `Content-Disposition` attached.
+For a one-off download driven by a handler instead of a static prefix, [`ctx.send.download()`](/response/download) streams a single file straight off disk with the right `Content-Disposition` attached.
 
 ## Full Round Trip
 
@@ -189,7 +189,7 @@ import { Mware, Router } from '@neabyte/deserve'
 
 // main.ts entry point
 const router = new Router({
-  routesDir: './routes'
+  routes: { directory: './routes' }
 })
 
 // Guard size before the handler runs
@@ -217,7 +217,7 @@ import type { Context } from '@neabyte/deserve'
 // ---cut---
 // routes/api/upload.ts handler
 export async function POST(ctx: Context): Promise<Response> {
-  const form = await ctx.formData()
+  const form = await ctx.get.formData()
   const file = form.get('file')
 
   // Reject when no file was sent

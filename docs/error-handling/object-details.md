@@ -4,17 +4,17 @@ description: "Customize error responses with router.catch() and the ErrorInfo ob
 
 # Error Object Details
 
-Deserve provides error handling for route execution errors, validation errors, not found errors, static file errors, and custom error responses.
+Every fault in Deserve flows through one place. Route handler throws, validation failures, missing routes, and static file errors all arrive at the same handler, where a custom reply takes over from the [default response](/error-handling/default-behavior).
 
 ## Basic Error Handling
 
 Handle errors with the `router.catch()` method:
 
 ```typescript twoslash
-import { Router } from '@neabyte/deserve'
+import { Router, type HttpStatusCode } from '@neabyte/deserve'
 
 const router = new Router({
-  routesDir: './routes'
+  routes: { directory: './routes' }
 })
 
 // Catch errors from any route
@@ -28,7 +28,7 @@ router.catch((ctx, error) => {
       method: error.method,
       url: error.url
     },
-    { status: error.statusCode }
+    { status: error.statusCode as HttpStatusCode }
   )
 })
 
@@ -46,7 +46,7 @@ The error handler receives the context object and an error object with these pro
 - **`error.error`** - the original Error instance
 
 ```typescript twoslash
-import { Router } from '@neabyte/deserve'
+import { Router, type HttpStatusCode } from '@neabyte/deserve'
 
 const router = new Router()
 // ---cut---
@@ -61,7 +61,7 @@ router.catch((ctx, error) => {
       method: error.method,
       url: error.url
     },
-    { status: error.statusCode }
+    { status: error.statusCode as HttpStatusCode }
   )
 })
 ```
@@ -121,7 +121,7 @@ import type { Context } from '@neabyte/deserve'
 // ---cut---
 export async function POST(ctx: Context): Promise<Response> {
   try {
-    const data = await ctx.body()
+    const data = await ctx.get.body()
     // Process data...
     return ctx.send.json({
       success: true
@@ -141,7 +141,7 @@ export async function POST(ctx: Context): Promise<Response> {
 
 ## Validation Errors
 
-A rejected [validation](/middleware/validation/overview) contract throws a **422 Unprocessable Content** and preserves the failure reasons on `error.cause` as a string array. The same `router.catch` handles it, so reading the reasons turns a failure into a field-level response:
+A rejected [validation](/middleware/validation/overview) contract throws a **422 Unprocessable Entity** and keeps the failure reasons on `error.error.cause` as a string array. The same `router.catch` handles it, so reading the reasons turns a failure into a field-level response:
 
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'

@@ -56,15 +56,15 @@ To keep one response uncompressed, set a header the runtime treats as a stop sig
 import type { Context } from '@neabyte/deserve'
 // ---cut---
 export function GET(ctx: Context): Response {
-  // Block any layer from rewriting the body
-  ctx.setHeader('Cache-Control', 'no-transform')
+  // Block any layer from rewriting body
+  ctx.set.header('Cache-Control', 'no-transform')
   return ctx.send.json({
     message: 'sent verbatim'
   })
 }
 ```
 
-Setting headers through [`ctx.setHeader`](/core-concepts/context-object#response-headers) is the same path used everywhere else, so this opt-out reads like any other header.
+Setting headers through [`ctx.set.header`](/core-concepts/context-object#ctx-set-header-key-value) is the same path used everywhere else, so this opt-out reads like any other header.
 
 ## Already-Encoded Bodies
 

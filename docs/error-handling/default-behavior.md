@@ -4,9 +4,9 @@ description: "How Deserve handles uncaught errors by default and the responses i
 
 # Default Error Behavior
 
-This error handling mechanism catches every error that occurs during server runtime, which covers route handler errors, middleware failures, route not found scenarios, static file errors, and any other uncaught exception during request processing. Without a custom error handler set through `router.catch()`, Deserve falls back to this default behavior so the server never crashes from unhandled errors.
+This error handling mechanism catches every error that occurs during server runtime, which covers route handler errors, middleware failures, route not found scenarios, static file errors, and any other uncaught exception during request processing. Without a custom error handler set through `router.catch()`, Deserve falls back to this default behavior so the server never crashes from unhandled errors. The same fallback applies when a custom handler runs but returns something other than a `Response`, so the default handler always produces the final reply.
 
-![When an error occurs, the request routes to a custom handler if router.catch is defined, otherwise to the default handler that returns JSON or HTML by Accept, then a single response](/diagrams/default-error-behavior.png)
+![When an error occurs, the request routes to a custom handler if router.catch is defined, otherwise to the default handler that returns JSON or HTML by Accept, and a custom handler that returns a non-Response also falls back to the default handler, then a single response](/diagrams/default-error-behavior.png)
 
 ## Basic Default Behavior
 
@@ -16,7 +16,7 @@ Without a call to `router.catch()`, Deserve handles every error with a default r
 import { Router } from '@neabyte/deserve'
 
 const router = new Router({
-  routesDir: './routes'
+  routes: { directory: './routes' }
 })
 
 // No router.catch, defaults take over
@@ -34,7 +34,7 @@ The default error response (without custom `router.catch()`) follows the client'
 Also:
 
 - **Status Code**: Preserves the original error status code (404, 500, etc.)
-- **Headers**: Includes headers set via `ctx.setHeader()` before the error
+- **Headers**: Includes headers set via `ctx.set.header()` before the error
 
 ```typescript
 // Example default response (client requests JSON)
@@ -84,17 +84,17 @@ When the path matches a route but the method has no handler, the response is `40
 
 ### 422 - Validation Failed
 
-When a [validation](/middleware/validation/overview) contract rejects request input, the default response adds an `errors` array listing each failure reason:
+When a [validation](/middleware/validation/overview) contract rejects request input, the default response is a plain problem-details body with the 422 status:
 
 ```typescript
 // POST /users with an invalid body
 // Status: 422
 // Content-Type: application/problem+json
-// Body: { "type": "about:blank", "title": "...", "status": 422,
-//         "instance": "/users", "errors": ["name must not be empty"] }
+// Body: { "type": "about:blank", "title": "Unprocessable Entity",
+//         "status": 422, "instance": "/users" }
 ```
 
-Only a 422 carries `errors`, and every other status keeps a reason-free body. How a contract produces those reasons lives in [Reading Validated Data](/middleware/validation/reading-data#how-failures-surface).
+The default body never lists the failure reasons. Those reasons ride on `error.error.cause` as a string array, so a custom [`router.catch()`](/error-handling/object-details#validation-errors) reads them to build a field-level response. How a contract produces those reasons lives in [Reading Validated Data](/middleware/validation/reading-data#how-failures-surface).
 
 ### 500 - Server Errors
 

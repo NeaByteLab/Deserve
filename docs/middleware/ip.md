@@ -81,8 +81,8 @@ A malformed rule throws `Deno.errors.InvalidData` when the middleware is created
 - **Blacklist present** - IPs that match the blacklist are denied, the rest pass.
 - **Neither set** - every request passes.
 
-The middleware reads the resolved client IP from `ctx.ip`. Behind a proxy, configure [`trustProxy`](/getting-started/server-configuration#client-ip-resolution) so the real visitor IP is used.
+The middleware reads the resolved client IP from `ctx.get.ip()`. Behind a proxy, configure [`trustProxy`](/getting-started/server-configuration#client-ip-resolution) so the real visitor IP is used.
 
 ## Error Handling
 
-When a request is denied, the middleware fails with **403** and message `Access denied by IP restriction`. That failure routes through the [central error handler](/error-handling/object-details), so shape the response there or rely on the [default behavior](/error-handling/default-behavior).
+When a request is denied, the middleware fails with **403** and message `Access denied by IP restriction`. That failure routes through the [central error handler](/error-handling/object-details), so shape the response there or rely on the [default behavior](/error-handling/default-behavior). An `ip:denied` event also fires with the denied IP address, covered in [Event Reference](/middleware/observability/events).

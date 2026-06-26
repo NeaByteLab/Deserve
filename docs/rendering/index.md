@@ -4,24 +4,26 @@ description: "Server-side template rendering in Deserve using the built-in DVE v
 
 # Rendering Overview
 
-> See [DVE syntax highlighting](https://github.com/NeaByteLab/Deserve/tree/main/editor) documentation.
-
-Deserve ships a built-in template engine called DVE (Deserve View Engine) for building dynamic HTML from plain templates with a small <code v-pre>{{ }}</code> syntax.
+Deserve ships with a built-in template engine called DVE (Deserve View Engine). It turns plain HTML templates into finished pages by filling a small <code v-pre>{{ }}</code> syntax with route data. DVE lives in its own package, so the same engine works outside Deserve too. The full reference sits on [JSR](https://jsr.io/@neabyte/dve) and [npm](https://www.npmjs.com/package/@neabyte/dve), with the source on [GitHub](https://github.com/NeaByteLab/DVE).
 
 ## Setup
 
-Point `viewsDir` at the templates folder when creating the router:
+The view engine activates the moment `views.directory` points at a templates folder. With it omitted, `ctx.render()` throws `Deno.errors.NotSupported` because no engine is configured:
 
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
-// Point viewsDir at the templates folder
+// Point views.directory at the templates folder
 const router = new Router({
-  viewsDir: './views'
+  views: {
+    directory: './views'
+  }
 })
 
 await router.serve(8000)
 ```
+
+The render limits also live under `views`, covered in [Performance and Limits](/rendering/performance) and [Routes Configuration](/getting-started/routes-configuration#views).
 
 ## First Template
 
@@ -32,11 +34,11 @@ Create a `.dve` file inside the views folder:
 <!DOCTYPE html>
 <html>
   <head>
-    <title>{{title}}</title>
+    <title>{{ title }}</title>
   </head>
   <body>
-    <h1>Hello {{name}}!</h1>
-    <p>Today: {{date}}</p>
+    <h1>Hello {{ name }}!</h1>
+    <p>Today: {{ date }}</p>
   </body>
 </html>
 ```
@@ -57,45 +59,39 @@ export async function GET(ctx: Context): Promise<Response> {
 }
 ```
 
-The `.dve` extension is optional in the path, so `'welcome'` and `'welcome.dve'` both resolve to the same file.
+The `.dve` extension is optional in the path, so `'welcome'` and `'welcome.dve'` both resolve to the same file. The lookup also strips a leading slash and normalizes backslashes, so a Windows-style path still finds the template.
+
+## Caching and Reload
+
+The first render of a template compiles it and caches the parsed result, and every later render reuses that cache. Editing a `.dve` file clears its entry through [hot reload](/core-concepts/hot-reload), so the next render picks up the change with no restart. The numbers behind this live in [Performance and Limits](/rendering/performance#caching).
 
 ## Error Handling
 
-A missing template throws `Template "<name>" not found in views directory`, and a render fault throws too. Let either reach the [centralized error handler](/error-handling/object-details), or catch it in the handler for a precise reply:
+A missing template file throws `Deno.errors.NotFound`, and a compile or render fault throws as well. Both reach the [centralized error handler](/error-handling/object-details) set with `router.catch()`, which shapes a single reply for the whole app instead of a try/catch in every route. A missing file maps to **404 Not Found**, and a compile or render fault maps to **400 Bad Request**.
+
+When one route needs a precise reply, catch the throw and branch on the error type:
 
 ```typescript twoslash
-import type { Context, DataRecord } from '@neabyte/deserve'
-declare const data: DataRecord
+import type { Context } from '@neabyte/deserve'
+declare const data: Record<string, unknown>
 // ---cut---
 export async function GET(ctx: Context): Promise<Response> {
   try {
     return await ctx.render('template', data)
   } catch (error) {
-    const message = error instanceof Error ? error.message : ''
-    if (message.includes('not found in views directory')) {
-      return ctx.send.json(
-        {
-          error: 'Template missing'
-        },
-        {
-          status: 404
-        }
-      )
+    // Missing file throws NotFound
+    if (error instanceof Deno.errors.NotFound) {
+      return ctx.send.json({ error: 'Template missing' }, { status: 404 })
     }
-    return ctx.send.json(
-      {
-        error: 'Render failed'
-      },
-      {
-        status: 500
-      }
-    )
+    return ctx.send.json({ error: 'Render failed' }, { status: 500 })
   }
 }
 ```
 
+A render fault also surfaces on the [observability bus](/middleware/observability/overview) as a [`view:failed`](/middleware/observability/events#views) event, so logging stays in one place while the error handler shapes the response.
+
 ## Where to Go Next
 
-- [Template Syntax](/rendering/syntax) - variables, conditionals, loops, includes, and expressions.
-- [Performance and Limits](/rendering/performance) - caching, the iteration limit, and the include depth limit.
+- [Template Syntax](/rendering/syntax) - variables, conditionals, loops, includes, layouts, and expressions.
+- [Performance and Limits](/rendering/performance) - caching, iteration caps, the output cap, and include depth.
 - [Streaming Rendering](/rendering/streaming) - send HTML chunk by chunk for large pages.

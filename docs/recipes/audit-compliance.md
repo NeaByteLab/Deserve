@@ -1,5 +1,5 @@
 ---
-description: 'Turn the Deserve observability bus into a compliance-grade audit trail, then pipe it to your own store, a SIEM, or a WAF.'
+description: 'Turn the Deserve observability bus into a compliance-grade audit trail, then pipe it to a custom store, a SIEM, or a WAF.'
 ---
 
 # Audit Compliance
@@ -14,9 +14,9 @@ A single [`router.on()`](/middleware/observability/overview) listener sees the w
 
 | Compliance need              | Events that answer it                                                              |
 | ---------------------------- | ---------------------------------------------------------------------------------- |
-| Who did what, when           | [`request:complete`](/middleware/observability/events#requests) with `method`, `url`, `statusCode`, `durationMs`, and optional `ip` |
-| Security-relevant events     | [`session:invalid`](/middleware/observability/events#middleware), [`csrf:rule-error`](/middleware/observability/events#middleware), [`process:error`](/middleware/observability/events#process) |
-| Failures and faults          | [`request:error`](/middleware/observability/events#requests), [`worker:crash`](/middleware/observability/events#workers), [`view:error`](/middleware/observability/events#views) |
+| Who did what, when           | [`request:completed`](/middleware/observability/events#requests) with `method`, `url`, `statusCode`, `durationMs`, and optional `ip` |
+| Security-relevant events     | [`session:invalid`](/middleware/observability/events#security-middleware), [`csrf:failed`](/middleware/observability/events#security-middleware), [`process:failed`](/middleware/observability/events#process) |
+| Failures and faults          | [`request:failed`](/middleware/observability/events#requests), [`worker:crashed`](/middleware/observability/events#workers), [`view:failed`](/middleware/observability/events#views) |
 | Reconstructable timeline     | Every event carries a `timestamp` in epoch milliseconds and arrives in order       |
 
 Nothing here needs wiring inside handlers. The faults emit on their own, which is why a tampered cookie or a blocked `Deno.exit` shows up without a single line of logging in the route. The full list lives in the [Event Reference](/middleware/observability/events).
@@ -29,7 +29,7 @@ The audit listener has one job: capture every event as a structured record and h
 import { Router } from '@neabyte/deserve'
 
 const router = new Router({
-  routesDir: './routes'
+  routes: { directory: './routes' }
 })
 
 // One audit record per event
@@ -53,7 +53,7 @@ await router.serve(8000)
 
 Each record is already JSON, already timestamped, and already labelled by `channel`. That is the shape every downstream below expects, so the same listener feeds all three options without change.
 
-## Option 1 - Build Your Own Store
+## Option 1 - Build a Custom Store
 
 The simplest durable sink is one owned end to end. Append each record to a write-only file, ship it to object storage, or insert it into a database. A file appender keeps the audit log on disk and out of the request path:
 
@@ -61,7 +61,7 @@ The simplest durable sink is one owned end to end. Append each record to a write
 import { Router } from '@neabyte/deserve'
 
 const router = new Router({
-  routesDir: './routes'
+  routes: { directory: './routes' }
 })
 // ---cut---
 // Open the audit log once, append-only
@@ -91,7 +91,7 @@ A [SIEM](https://csrc.nist.gov/glossary/term/security_information_and_event_mana
 import { Router } from '@neabyte/deserve'
 
 const router = new Router({
-  routesDir: './routes'
+  routes: { directory: './routes' }
 })
 // ---cut---
 const endpoint = 'https://http-inputs-acme.splunkcloud.com/services/collector/event'
@@ -119,18 +119,18 @@ The endpoint and auth shape follow the vendor. Common collectors with public HTT
 
 ## Option 3 - Feed a WAF Decision Loop
 
-A [Web Application Firewall](https://owasp.org/www-community/Web_Application_Firewall) blocks bad traffic before it reaches the app, and the bus gives it signal to act on. A burst of `request:error` events from one `ip`, or repeated `csrf:rule-error` faults, is exactly the pattern a WAF rule wants. Forward the security-relevant kinds to the firewall's API to drive a block list:
+A [Web Application Firewall](https://owasp.org/www-community/Web_Application_Firewall) blocks bad traffic before it reaches the app, and the bus gives it signal to act on. A burst of `request:failed` events from one `ip`, or repeated `csrf:failed` faults, is exactly the pattern a WAF rule wants. Forward the security-relevant kinds to the firewall's API to drive a block list:
 
 ```typescript twoslash
 import { Router } from '@neabyte/deserve'
 
 const router = new Router({
-  routesDir: './routes'
+  routes: { directory: './routes' }
 })
 // ---cut---
 router.on((event) => {
   // Only forward security-relevant faults
-  if (event.kind === 'csrf:rule-error' || event.kind === 'request:error') {
+  if (event.kind === 'csrf:failed' || event.kind === 'request:failed') {
     void fetch('https://waf.internal/signals', {
       method: 'POST',
       headers: {

@@ -52,10 +52,10 @@ A host usually assigns the port through a `PORT` variable. Calling `serve()` wit
 import { Router } from '@neabyte/deserve'
 
 const router = new Router({
-  routesDir: './routes'
+  routes: { directory: './routes' }
 })
 // ---cut---
-// Reads PORT env, falls back to 8000
+// Reads PORT env, defaults to 8000
 await router.serve()
 ```
 
@@ -79,4 +79,4 @@ The result runs straight from `./server` with the flags already inside. One cave
 
 ## Watching It Run
 
-Production needs eyes on the server without a console full of prints, which is what the [observability event bus](/middleware/observability/overview) is for. A single [`router.on()`](/middleware/observability/events) listener forwards lifecycle, request, and fault events to whatever collects logs, and [error reporting](/middleware/observability/errors) routes failures to the same place. A clean stop on deploy is covered by [Graceful Shutdown](/recipes/graceful-shutdown), and offloading heavy work without blocking the server is covered by the [worker pool](/core-concepts/worker-pool).
+Production needs eyes on the server without a console full of prints, which is what the [observability event bus](/middleware/observability/overview) is for. A single [`router.on()`](/middleware/observability/events) listener forwards lifecycle, request, and fault events to whatever collects logs, and [error reporting](/middleware/observability/errors) routes failures to the same place. A clean stop on deploy is covered by [Graceful Shutdown](/recipes/graceful-shutdown), and offloading heavy work without blocking the server is covered by the [worker pool](/recipes/worker-pool).

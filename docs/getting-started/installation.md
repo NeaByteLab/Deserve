@@ -8,13 +8,13 @@ Add Deserve to a Deno project in one command, then move on to the ideas behind i
 
 ## Prerequisites
 
-- [Deno](https://github.com/denoland/deno_install) 2.7.0+ installed
+- [Deno](https://github.com/denoland/deno_install) 2.8.3+ installed
 
 Staying on the latest Deno release is a good idea, since Deserve runs on the runtime and every performance update to Deno carries straight through to Deserve.
 
 ## Install Deserve
 
-Deno's package manager adds Deserve to the project. This command writes the dependency into `deno.json` and generates `deno.lock`:
+[Deno's package manager](https://docs.deno.com/runtime/reference/cli/add/) adds Deserve to the project. This command writes the dependency into `deno.json` and generates `deno.lock`:
 
 ::: code-group
 

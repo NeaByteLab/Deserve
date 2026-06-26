@@ -22,24 +22,23 @@ Bearer is the opposite. The token format, the signature, and the trust source al
 
 A token guard is a small composition over parts that already ship:
 
-- **Read the header** - [`ctx.header('authorization')`](/core-concepts/context-object#request-data-access) returns the raw `Authorization` value.
+- **Read the header** - [`ctx.get.header('authorization')`](/core-concepts/context-object#ctx-get-header-key) returns the raw `Authorization` value.
 - **Run early** - [global middleware](/middleware/global) runs before route handlers and can stop a request by returning a `Response`.
 - **Reject cleanly** - [`ctx.handleError(401, ...)`](/core-concepts/context-object#error-handling) routes through [`router.catch()`](/error-handling/object-details) when one is set.
-- **Carry the result** - [`ctx.state`](/core-concepts/context-object#sharing-state) hands the decoded identity to the handler downstream.
+- **Carry the result** - [`ctx.set.session(...)`](/core-concepts/context-object#ctx-set-session-data) signs the decoded identity into a cookie the handler reads back, covered in [session middleware](/middleware/session).
 
 ## A Bearer Guard
 
-This middleware pulls the token out of the header, verifies it, and stores the result for later handlers. The `verifyToken` placeholder stands in for the scheme of choice, a JWT check, a JWKS lookup, or an introspection call.
+This middleware pulls the token out of the header, verifies it, and stores the result for later handlers. The `verifyToken` placeholder stands in for the scheme of choice, a JWT check, a JWKS lookup, or an introspection call. Storing the identity needs the [session middleware](/middleware/session) registered first.
 
 ```typescript twoslash
-import type { Context } from '@neabyte/deserve'
-import { Router } from '@neabyte/deserve'
+import { Router, type Context } from '@neabyte/deserve'
 
 const router = new Router()
 declare function verifyToken(token: string): Promise<{ userId: string } | null>
 // ---cut---
 router.use(async (ctx, next) => {
-  const header = ctx.header('authorization')
+  const header = ctx.get.header('authorization')
   const spaceIndex = header ? header.indexOf(' ') : -1
   const scheme = spaceIndex > 0 ? header!.slice(0, spaceIndex) : ''
 
@@ -56,39 +55,38 @@ router.use(async (ctx, next) => {
   }
 
   // Hand the identity to handlers
-  ctx.state.userId = claims.userId
+  await ctx.set.session({ userId: claims.userId })
   return await next()
 })
 
 await router.serve(8000)
 ```
 
-The handler then reads the identity straight from state, with no token parsing of its own.
+The handler then reads the identity straight from the session, with no token parsing of its own.
 
 ```typescript twoslash
 import type { Context } from '@neabyte/deserve'
 // ---cut---
 export function GET(ctx: Context): Response {
   // Read what the guard stored
-  const userId = ctx.state.userId
-  return ctx.send.json({ userId })
+  const session = ctx.get.session()
+  return ctx.send.json({ userId: session?.userId })
 }
 ```
 
 ## Routing Failures Through One Handler
 
-The guard above returns the `401` from inside the middleware. To send every auth failure through one place, wrap the middleware with [`WrapMware`](/middleware/global#wrapping-middleware-with-error-handling) and throw on rejection, then shape the reply with [`router.catch()`](/error-handling/object-details).
+The guard above returns the `401` from inside the middleware. To send every auth failure through one place, wrap the middleware with [`Wrap.apply`](/middleware/global#wrapping-middleware-with-error-handling) and throw on rejection, then shape the reply with [`router.catch()`](/error-handling/object-details).
 
 ```typescript twoslash
-import type { Context } from '@neabyte/deserve'
-import { Router, WrapMware } from '@neabyte/deserve'
+import { Router, Wrap, type Context } from '@neabyte/deserve'
 
 const router = new Router()
 declare function verifyToken(token: string): Promise<{ userId: string } | null>
 // ---cut---
 // Throws reach router.catch when wrapped
-const bearer = WrapMware('Bearer', async (ctx: Context, next) => {
-  const header = ctx.header('authorization')
+const bearer = Wrap.apply('Bearer', async (ctx: Context, next) => {
+  const header = ctx.get.header('authorization')
   if (!header?.toLowerCase().startsWith('bearer ')) {
     throw new Error('Missing Bearer token')
   }
@@ -96,7 +94,7 @@ const bearer = WrapMware('Bearer', async (ctx: Context, next) => {
   if (!claims) {
     throw new Error('Invalid token')
   }
-  ctx.state.userId = claims.userId
+  await ctx.set.session({ userId: claims.userId })
   return await next()
 })
 
@@ -121,22 +119,21 @@ This is the same wrapping pattern [Basic Auth](/middleware/basic-auth) uses inte
 A token guard often belongs on an API prefix while public pages stay open. Path-specific middleware scopes the check to one prefix, the same form shown in [global middleware](/middleware/global#path-specific-middleware).
 
 ```typescript twoslash
-import type { Context } from '@neabyte/deserve'
-import { Router } from '@neabyte/deserve'
+import { Router, type Context } from '@neabyte/deserve'
 
 const router = new Router()
 declare function verifyToken(token: string): Promise<{ userId: string } | null>
 // ---cut---
 // Guard only the /api routes
 router.use('/api', async (ctx, next) => {
-  const header = ctx.header('authorization')
+  const header = ctx.get.header('authorization')
   const claims = header?.toLowerCase().startsWith('bearer ')
     ? await verifyToken(header.slice(7).trim())
     : null
   if (!claims) {
     return await ctx.handleError(401, new Error('Invalid token'))
   }
-  ctx.state.userId = claims.userId
+  await ctx.set.session({ userId: claims.userId })
   return await next()
 })
 ```

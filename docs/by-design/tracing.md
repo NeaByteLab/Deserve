@@ -17,14 +17,14 @@ So the decision is to stop at the data, not the transport. Deserve emits a compl
 These three sit outside the framework on purpose:
 
 - **Auto-instrumentation** - Deserve does not wrap libraries or open spans for outbound calls. Each request emits one finished event, and a span is built from it in the listener.
-- **Trace context propagation** - no `traceparent` header is read or written. A handler that needs distributed context reads the header through [`ctx.header('traceparent')`](/core-concepts/context-object#request-data-access) and threads it onward.
+- **Trace context propagation** - no `traceparent` header is read or written. A handler that needs distributed context reads the header through [`ctx.get.header('traceparent')`](/core-concepts/context-object#ctx-get-header-key) and threads it onward.
 - **Span hierarchy** - events are flat, one per request, not a parent-child tree. Nested spans are assembled in the backend, or in the listener, from data the events provide.
 
 What does ship is the data a span needs, already collected and named to match.
 
 ## The Data Is Already There
 
-Every request emits `request:complete`, and a request with status `400` or higher also emits `request:error`. Both carry the same envelope, and the metadata is the truth a span is built from:
+Every request emits `request:completed`, and a request with status `400` or higher also emits `request:failed`. Both carry the same envelope, and the metadata is the truth a span is built from:
 
 - **`timestamp`** - event creation time in epoch milliseconds, the span start anchor.
 - **`durationMs`** - measured request duration, the span length.
@@ -42,13 +42,13 @@ This listener turns each finished request into a span-shaped record and hands it
 import { Router } from '@neabyte/deserve'
 
 const router = new Router({
-  routesDir: './routes'
+  routes: { directory: './routes' }
 })
 declare function exportSpan(span: Record<string, unknown>): void
 // ---cut---
 router.on((event) => {
   // Build a span from each finished request
-  if (event.kind === 'request:complete') {
+  if (event.kind === 'request:completed') {
     const m = event.metadata as {
       method: string
       url: string
@@ -83,14 +83,14 @@ The attribute keys above are the OpenTelemetry HTTP span names, so the record dr
 
 ## Continuing an Incoming Trace
 
-Distributed tracing links spans across services through the `traceparent` header. Deserve does not parse it, so a handler that joins an existing trace reads the header from [Context](/core-concepts/context-object#request-data-access) and carries it forward.
+Distributed tracing links spans across services through the `traceparent` header. Deserve does not parse it, so a handler that joins an existing trace reads the header from [Context](/core-concepts/context-object#ctx-get-header-key) and carries it forward.
 
 ```typescript twoslash
 import type { Context } from '@neabyte/deserve'
 // ---cut---
 export async function GET(ctx: Context): Promise<Response> {
   // Read upstream trace context when present
-  const traceparent = ctx.header('traceparent')
+  const traceparent = ctx.get.header('traceparent')
 
   // Forward it on outbound calls
   const upstream = await fetch('https://api.internal/data', {
@@ -101,7 +101,7 @@ export async function GET(ctx: Context): Promise<Response> {
 }
 ```
 
-The same `ctx.state` used for [sharing state](/core-concepts/context-object#sharing-state) holds a span ID across middleware and handler when one listener opens a span early and another closes it.
+For a span ID that must live across middleware and handler, the signed [session](/middleware/session) carries it when one listener opens a span early and another reads it back.
 
 ## Where the Data Goes
 
